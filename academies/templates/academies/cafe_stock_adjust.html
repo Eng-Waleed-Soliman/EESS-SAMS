@@ -1,0 +1,25 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>ضبط كميات الكافيتريا</h3>
+  <a class="btn btn-secondary" href="{% url 'cafe_item_list' %}">رجوع للأصناف</a>
+</div>
+<form method="post" class="card p-3">
+  {% csrf_token %}
+  <table class="table table-striped align-middle text-center">
+    <thead><tr><th>الصنف</th><th>سعر الشراء</th><th>سعر البيع</th><th>المخزون</th><th>الكمية الجديدة</th></tr></thead>
+    <tbody>
+    {% for item in items %}
+      <tr>
+        <td>{{ item.name }}</td>
+        <td>{{ item.purchase_price }}</td>
+        <td>{{ item.sale_price }}</td>
+        <td>{{ item.stock_quantity }}</td>
+        <td><input type="number" min="0" step="1" class="form-control text-center" name="quantity_{{ item.id }}" value="{{ item.opening_quantity }}"></td>
+      </tr>
+    {% empty %}<tr><td colspan="5">لا توجد أصناف مسجلة</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <div class="d-flex gap-2"><button class="btn btn-success">حفظ</button><a class="btn btn-secondary" href="{% url 'cafe_item_list' %}">رجوع</a></div>
+</form>
+{% endblock %}

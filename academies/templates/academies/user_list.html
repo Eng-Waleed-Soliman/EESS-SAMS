@@ -1,0 +1,54 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>الإعدادات - المستخدمين والصلاحيات</h3>
+  <div><a class="btn btn-secondary" href="{% url 'settings_home' %}">الإعدادات</a> <a class="btn btn-success" href="{% url 'user_create' %}">إضافة مستخدم</a></div>
+</div>
+<form class="mb-3" method="get">
+  <div class="input-group">
+    <input class="form-control" name="q" value="{{ q }}" placeholder="بحث باسم المستخدم أو الاسم أو البريد">
+    <button class="btn btn-primary">بحث</button>
+  </div>
+</form>
+<div class="card p-3">
+<table class="table table-striped align-middle">
+  <thead><tr><th>اسم المستخدم</th><th>الاسم</th><th>البريد</th><th>فعال</th><th>الصلاحيات</th><th></th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u.username }}</td>
+      <td>{{ u.first_name }}</td>
+      <td>{{ u.email }}</td>
+      <td>{% if u.is_active %}نعم{% else %}لا{% endif %}</td>
+      <td style="font-size:15px">
+        {% if u.is_superuser %}<span class="badge bg-dark">مدير كامل</span>{% else %}
+          {% with p=u.eess_permissions %}
+            {% if p.can_academies %}<span class="badge bg-primary">الأكاديميات</span>{% endif %}
+            {% if p.can_daily_booking %}<span class="badge bg-primary">الحجز اليومي</span>{% endif %}
+            {% if p.can_operation %}<span class="badge bg-primary">التشغيل</span>{% endif %}
+            {% if p.can_shareholders %}<span class="badge bg-primary">المساهمين</span>{% endif %}
+            {% if p.can_employees %}<span class="badge bg-primary">الموظفين</span>{% endif %}
+            {% if p.can_general_expenses %}<span class="badge bg-primary">المصروفات</span>{% endif %}
+            {% if p.can_cafeteria %}<span class="badge bg-primary">الكافيتريا</span>{% endif %}
+            {% if p.can_reports %}<span class="badge bg-primary">كل التقارير</span>{% endif %}
+            {% if p.can_report_income %}<span class="badge bg-info text-dark">تقرير الدخل</span>{% endif %}
+            {% if p.can_report_shareholders %}<span class="badge bg-info text-dark">تقرير المساهمين</span>{% endif %}
+            {% if p.can_report_employees %}<span class="badge bg-info text-dark">تقرير الموظفين</span>{% endif %}
+            {% if p.can_report_payroll %}<span class="badge bg-info text-dark">تقرير المرتبات</span>{% endif %}
+            {% if p.can_report_expenses %}<span class="badge bg-info text-dark">تقرير المصروفات</span>{% endif %}
+            {% if p.can_report_cafeteria %}<span class="badge bg-info text-dark">تقرير الكافيتريا</span>{% endif %}
+            {% if p.can_report_deposits %}<span class="badge bg-info text-dark">تقرير التأمين</span>{% endif %}
+            {% if p.can_users %}<span class="badge bg-warning text-dark">المستخدمين</span>{% endif %}
+          {% endwith %}
+        {% endif %}
+      </td>
+      <td class="text-nowrap">
+        <a class="btn btn-sm btn-primary" href="{% url 'user_update' u.pk %}">تعديل</a>
+        <a class="btn btn-sm btn-danger" href="{% url 'user_delete' u.pk %}">حذف</a>
+      </td>
+    </tr>
+  {% empty %}<tr><td colspan="6" class="text-center">لا يوجد مستخدمون</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,5 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3"><h3>الكافيتريا - حركات البيع</h3><div><a class="btn btn-secondary" href="{% url 'cafe_item_list' %}">الأصناف</a> <a class="btn btn-success" href="{% url 'cafe_sale_create' %}">إضافة بيع</a></div></div>
+<div class="card p-3"><table class="table table-striped"><thead><tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th>الربح التقديري</th><th></th></tr></thead><tbody>{% for s in sales %}<tr><td>{{ s.sale_date }}</td><td>{{ s.item.name }}</td><td>{{ s.quantity }}</td><td>{{ s.unit_price }}</td><td>{{ s.total_amount }}</td><td>{{ s.estimated_profit }}</td><td><a class="btn btn-sm btn-primary" href="{% url 'cafe_sale_update' s.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'cafe_sale_delete' s.pk %}">حذف</a></td></tr>{% empty %}<tr><td colspan="7">لا توجد بيانات</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

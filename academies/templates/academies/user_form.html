@@ -1,0 +1,78 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<h3 class="mb-3">{{ title }}</h3>
+<form method="post" class="card p-4">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="row g-3">
+    {% for field in form %}
+      <div class="col-md-6">
+        <label class="form-label fw-bold">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  <hr>
+  <h5 class="mb-3">الصلاحيات</h5>
+  <div class="row g-3 mt-2 mb-3">
+    {% if permission_form.job_title %}
+    <div class="col-md-6">
+      <label class="form-label fw-bold">{{ permission_form.job_title.label }}</label>
+      {{ permission_form.job_title }}
+      {% for error in permission_form.job_title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="alert alert-info">يمكنك إعطاء المستخدم صلاحيات محددة لكل موديول، ويمكنك تحديد تقارير معينة فقط بدل فتح كل التقارير.</div>
+  {% if permission_form.non_field_errors %}<div class="alert alert-danger">{{ permission_form.non_field_errors }}</div>{% endif %}
+
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="border rounded p-3 h-100">
+        <h6 class="fw-bold mb-3">صلاحيات الموديولات</h6>
+        <div class="row g-3">
+          {% for field in permission_form %}
+            {% if field.name == 'can_academies' or field.name == 'can_daily_booking' or field.name == 'can_operation' or field.name == 'can_shareholders' or field.name == 'can_employees' or field.name == 'can_general_expenses' or field.name == 'can_cafeteria' or field.name == 'can_users' %}
+            <div class="col-md-6">
+              <div class="form-check">
+                {{ field }}
+                <label class="form-check-label fw-bold">{{ field.label }}</label>
+              </div>
+              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="border rounded p-3 h-100">
+        <h6 class="fw-bold mb-3">صلاحيات التقارير</h6>
+        <div class="form-text mb-2">اختيار "التقارير" يفتح كل التقارير، أو اختر تقارير محددة فقط.</div>
+        <div class="row g-3">
+          {% for field in permission_form %}
+            {% if field.name == 'can_reports' or field.name == 'can_report_income' or field.name == 'can_report_shareholders' or field.name == 'can_report_employees' or field.name == 'can_report_payroll' or field.name == 'can_report_expenses' or field.name == 'can_report_cafeteria' or field.name == 'can_report_deposits' %}
+            <div class="col-md-6">
+              <div class="form-check">
+                {{ field }}
+                <label class="form-check-label fw-bold">{{ field.label }}</label>
+              </div>
+              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 d-flex gap-2">
+    <button class="btn btn-success">حفظ</button>
+    <a class="btn btn-secondary" href="{% url 'user_list' %}">رجوع</a>
+  </div>
+</form>
+{% endblock %}

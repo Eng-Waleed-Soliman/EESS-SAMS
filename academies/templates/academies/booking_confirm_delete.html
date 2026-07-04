@@ -1,0 +1,8 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="card p-4">
+  <h4>حذف الحجز</h4>
+  <p>هل تريد حذف حجز {{ booking.customer_name }}؟</p>
+  <form method="post">{% csrf_token %}<button class="btn btn-danger">حذف</button> <a class="btn btn-secondary" href="{% url 'booking_list' %}">إلغاء</a></form>
+</div>
+{% endblock %}

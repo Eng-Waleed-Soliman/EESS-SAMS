@@ -1,0 +1,93 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<style>
+@media print{
+  .sidebar, .no-print, .btn, form {display:none!important}
+  main{width:100%!important}
+  body{background:white!important}
+  .card{box-shadow:none!important;border:1px solid #222!important}
+}
+</style>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h3 class="mb-1">الدخل اليومي / الشهري</h3>
+    <div class="text-muted">من 7 صباحًا حتى 4 صباحًا من اليوم التالي</div>
+  </div>
+  <form class="d-flex gap-2 no-print" method="get">
+    <input type="date" class="form-control" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+    <button class="btn btn-primary">عرض</button>
+    <a class="btn btn-success" href="{% url 'daily_expense_list' %}">المصروفات اليومية</a>
+    <a class="btn btn-success" href="{% url 'operating_expense_list' %}">مصروفات تشغيل</a>
+    <a class="btn btn-warning border border-dark" href="{% url 'daily_income' %}?date={{ selected_date|date:'Y-m-d' }}&view=monthly">عرض الدخل اليومي / الشهري</a>
+    <a class="btn btn-outline-primary" href="{% url 'daily_income' %}?date={{ selected_date|date:'Y-m-d' }}">عرض تفاصيل اليوم</a>
+    <button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button>
+    <a class="btn btn-secondary" href="{% url 'operation_screen' %}?date={{ selected_date|date:'Y-m-d' }}">رجوع للتشغيل</a>
+  </form>
+</div>
+<div class="card p-3 mb-3">
+  <h4 class="text-center mb-1">تقرير الدخل اليومي من العملاء الذين تم عمل Checkout لحجوزاتهم</h4>
+  <h5 class="text-center mb-3">{{ selected_day_ar }} - {{ selected_date|date:'d/m/Y' }}</h5>
+  <div class="row g-3 text-center">
+    <div class="col-md-4"><div class="border rounded p-3 bg-light"><b>إجمالي الدخل</b><div class="fs-3">{{ total_income }}</div></div></div>
+    <div class="col-md-4"><div class="border rounded p-3 bg-light"><b>إجمالي المقدم</b><div class="fs-3">{{ total_advance }}</div></div></div>
+    <div class="col-md-4"><div class="border rounded p-3 bg-light"><b>إجمالي المتبقي</b><div class="fs-3">{{ total_remaining }}</div></div></div>
+  </div>
+</div>
+{% if view_mode == 'monthly' %}
+<div class="card p-3">
+  <h4 class="text-center mb-3">ملخص الدخل اليومي / الشهري لشهر {{ selected_date|date:'m/Y' }}</h4>
+  <div class="row g-3 text-center mb-3">
+    <div class="col-md-4"><div class="border rounded p-3 bg-light"><b>إجمالي الدخل اليومي</b><div class="fs-3">{{ month_income_total }}</div></div></div>
+    <div class="col-md-4"><div class="border rounded p-3 bg-light"><b>إجمالي المصروفات اليومية</b><div class="fs-3">{{ month_expense_total }}</div></div></div>
+    <div class="col-md-4"><div class="border rounded p-3 bg-light"><b>صافي الربح الشهري</b><div class="fs-3">{{ month_profit_total }}</div></div></div>
+  </div>
+  <table class="table table-bordered align-middle text-center">
+    <thead class="table-light"><tr><th>اليوم</th><th>التاريخ</th><th>الدخل اليومي</th><th>المصروفات اليومية</th><th>صافي الربح اليومي</th></tr></thead>
+    <tbody>
+    {% for row in month_rows %}
+      <tr><td>{{ row.day_name }}</td><td>{{ row.date|date:'d/m/Y' }}</td><td>{{ row.income }}</td><td>{{ row.expenses }}</td><td>{{ row.net_profit }}</td></tr>
+    {% empty %}
+      <tr><td colspan="5">لا توجد بيانات</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card p-3">
+  <table class="table table-bordered align-middle text-center">
+    <thead class="table-light">
+      <tr>
+        <th>م</th>
+        <th>اسم العميل</th>
+        <th>رقم الموبايل</th>
+        <th>مكان الحجز</th>
+        <th>تاريخ الحجز</th>
+        <th>التوقيت</th>
+        <th>إجمالي قيمة الحجز</th>
+        <th>مقدم الحجز</th>
+        <th>المتبقي</th>
+        <th>وقت Checkout</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ row.customer_name }}</td>
+        <td>{{ row.customer_phone }}</td>
+        <td>{{ row.venue }}</td>
+        <td>{{ row.booking_date|date:'d/m/Y' }}</td>
+        <td>{{ row.start_time }} إلى {{ row.end_time }}</td>
+        <td>{{ row.total_amount }}</td>
+        <td>{{ row.advance_payment }}</td>
+        <td>{{ row.remaining_amount }}</td>
+        <td>{{ row.created_at|date:'d/m/Y h:i A' }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="10" class="text-muted">لا توجد حجوزات تم عمل Checkout لها في هذا اليوم.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

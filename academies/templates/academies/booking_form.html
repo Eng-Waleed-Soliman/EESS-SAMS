@@ -1,0 +1,193 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<h3 class="mb-3">{{ title }}</h3>
+<div class="card p-4">
+  <form method="post" id="bookingForm">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    {{ form.booking_dates }}
+    {{ form.booking_date_times }}
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label class="form-label fw-bold">{{ form.customer_name.label }}</label>{{ form.customer_name }}<div class="text-danger small">{{ form.customer_name.errors }}</div>
+      </div>
+      <div class="col-md-3 mb-3">
+        <label class="form-label fw-bold">{{ form.customer_code.label }}</label>{{ form.customer_code }}<div class="text-danger small">{{ form.customer_code.errors }}</div>
+      </div>
+      <div class="col-md-3 mb-3">
+        <label class="form-label fw-bold">{{ form.customer_phone.label }}</label>{{ form.customer_phone }}<div class="text-danger small">{{ form.customer_phone.errors }}</div>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label fw-bold">{{ form.national_id.label }}</label>{{ form.national_id }}<div class="text-danger small">{{ form.national_id.errors }}</div>
+      </div>
+      <div class="col-md-3 mb-3">
+        <label class="form-label fw-bold">{{ form.players_count.label }}</label>{{ form.players_count }}<div class="text-danger small">{{ form.players_count.errors }}</div>
+      </div>
+      <div class="col-md-3 mb-3">
+        <label class="form-label fw-bold">{{ form.amount.label }}</label>{{ form.amount }}<div class="text-danger small">{{ form.amount.errors }}</div>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label fw-bold">{{ form.venue.label }}</label>{{ form.venue }}<div class="text-danger small">{{ form.venue.errors }}</div>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label fw-bold">إضافة تاريخ حجز</label>
+        {{ form.booking_date }}
+        <div class="d-flex gap-2 mt-2">
+          <button class="btn btn-outline-primary" type="button" id="addDateBtn">إضافة التاريخ</button>
+          <button class="btn btn-outline-danger" type="button" id="clearDatesBtn">مسح التواريخ</button>
+        </div>
+        <div class="form-text">يمكن إضافة أكثر من تاريخ لنفس العميل من نفس الشاشة.</div>
+        <div id="selectedDatesBox" class="mt-2 d-flex flex-wrap gap-2"></div>
+        <div class="text-danger small">{{ form.booking_date.errors }} {{ form.booking_dates.errors }}</div>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label fw-bold">{{ form.start_time.label }}</label>{{ form.start_time }}<div class="text-danger small">{{ form.start_time.errors }}</div>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label fw-bold">{{ form.end_time.label }}</label>{{ form.end_time }}<div class="text-danger small">{{ form.end_time.errors }}</div>
+      </div>
+      <div class="col-md-12 mb-3" id="multiDateTimesWrap" style="display:none">
+        <div class="alert alert-warning border border-dark mb-2">تم اختيار أكثر من تاريخ، اختر توقيت كل تاريخ على حدة.</div>
+        <div id="dateTimesBox" class="row g-2"></div>
+      </div>
+      <div class="col-md-4 mb-3">
+        <label class="form-label fw-bold">{{ form.total_amount.label }}</label>{{ form.total_amount }}<div class="text-danger small">{{ form.total_amount.errors }}</div>
+      </div>
+      <div class="col-md-4 mb-3">
+        <label class="form-label fw-bold">{{ form.advance_payment.label }}</label>{{ form.advance_payment }}<div class="text-danger small">{{ form.advance_payment.errors }}</div>
+      </div>
+      <div class="col-md-4 mb-3">
+        <label class="form-label fw-bold">{{ form.remaining_amount.label }}</label>{{ form.remaining_amount }}<div class="text-danger small">{{ form.remaining_amount.errors }}</div>
+      </div>
+      <div class="col-md-12 mb-3">
+        <label class="form-label fw-bold">{{ form.notes.label }}</label>{{ form.notes }}<div class="text-danger small">{{ form.notes.errors }}</div>
+      </div>
+    </div>
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <div class="p-3 border border-dark rounded text-center" style="background:#fff3cd">
+          <div class="fw-bold">عدد الزيارات السابقة</div>
+          <div id="visitsCount" class="fs-3">0</div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="p-3 border border-dark rounded text-center" style="background:#fff3cd">
+          <div class="fw-bold">تاريخ ويوم آخر زيارة</div>
+          <div id="lastVisit" class="fs-5">لا يوجد</div>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-success">حفظ</button>
+    <a class="btn btn-secondary" href="{% url 'booking_list' %}">رجوع</a>
+  </form>
+</div>
+<script>
+const customers = {{ customers_json|default:'[]'|safe }};
+const byPhone = new Map(customers.map(c => [String(c.phone || '').trim(), c]));
+const byCode = new Map(customers.map(c => [String(c.code || '').trim(), c]));
+function setValue(id, value){ const el = document.getElementById(id); if(el) el.value = value || ''; }
+function applyCustomer(c){
+  if(!c) return;
+  setValue('id_customer_code', c.code);
+  setValue('id_customer_name', c.name);
+  setValue('id_customer_phone', c.phone);
+  setValue('id_national_id', c.national_id);
+  document.getElementById('visitsCount').textContent = c.visits_count || 0;
+  document.getElementById('lastVisit').textContent = c.last_visit_display || 'لا يوجد';
+}
+function lookupByPhone(){ const p = document.getElementById('id_customer_phone').value.trim(); if(byPhone.has(p)) applyCustomer(byPhone.get(p)); }
+function lookupByCode(){ const code = document.getElementById('id_customer_code').value.trim(); if(byCode.has(code)) applyCustomer(byCode.get(code)); }
+document.getElementById('id_customer_phone').addEventListener('change', lookupByPhone);
+document.getElementById('id_customer_phone').addEventListener('blur', lookupByPhone);
+document.getElementById('id_customer_code').addEventListener('change', lookupByCode);
+document.getElementById('id_customer_code').addEventListener('blur', lookupByCode);
+
+let selectedDates = [];
+const hiddenDates = document.getElementById('id_booking_dates');
+const hiddenDateTimes = document.getElementById('id_booking_date_times');
+const startSelect = document.getElementById('id_start_time');
+const endSelect = document.getElementById('id_end_time');
+const amountInput = document.getElementById('id_amount');
+const advanceInput = document.getElementById('id_advance_payment');
+const totalInput = document.getElementById('id_total_amount');
+const remainingInput = document.getElementById('id_remaining_amount');
+function optionHtml(selectedValue){
+  const opts = Array.from(startSelect.options).map(o => `<option value="${o.value}">${o.textContent}</option>`).join('');
+  return opts.replace(`value="${selectedValue}"`, `value="${selectedValue}" selected`);
+}
+function timeIndex(value){
+  const opts = Array.from(startSelect.options).map(o => o.value).filter(Boolean);
+  return opts.indexOf(value);
+}
+function hoursBetween(st, et){
+  const s = timeIndex(st), e = timeIndex(et);
+  if(s < 0 || e < 0 || e <= s) return 0;
+  return e - s;
+}
+function getDateTimes(){
+  if(selectedDates.length <= 1){
+    const d = selectedDates[0] || document.getElementById('id_booking_date').value;
+    return d ? [{date:d, start_time:startSelect.value, end_time:endSelect.value}] : [];
+  }
+  return selectedDates.map(d => {
+    const st = document.querySelector(`[data-date-start="${d}"]`)?.value || startSelect.value;
+    const et = document.querySelector(`[data-date-end="${d}"]`)?.value || endSelect.value;
+    return {date:d, start_time:st, end_time:et};
+  });
+}
+function calcTotals(){
+  const rate = parseInt(amountInput.value || '0') || 0;
+  const advance = parseInt(advanceInput.value || '0') || 0;
+  const totalHours = getDateTimes().reduce((sum, x) => sum + hoursBetween(x.start_time, x.end_time), 0);
+  const total = rate * totalHours;
+  totalInput.value = total;
+  remainingInput.value = Math.max(0, total - advance);
+}
+function syncHiddenDateTimes(){ hiddenDateTimes.value = JSON.stringify(getDateTimes()); calcTotals(); }
+function renderDateTimeRows(){
+  const wrap = document.getElementById('multiDateTimesWrap');
+  const box = document.getElementById('dateTimesBox');
+  box.innerHTML = '';
+  wrap.style.display = selectedDates.length > 1 ? '' : 'none';
+  if(selectedDates.length > 1){
+    selectedDates.forEach(d => {
+      const div = document.createElement('div');
+      div.className = 'col-md-12 border rounded p-2 bg-light';
+      div.innerHTML = `<div class="row g-2 align-items-end"><div class="col-md-4 fw-bold">${d}</div><div class="col-md-4"><label class="form-label">من الساعة</label><select class="form-select" data-date-start="${d}">${optionHtml(startSelect.value)}</select></div><div class="col-md-4"><label class="form-label">إلى الساعة</label><select class="form-select" data-date-end="${d}">${optionHtml(endSelect.value)}</select></div></div>`;
+      box.appendChild(div);
+    });
+    box.querySelectorAll('select').forEach(el => el.addEventListener('change', syncHiddenDateTimes));
+  }
+  syncHiddenDateTimes();
+}
+function renderDates(){
+  hiddenDates.value = selectedDates.join(',');
+  const box = document.getElementById('selectedDatesBox');
+  box.innerHTML = '';
+  selectedDates.forEach(d => {
+    const span = document.createElement('span');
+    span.className = 'badge bg-warning text-dark border border-dark p-2';
+    span.textContent = d + ' ×';
+    span.style.cursor = 'pointer';
+    span.onclick = () => { selectedDates = selectedDates.filter(x => x !== d); renderDates(); };
+    box.appendChild(span);
+  });
+  renderDateTimeRows();
+}
+function addDate(d){ if(d && !selectedDates.includes(d)){ selectedDates.push(d); selectedDates.sort(); renderDates(); } }
+document.getElementById('addDateBtn').onclick = () => addDate(document.getElementById('id_booking_date').value);
+document.getElementById('clearDatesBtn').onclick = () => { selectedDates = []; renderDates(); };
+if(hiddenDates.value){ selectedDates = hiddenDates.value.split(',').filter(Boolean); }
+if(document.getElementById('id_booking_date').value){ addDate(document.getElementById('id_booking_date').value); }
+[startSelect, endSelect, amountInput, advanceInput].forEach(el => el.addEventListener('change', () => { renderDateTimeRows(); calcTotals(); }));
+amountInput.addEventListener('keyup', calcTotals);
+advanceInput.addEventListener('keyup', calcTotals);
+renderDates();
+document.getElementById('bookingForm').addEventListener('submit', function(){
+  const d = document.getElementById('id_booking_date').value;
+  if(d && !selectedDates.includes(d)) selectedDates.push(d);
+  hiddenDates.value = selectedDates.join(',');
+  syncHiddenDateTimes();
+});
+</script>
+{% endblock %}

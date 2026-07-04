@@ -1,0 +1,262 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h3 class="mb-1">شاشة التشغيل</h3>
+    <div class="text-muted">اليوم: {{ selected_day_ar }}</div>
+  </div>
+  <form class="d-flex gap-2 flex-wrap" method="get">
+    <input type="date" class="form-control" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+    <select class="form-select" name="period" style="min-width:260px">
+      {% for value, label in period_choices %}
+        <option value="{{ value }}" {% if selected_period == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-primary">عرض</button>
+    <a class="btn btn-success" href="{% url 'booking_create' %}">حجز جديد</a>
+    <a class="btn btn-warning border border-dark" href="{% url 'daily_income' %}?date={{ selected_date|date:'Y-m-d' }}">الدخل اليومي</a>
+    <button type="submit" form="cancelDayForm" class="btn btn-danger" onclick="return confirm('سيتم إلغاء كل حجوزات اليوم المختار، هل أنت متأكد؟')">إلغاء حجوزات اليوم</button>
+  </form>
+</div>
+<form id="cancelDayForm" method="post" action="{% url 'cancel_operation_day' %}" style="display:none">
+  {% csrf_token %}
+  <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+  <input type="hidden" name="period" value="{{ selected_period }}">
+</form>
+{% if day_cancelled %}
+  <div class="alert alert-warning">تم إلغاء حجوزات هذا اليوم، لذلك لا تظهر حجوزات الأكاديميات في شاشة التشغيل ولا يتم احتسابها في الدخل المتغير.</div>
+{% endif %}
+<div class="alert alert-info">
+  كل كارت يمثل ساعة واحدة. اللون الأخضر لحجوزات الأكاديميات، واللون الأزرق للحجز اليومي قبل Checkout، واللون الأحمر للحجز اليومي بعد Checkout، واللون الأبيض يعني أن الساعة متاحة.
+</div>
+<div class="card p-3 overflow-auto">
+  <table class="table table-bordered align-middle text-center operation-table">
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <th style="width:190px" class="table-light fs-5 sticky-place">{{ row.place }}</th>
+          {% for card in row.cards %}
+            <td style="width:145px">
+              <div class="operation-card {{ card.card_class }}" {% if card.busy %}ondblclick="openCardModal(this)"{% endif %}>
+                <small>{{ card.time }}</small>
+                {% if card.entries %}
+                  {% for entry in card.entries %}
+                    <div class="operation-name"
+                         data-label="{{ entry.label }}"
+                         data-item-type="{{ entry.item_type }}"
+                         data-item-id="{{ entry.item_id }}"
+                         data-original-place="{{ entry.original_place }}"
+                         data-original-slot-index="{{ entry.original_slot_index }}"
+                         data-customer-name="{{ entry.customer_name|default:'' }}"
+                         data-customer-phone="{{ entry.customer_phone|default:'' }}"
+                         data-booking-date="{{ entry.booking_date|default:'' }}"
+                         data-booking-day="{{ entry.booking_day|default:'' }}"
+                         data-start-time="{{ entry.start_time|default:'' }}"
+                         data-end-time="{{ entry.end_time|default:'' }}"
+                         data-total-amount="{{ entry.total_amount|default:'' }}"
+                         data-advance-payment="{{ entry.advance_payment|default:'' }}"
+                         data-remaining-amount="{{ entry.remaining_amount|default:'' }}"
+                         data-checked-out="{{ entry.checked_out|yesno:'1,0' }}">{{ entry.label }}</div>
+                  {% endfor %}
+                {% else %}
+                  <div class="operation-name text-muted">متاح</div>
+                {% endif %}
+              </div>
+            </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="modal fade" id="cardActionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="{% url 'operation_card_action' %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">بيانات الحجز</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+          <input type="hidden" name="period" value="{{ selected_period }}">
+          <input type="hidden" name="item_type" id="modal_item_type">
+          <input type="hidden" name="item_id" id="modal_item_id">
+          <input type="hidden" name="original_place" id="modal_original_place">
+          <input type="hidden" name="original_slot_index" id="modal_original_slot_index">
+
+          <div id="selectionSection" class="mb-3">
+            <label class="form-label">الحجز المختار</label>
+            <select class="form-select" id="modal_entry_select"></select>
+          </div>
+
+          <div id="bookingDataBox" class="mb-3 p-3 border border-dark rounded" style="background:#fff3cd;display:none">
+            <h6 class="fw-bold mb-3">بيانات الحجز اليومي</h6>
+            <div id="co_status" class="mb-2 text-success fw-bold"></div>
+            <div class="row g-2">
+              <div class="col-md-6"><b>اسم العميل:</b> <span id="co_customer_name"></span></div>
+              <div class="col-md-6"><b>رقم الموبايل:</b> <span id="co_customer_phone"></span></div>
+              <div class="col-md-6"><b>تاريخ ويوم الحجز:</b> <span id="co_booking_date"></span></div>
+              <div class="col-md-6"><b>التوقيت:</b> <span id="co_time"></span></div>
+              <div class="col-md-4"><b>إجمالي قيمة الحجز:</b> <span id="co_total"></span></div>
+              <div class="col-md-4"><b>مقدم الحجز:</b> <span id="co_advance"></span></div>
+              <div class="col-md-4"><b>المتبقي:</b> <span id="co_remaining"></span></div>
+            </div>
+          </div>
+
+          <div id="academyEditSection" class="mb-3" style="display:none">
+            <label class="form-label">اختيار الساعة الجديدة للأكاديمية</label>
+            <select class="form-select" name="new_slot_index">
+              {% for idx, label in slot_choices %}<option value="{{ idx }}">{{ label }}</option>{% endfor %}
+            </select>
+            <div class="form-text">يستخدم هذا الاختيار عند تعديل حجز الأكاديمية لهذا اليوم فقط.</div>
+          </div>
+
+          <div id="dailyEditSection" style="display:none">
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label">من الساعة للحجز اليومي</label>
+                <select class="form-select" name="new_start_time" id="modal_new_start_time">
+                  {% for value, label in time_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">إلى الساعة للحجز اليومي</label>
+                <select class="form-select" name="new_end_time" id="modal_new_end_time">
+                  {% for value, label in time_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="form-text mt-2">يتم تعديل توقيت الحجز اليومي فقط.</div>
+          </div>
+        </div>
+        <div class="modal-footer" id="modalFooterButtons">
+          <button type="button" id="showEditBtn" class="btn btn-primary" onclick="showEditFields()">تعديل الحجز</button>
+          <button type="submit" id="saveEditBtn" name="action" value="edit" class="btn btn-success" style="display:none">حفظ التعديل</button>
+          <button type="submit" id="deleteBookingBtn" name="action" value="delete" class="btn btn-danger" onclick="return confirm('هل تريد حذف هذا الحجز؟')">حذف الحجز</button>
+          <button type="button" id="checkoutBtn" class="btn btn-warning border border-dark" onclick="checkoutOnly()" style="display:none">Checkout</button>
+          <button type="submit" id="confirmCheckoutBtn" name="action" value="checkout" class="btn btn-warning border border-dark" style="display:none">تسجيل Checkout في الدخل اليومي</button>
+          <button type="button" id="closeModalBtn" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function selectedModalOption(){
+  const select = document.getElementById('modal_entry_select');
+  return select.options[select.selectedIndex];
+}
+function fillBookingData(opt){
+  document.getElementById('co_customer_name').textContent = opt.dataset.customerName || '';
+  document.getElementById('co_customer_phone').textContent = opt.dataset.customerPhone || '';
+  document.getElementById('co_booking_date').textContent = (opt.dataset.bookingDay || '') + ' - ' + (opt.dataset.bookingDate || '');
+  document.getElementById('co_time').textContent = (opt.dataset.startTime || '') + ' إلى ' + (opt.dataset.endTime || '');
+  document.getElementById('co_total').textContent = opt.dataset.totalAmount || '0';
+  document.getElementById('co_advance').textContent = opt.dataset.advancePayment || '0';
+  document.getElementById('co_remaining').textContent = opt.dataset.remainingAmount || '0';
+  document.getElementById('co_status').textContent = opt.dataset.checkedOut === '1' ? 'تم عمل Checkout لهذا الحجز بالفعل.' : '';
+  document.getElementById('modal_new_start_time').value = opt.dataset.startTime || '';
+  document.getElementById('modal_new_end_time').value = opt.dataset.endTime || '';
+}
+function resetModalView(){
+  document.getElementById('selectionSection').style.display = '';
+  document.getElementById('academyEditSection').style.display = 'none';
+  document.getElementById('dailyEditSection').style.display = 'none';
+  document.getElementById('showEditBtn').style.display = '';
+  document.getElementById('saveEditBtn').style.display = 'none';
+  document.getElementById('deleteBookingBtn').style.display = '';
+  document.getElementById('checkoutBtn').style.display = 'none';
+  document.getElementById('closeModalBtn').style.display = '';
+  document.getElementById('confirmCheckoutBtn').style.display = 'none';
+}
+function fillModalFromOption(opt){
+  document.getElementById('modal_item_type').value = opt.dataset.itemType || '';
+  document.getElementById('modal_item_id').value = opt.dataset.itemId || '';
+  document.getElementById('modal_original_place').value = opt.dataset.originalPlace || '';
+  document.getElementById('modal_original_slot_index').value = opt.dataset.originalSlotIndex || '';
+  resetModalView();
+  if(opt.dataset.itemType === 'daily'){
+    fillBookingData(opt);
+    document.getElementById('bookingDataBox').style.display = '';
+    if(opt.dataset.checkedOut === '1'){
+      document.querySelector('#cardActionModal .modal-title').textContent = 'تم عمل Checkout';
+      document.getElementById('selectionSection').style.display = 'none';
+      document.getElementById('showEditBtn').style.display = 'none';
+      document.getElementById('saveEditBtn').style.display = 'none';
+      document.getElementById('deleteBookingBtn').style.display = 'none';
+      document.getElementById('checkoutBtn').style.display = 'none';
+      document.getElementById('confirmCheckoutBtn').style.display = 'none';
+    } else {
+      document.querySelector('#cardActionModal .modal-title').textContent = 'بيانات الحجز';
+      document.getElementById('checkoutBtn').style.display = '';
+    }
+  } else {
+    document.querySelector('#cardActionModal .modal-title').textContent = 'بيانات الحجز';
+    document.getElementById('bookingDataBox').style.display = 'none';
+    document.getElementById('checkoutBtn').style.display = 'none';
+  }
+}
+function showEditFields(){
+  const opt = selectedModalOption();
+  if(!opt) return;
+  if(opt.dataset.itemType === 'daily'){
+    document.getElementById('dailyEditSection').style.display = '';
+  } else {
+    document.getElementById('academyEditSection').style.display = '';
+  }
+  document.getElementById('showEditBtn').style.display = 'none';
+  document.getElementById('saveEditBtn').style.display = '';
+}
+function checkoutOnly(){
+  const opt = selectedModalOption();
+  if(!opt || opt.dataset.itemType !== 'daily' || opt.dataset.checkedOut === '1') return;
+  fillBookingData(opt);
+  document.getElementById('selectionSection').style.display = 'none';
+  document.getElementById('academyEditSection').style.display = 'none';
+  document.getElementById('dailyEditSection').style.display = 'none';
+  document.getElementById('bookingDataBox').style.display = '';
+  document.getElementById('showEditBtn').style.display = 'none';
+  document.getElementById('saveEditBtn').style.display = 'none';
+  document.getElementById('deleteBookingBtn').style.display = 'none';
+  document.getElementById('checkoutBtn').style.display = 'none';
+  document.getElementById('confirmCheckoutBtn').style.display = '';
+}
+
+function openCardModal(card){
+  const entries = card.querySelectorAll('.operation-name[data-item-type]');
+  if(!entries.length) return;
+  const select = document.getElementById('modal_entry_select');
+  select.innerHTML = '';
+  entries.forEach((entry, i) => {
+    const opt = document.createElement('option');
+    opt.textContent = entry.dataset.label;
+    opt.value = i;
+    opt.dataset.itemType = entry.dataset.itemType;
+    opt.dataset.itemId = entry.dataset.itemId;
+    opt.dataset.originalPlace = entry.dataset.originalPlace;
+    opt.dataset.originalSlotIndex = entry.dataset.originalSlotIndex;
+    opt.dataset.customerName = entry.dataset.customerName || '';
+    opt.dataset.customerPhone = entry.dataset.customerPhone || '';
+    opt.dataset.bookingDate = entry.dataset.bookingDate || '';
+    opt.dataset.bookingDay = entry.dataset.bookingDay || '';
+    opt.dataset.startTime = entry.dataset.startTime || '';
+    opt.dataset.endTime = entry.dataset.endTime || '';
+    opt.dataset.totalAmount = entry.dataset.totalAmount || '';
+    opt.dataset.advancePayment = entry.dataset.advancePayment || '';
+    opt.dataset.remainingAmount = entry.dataset.remainingAmount || '';
+    opt.dataset.checkedOut = entry.dataset.checkedOut || '0';
+    select.appendChild(opt);
+  });
+  const firstCheckedOut = Array.from(select.options).find(o => o.dataset.checkedOut === '1');
+  fillModalFromOption(firstCheckedOut || select.options[0]);
+  if(firstCheckedOut){ select.value = firstCheckedOut.value; }
+  select.onchange = function(){ fillModalFromOption(select.options[select.selectedIndex]); };
+  const modal = new bootstrap.Modal(document.getElementById('cardActionModal'));
+  modal.show();
+}
+</script>
+
+{% endblock %}

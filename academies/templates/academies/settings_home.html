@@ -1,0 +1,10 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<h3 class="mb-4">الإعدادات</h3>
+<div class="row g-3">
+  <div class="col-md-4"><div class="card p-4 h-100"><h5>المستخدمين والصلاحيات</h5><p>إضافة المستخدمين وتحديد صلاحيات كل موديول وكل تقرير.</p><a class="btn btn-primary" href="{% url 'user_list' %}">فتح القسم</a></div></div>
+  <div class="col-md-4"><div class="card p-4 h-100"><h5>الوظائف المتاحة والمرتبات</h5><p>تسجيل الوظائف التي تظهر في شاشة إضافة موظف مع أساسي المرتب.</p><a class="btn btn-success" href="{% url 'job_title_list' %}">فتح القسم</a></div></div>
+  <div class="col-md-4"><div class="card p-4 h-100"><h5>شرائح البونص</h5><p>إضافة وتعديل وحذف شرائح البونص حسب الوظيفة ونوع الدخل.</p><a class="btn btn-warning" href="{% url 'bonus_tier_list' %}">فتح القسم</a></div></div>
+  <div class="col-md-4"><div class="card p-4 h-100"><h5>الكافيتريا</h5><p>ضبط كميات المخزون وأسعار البيع للأصناف المسجلة.</p><a class="btn btn-info" href="{% url 'cafe_settings' %}">فتح القسم</a></div></div>
+</div>
+{% endblock %}

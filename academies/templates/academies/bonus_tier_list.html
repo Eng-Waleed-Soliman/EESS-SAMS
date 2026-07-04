@@ -1,0 +1,8 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3"><h3>شرائح البونص</h3><div><a class="btn btn-secondary" href="{% url 'settings_home' %}">الإعدادات</a> <a class="btn btn-success" href="{% url 'bonus_tier_create' %}">إضافة شريحة</a></div></div>
+<div class="alert alert-info">يمكن إضافة شرائح بونص للدخل اليومي لأي وظيفة، ولوظيفة مسئول الكافيتريا يمكن اختيار نوع الدخل: دخل الكافيتريا.</div>
+<div class="card p-3"><table class="table table-striped"><thead><tr><th>الوظيفة</th><th>نوع الدخل</th><th>من قيمة</th><th>حتى قيمة</th><th>قيمة البونص</th><th>ملاحظات</th><th></th></tr></thead><tbody>
+{% for tier in tiers %}<tr><td>{{ tier.job_title.name }}</td><td>{{ tier.get_source_type_display }}</td><td>{{ tier.from_amount }}</td><td>{{ tier.to_amount }}</td><td>{{ tier.bonus_amount }}</td><td>{{ tier.notes }}</td><td><a class="btn btn-sm btn-primary" href="{% url 'bonus_tier_update' tier.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'bonus_tier_delete' tier.pk %}">حذف</a></td></tr>{% empty %}<tr><td colspan="7" class="text-center">لا توجد شرائح بونص</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

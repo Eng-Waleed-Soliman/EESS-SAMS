@@ -1,0 +1,21 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+  <h3>الحجز اليومي</h3>
+  <div class="d-flex gap-2"><button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button><a class="btn btn-primary" href="{% url 'booking_create' %}">إضافة حجز يومي</a></div>
+</div>
+<form class="mb-3"><input class="form-control search-box w-half" name="q" value="{{ q }}" placeholder="بحث باسم العميل أو رقم الموبايل أو المكان"></form>
+<div class="card p-3">
+  <table class="table table-hover align-middle">
+    <tr><th>كود العميل</th><th>العميل</th><th>الموبايل</th><th>الرقم القومي</th><th>عدد اللاعبين</th><th>المكان</th><th>التاريخ</th><th>من</th><th>إلى</th><th>إيجار الساعة</th><th>الإجمالي</th><th>المقدم</th><th>المتبقي</th><th></th></tr>
+    {% for b in bookings %}
+      <tr>
+        <td>{{ b.customer_code }}</td><td>{{ b.customer_name }}</td><td>{{ b.customer_phone }}</td><td>{{ b.national_id }}</td><td>{{ b.players_count }}</td><td>{{ b.venue }}</td><td>{{ b.booking_date }}</td><td>{{ b.start_time }}</td><td>{{ b.end_time }}</td><td>{{ b.amount }}</td><td>{{ b.total_amount }}</td><td>{{ b.advance_payment }}</td><td>{{ b.remaining_amount }}</td>
+        <td><a class="btn btn-sm btn-outline-primary" href="{% url 'booking_update' b.pk %}">تعديل</a> <a class="btn btn-sm btn-outline-danger" href="{% url 'booking_delete' b.pk %}">حذف</a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="14">لا توجد حجوزات</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

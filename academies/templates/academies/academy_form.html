@@ -1,0 +1,126 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<h3 class="mb-3">{{ title }}</h3>
+<div class="card p-4">
+  <form method="post" id="academy-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <div class="row">
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.name.label }}</label>{{ form.name }}<div class="text-danger small">{{ form.name.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.sport_activity.label }}</label>{{ form.sport_activity }}<div class="text-danger small">{{ form.sport_activity.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.company_name.label }}</label>{{ form.company_name }}<div class="text-danger small">{{ form.company_name.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_name.label }}</label>{{ form.manager_name }}<div class="text-danger small">{{ form.manager_name.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_national_id.label }}</label>{{ form.manager_national_id }}<div class="text-danger small">{{ form.manager_national_id.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_phone.label }}</label>{{ form.manager_phone }}<div class="text-danger small">{{ form.manager_phone.errors }}</div></div>
+
+      <div class="col-md-6 mb-3">
+        <label class="form-label fw-bold">{{ form.operation_place.label }}</label>
+        {{ form.operation_place }}
+        {% if form.instance.pk and form.instance.operation_place %}<div class="alert alert-light border mt-2 mb-1 py-2">المحفوظ حاليًا: {{ form.instance.operation_place }}</div>{% endif %}
+        <div class="form-text">اضغط Ctrl لاختيار أكثر من مكان تدريب.</div>
+        <div class="text-danger small">{{ form.operation_place.errors }}</div>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label fw-bold">{{ form.training_days.label }}</label>
+        {{ form.training_days }}
+        {% if form.instance.pk and form.instance.training_days %}<div class="alert alert-light border mt-2 mb-1 py-2">الأيام المحفوظة: {{ form.instance.training_days }}</div>{% endif %}
+        <div class="form-text">اضغط Ctrl لاختيار أكثر من يوم.</div>
+        <div class="text-danger small">{{ form.training_days.errors }}</div>
+      </div>
+
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.contract_start_date.label }}</label>{{ form.contract_start_date }}<div class="text-danger small">{{ form.contract_start_date.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.contract_end_date.label }}</label>{{ form.contract_end_date }}<div class="text-danger small">{{ form.contract_end_date.errors }}</div></div>
+
+      <div class="col-md-4 mb-3"><label class="form-label fw-bold">{{ form.subscription_type.label }}</label>{{ form.subscription_type }}<div class="text-danger small">{{ form.subscription_type.errors }}</div></div>
+      <div class="col-md-4 mb-3 fixed-subscription"><label class="form-label fw-bold">{{ form.monthly_subscription.label }}</label>{{ form.monthly_subscription }}<div class="text-danger small">{{ form.monthly_subscription.errors }}</div></div>
+      <div class="col-md-4 mb-3 variable-subscription"><label class="form-label fw-bold">{{ form.variable_rent_type.label }}</label>{{ form.variable_rent_type }}<div class="text-danger small">{{ form.variable_rent_type.errors }}</div></div>
+      <div class="col-md-4 mb-3 variable-subscription"><label class="form-label fw-bold">{{ form.variable_rent_value.label }}</label>{{ form.variable_rent_value }}<div class="form-text">سيتم حساب الفاتورة الشهرية حسب أيام التدريب الفعلية داخل كل شهر.</div><div class="text-danger small">{{ form.variable_rent_value.errors }}</div></div>
+      <div class="col-md-4 mb-3"><label class="form-label fw-bold">{{ form.security_deposit.label }}</label>{{ form.security_deposit }}<div class="text-danger small">{{ form.security_deposit.errors }}</div></div>
+
+      <div class="col-md-6 mb-3">
+        <label class="form-label fw-bold">{{ form.training_hours.label }}</label>
+        {{ form.training_hours }}
+        {% if form.instance.pk and form.instance.training_hours %}<div class="alert alert-light border mt-2 mb-1 py-2">الساعات المحفوظة: {{ form.instance.training_hours }}</div>{% endif %}
+        <div class="form-text">اضغط Ctrl لاختيار أكثر من ساعة تدريبية.</div>
+        <div class="text-danger small">{{ form.training_hours.errors }}</div>
+      </div>
+
+      <div class="col-md-6 mb-3 d-flex align-items-center gap-2 pt-4">
+        {{ form.has_extra_hours }}
+        <label class="form-check-label fw-bold" for="id_has_extra_hours">{{ form.has_extra_hours.label }}</label>
+        <button type="button" class="btn btn-outline-primary btn-sm" id="open-extra-modal">اختيار الساعات الإضافية</button>
+      </div>
+
+      <div class="col-12 mb-3"><label class="form-label fw-bold">{{ form.notes.label }}</label>{{ form.notes }}<div class="text-danger small">{{ form.notes.errors }}</div></div>
+    </div>
+
+    <div class="modal fade" id="extraHoursModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">اختيار ساعات تدريب إضافية</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label fw-bold">{{ form.extra_training_days.label }}</label>
+                {{ form.extra_training_days }}
+                {% if form.instance.pk and form.instance.extra_training_days %}<div class="alert alert-light border mt-2 mb-1 py-2">المحفوظ: {{ form.instance.extra_training_days }}</div>{% endif %}
+                <div class="form-text">اضغط Ctrl لاختيار أكثر من يوم.</div>
+                <div class="text-danger small">{{ form.extra_training_days.errors }}</div>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label fw-bold">{{ form.extra_training_place.label }}</label>
+                {{ form.extra_training_place }}
+                {% if form.instance.pk and form.instance.extra_training_place %}<div class="alert alert-light border mt-2 mb-1 py-2">المحفوظ: {{ form.instance.extra_training_place }}</div>{% endif %}
+                <div class="form-text">اضغط Ctrl لاختيار أكثر من مكان.</div>
+                <div class="text-danger small">{{ form.extra_training_place.errors }}</div>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label fw-bold">{{ form.extra_training_hours.label }}</label>
+                {{ form.extra_training_hours }}
+                {% if form.instance.pk and form.instance.extra_training_hours %}<div class="alert alert-light border mt-2 mb-1 py-2">المحفوظ: {{ form.instance.extra_training_hours }}</div>{% endif %}
+                <div class="form-text">اضغط Ctrl لاختيار أكثر من ساعة.</div>
+                <div class="text-danger small">{{ form.extra_training_hours.errors }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">تم</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-success">حفظ</button>
+    <a class="btn btn-secondary" href="{% url 'academy_list' %}">رجوع</a>
+  </form>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  function updateSubscriptionFields(){
+    const typeField = document.getElementById('id_subscription_type');
+    if(!typeField) return;
+    const type = typeField.value;
+    document.querySelectorAll('.variable-subscription').forEach(el => el.style.display = type === 'variable' ? '' : 'none');
+    document.querySelectorAll('.fixed-subscription').forEach(el => el.style.display = type === 'fixed' ? '' : 'none');
+  }
+  const sub = document.getElementById('id_subscription_type');
+  if(sub){ sub.addEventListener('change', updateSubscriptionFields); updateSubscriptionFields(); }
+
+  const checkbox = document.getElementById('id_has_extra_hours');
+  const openBtn = document.getElementById('open-extra-modal');
+  const modalEl = document.getElementById('extraHoursModal');
+  let modal = null;
+  if(window.bootstrap && modalEl){ modal = new bootstrap.Modal(modalEl); }
+  function openExtra(){
+    if(checkbox) checkbox.checked = true;
+    if(modal) modal.show();
+  }
+  if(checkbox){ checkbox.addEventListener('change', function(){ if(this.checked) openExtra(); }); }
+  if(openBtn){ openBtn.addEventListener('click', openExtra); }
+});
+</script>
+{% endblock %}

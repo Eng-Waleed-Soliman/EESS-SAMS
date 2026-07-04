@@ -1,0 +1,123 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>{{ report_title }}</h3>
+</div>
+
+<div class="card p-3 mb-4">
+  <form class="row g-3 align-items-end toolbar" method="get">
+    <div class="col-md-5">
+      <label class="form-label">نوع التقرير</label>
+      <select name="report_type" class="form-select">
+        {% for value, label in allowed_report_options %}
+          <option value="{{ value }}" {% if report_type == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">الشهر</label>
+      <input type="month" name="month" value="{{ month_value }}" class="form-control">
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-primary w-100">عرض التقرير</button>
+    </div>
+  </form>
+</div>
+
+{% if report_type == 'income' %}
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card p-3"><b>دخل الاشتراكات الثابتة</b><h3>{{ fixed_income }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>دخل الاشتراكات المتغيرة</b><h3>{{ variable_income }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>دخل الحجز اليومي</b><h3>{{ daily_booking_income }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>الإجمالي</b><h3>{{ total_academy_income }}</h3></div></div>
+</div>
+<div class="card p-3 mb-4">
+  <h4>تقرير الدخل من الأكاديميات والحجز اليومي</h4>
+  <table class="table table-striped">
+    <thead><tr><th>الأكاديمية</th><th>النشاط</th><th>نوع الاشتراك</th><th>القيمة في الشهر المختار</th></tr></thead>
+    <tbody>{% for row in academy_rows %}<tr><td>{{ row.academy.name }}</td><td>{{ row.activity }}</td><td>{{ row.kind }}</td><td>{{ row.value }}</td></tr>{% empty %}<tr><td colspan="4">لا توجد أكاديميات سارية في هذا الشهر</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><th colspan="3">إجمالي دخل الأكاديميات + الحجز اليومي</th><th>{{ total_academy_income }}</th></tr></tfoot>
+  </table>
+</div>
+{% endif %}
+
+{% if report_type == 'shareholders' %}
+<div class="card p-3 mb-4">
+  <h4>تقرير المساهمين والنسب والأرباح</h4>
+  <div class="alert alert-info">صافي الربح التقديري المستخدم في حساب نسب المساهمين: {{ net_profit }}</div>
+  <table class="table table-striped">
+    <thead><tr><th>المساهم</th><th>النسبة</th><th>نصيبه من صافي الربح</th></tr></thead>
+    <tbody>{% for row in shareholder_rows %}<tr><td>{{ row.shareholder.name }}</td><td>{{ row.shareholder.share_percentage }}%</td><td>{{ row.profit_share }}</td></tr>{% empty %}<tr><td colspan="3">لا توجد بيانات مساهمين</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if report_type == 'employees' %}
+<div class="card p-3 mb-4">
+  <h4>تقرير الموظفين</h4>
+  <table class="table table-striped">
+    <thead><tr><th>الموظف</th><th>الوظيفة</th><th>الهاتف</th><th>الرقم القومي</th><th>تاريخ التعيين</th></tr></thead>
+    <tbody>{% for e in employees %}<tr><td>{{ e.name }}</td><td>{{ e.job_title }}</td><td>{{ e.phone }}</td><td>{{ e.national_id }}</td><td>{{ e.hire_date|default:'' }}</td></tr>{% empty %}<tr><td colspan="5">لا توجد بيانات موظفين</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if report_type == 'payroll' %}
+<div class="card p-3 mb-4">
+  <h4>تقرير المرتبات الشهرية والبونص</h4>
+  <table class="table table-striped">
+    <thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب الشهري</th><th>البونص</th></tr></thead>
+    <tbody>{% for e in employees %}<tr><td>{{ e.name }}</td><td>{{ e.job_title }}</td><td>{{ e.salary }}</td><td>سيتم تحديد طريقة حسابه لاحقًا</td></tr>{% empty %}<tr><td colspan="4">لا توجد بيانات موظفين</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><th colspan="2">إجمالي المرتبات</th><th>{{ salaries_total }}</th><th></th></tr></tfoot>
+  </table>
+</div>
+{% endif %}
+
+{% if report_type == 'expenses' or report_type == 'founding_expenses' or report_type == 'monthly_expenses' or report_type == 'daily_expenses' or report_type == 'operating_expenses' %}
+<div class="card p-3 mb-4">
+  <h4>تقرير المصروفات</h4>
+  <table class="table table-striped">
+    <tr><th>مصروفات التأسيس للشهر المختار</th><td>{{ founding_expenses }}</td></tr>
+    <tr><th>المصروفات الشهرية للشهر المختار</th><td>{{ monthly_expenses }}</td></tr>
+    <tr><th>المصروفات اليومية خلال الشهر</th><td>{{ daily_expenses }}</td></tr>
+    <tr><th>مصروفات التشغيل خلال الشهر</th><td>{{ operating_expenses }}</td></tr>
+    <tr><th>إجمالي المصروفات</th><td>{{ founding_expenses|add:monthly_expenses|add:daily_expenses|add:operating_expenses }}</td></tr>
+  </table>
+</div>
+{% endif %}
+
+{% if report_type == 'cafeteria' or report_type == 'cafeteria_inventory' or report_type == 'cafeteria_sales' or report_type == 'cafeteria_purchases' %}
+<div class="card p-3 mb-4">
+  <h4>تقرير الكافيتريا بالأرباح وحركات البيع والشراء</h4>
+  <table class="table table-striped">
+    <tr><th>إجمالي المشتريات</th><td>{{ cafe_purchase_total }}</td></tr>
+    <tr><th>إجمالي المبيعات</th><td>{{ cafe_sales_total }}</td></tr>
+    <tr><th>ربح الكافيتريا التقديري</th><td>{{ cafe_profit }}</td></tr>
+  </table>
+  <h5>تنبيهات المخزون</h5>
+  <table class="table table-striped">
+    <thead><tr><th>الصنف</th><th>المخزون الحالي</th><th>حد التنبيه</th></tr></thead>
+    <tbody>{% for item in low_stock_items %}<tr class="table-warning"><td>{{ item.name }}</td><td>{{ item.stock_quantity }}</td><td>{{ item.alert_limit }}</td></tr>{% empty %}<tr><td colspan="3">لا توجد أصناف أقل من ربع الكمية</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% endif %}
+
+
+{% if report_type == 'deposits' %}
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="card p-3"><b>إجمالي مبالغ التأمين</b><h3>{{ security_deposit_total }}</h3></div></div>
+</div>
+<div class="card p-3 mb-4">
+  <h4>تقرير مبالغ التأمين للأكاديميات</h4>
+  <table class="table table-striped">
+    <thead><tr><th>م</th><th>الأكاديمية</th><th>النشاط</th><th>مبلغ التأمين</th></tr></thead>
+    <tbody>
+      {% for academy in deposit_academies %}
+      <tr><td>{{ forloop.counter }}</td><td>{{ academy.name }}</td><td>{{ academy.sport_activity }}</td><td>{{ academy.security_deposit }}</td></tr>
+      {% empty %}<tr><td colspan="4">لا توجد أكاديميات</td></tr>{% endfor %}
+    </tbody>
+    <tfoot><tr><th colspan="3">الإجمالي</th><th>{{ security_deposit_total }}</th></tr></tfoot>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<h3>{{ title }}</h3>
+<div class="card p-4">
+  <p>هل تريد حذف: <b>{{ object }}</b>؟</p>
+  <form method="post">{% csrf_token %}<button class="btn btn-danger">حذف</button> <a class="btn btn-secondary" href="{% url back_url %}">رجوع</a></form>
+</div>
+{% endblock %}

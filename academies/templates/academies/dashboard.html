@@ -1,0 +1,12 @@
+{% extends 'academies/base.html' %}{% block content %}
+<h3 class="page-title">لوحة التحكم</h3>
+<div class="row g-3 mb-4">
+ <div class="col-md-3"><a class="stat-link" href="{% url 'academy_list' %}"><div class="card stat-card p-3"><b>عدد الأكاديميات</b><h2>{{ total_academies }}</h2></div></a></div>
+ <div class="col-md-3"><a class="stat-link" href="{% url 'academy_list' %}"><div class="card stat-card p-3"><b>العقود السارية</b><h2>{{ active_contracts }}</h2></div></a></div>
+ <div class="col-md-3"><a class="stat-link" href="{% url 'academy_list' %}"><div class="card stat-card p-3"><b>تنتهي خلال 30 يوم</b><h2>{{ ending_soon }}</h2></div></a></div>
+ <div class="col-md-3"><a class="stat-link" href="{% url 'reports_home' %}"><div class="card stat-card p-3"><b>إجمالي شهري</b><h2>{{ monthly_total }}</h2></div></a></div>
+ <div class="col-md-3"><a class="stat-link" href="{% url 'booking_list' %}"><div class="card stat-card p-3"><b>الحجز اليومي اليوم</b><h2>{{ daily_bookings_today }}</h2></div></a></div>
+ <div class="col-md-3"><a class="stat-link" href="{% url 'employee_list' %}"><div class="card stat-card p-3"><b>الموظفين</b><h2>{{ employees_count }}</h2></div></a></div>
+</div>
+<div class="card p-3"><h5>آخر الأكاديميات</h5><table class="table"><tr><th>الاسم</th><th>النشاط</th><th>المدير</th><th>نهاية العقد</th></tr>{% for a in latest_academies %}<tr><td>{{ a.name }}</td><td>{{ a.sport_activity }}</td><td>{{ a.manager_name }}</td><td>{{ a.contract_end_date }}</td></tr>{% empty %}<tr><td colspan="4">لا توجد بيانات بعد</td></tr>{% endfor %}</table></div>
+{% endblock %}
