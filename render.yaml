@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: EESS-SAMS
+    env: python
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: gunicorn sams_project.wsgi:application
