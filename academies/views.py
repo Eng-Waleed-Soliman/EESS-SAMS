@@ -1,7 +1,7 @@
 import json
 from calendar import monthrange
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
@@ -74,6 +74,11 @@ def login_view(request):
             return redirect(next_url if next_url != 'dashboard' else 'dashboard')
         error = 'اسم المستخدم أو كلمة المرور غير صحيحة.'
     return render(request, 'academies/login.html', {'users': users, 'login_error': error, 'next': next_url})
+
+
+def logout_view(request):
+    logout(request)
+    return redirect('login')
 
 
 @login_required

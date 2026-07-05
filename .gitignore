@@ -16,4 +16,7 @@ staticfiles/
 
 .idea/
 
-.DS_Storedata.json
+.DS_Store
+data.json
+data_full.json
+db_old.sqlite3

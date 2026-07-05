@@ -1,12 +1,11 @@
 from django.contrib import admin
 from django.urls import path
-from django.contrib.auth import views as auth_views
 from academies import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('login/', views.login_view, name='login'),
-    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout')
+    path('logout/', views.logout_view, name='logout'),
     path('', views.dashboard, name='dashboard'),
     path('academies/', views.academy_list, name='academy_list'),
     path('academies/add/', views.academy_create, name='academy_create'),
