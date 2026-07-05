@@ -754,7 +754,7 @@ class EESSUserForm(UserCreationForm):
         widget=forms.Select(attrs={'class': 'form-select'}),
         help_text='اختر اسم المستخدم من الوظائف المسجلة في الإعدادات.'
     )
-    first_name = forms.ChoiceField(label='الاسم', required=False, choices=[], widget=forms.Select(attrs={'class':'form-select'}), help_text='اختر الاسم من الموظفين المسجلين بالبرنامج.')
+    first_name = forms.CharField(label='الاسم', required=False, widget=forms.TextInput(attrs={'class':'form-control'}))
     email = forms.EmailField(label='البريد الإلكتروني', required=False, widget=forms.EmailInput(attrs={'class':'form-control'}))
     is_active = forms.BooleanField(label='مستخدم فعال', required=False, initial=True, widget=forms.CheckboxInput(attrs={'class':'form-check-input'}))
 
@@ -766,7 +766,6 @@ class EESSUserForm(UserCreationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['username'].choices = _job_title_username_choices()
-        self.fields['first_name'].choices = _employee_name_choices()
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
             if field.widget.__class__.__name__ == 'Select':
@@ -782,14 +781,19 @@ class EESSUserUpdateForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-select'}),
         help_text='اختر اسم المستخدم من الوظائف المسجلة في الإعدادات.'
     )
-    new_password = forms.CharField(label='كلمة مرور جديدة', required=False, widget=forms.PasswordInput(attrs={'class':'form-control'}))
+    new_password = forms.CharField(
+        label='كلمة مرور جديدة',
+        required=False,
+        widget=forms.PasswordInput(attrs={'class':'form-control', 'placeholder':'اتركها فارغة للاحتفاظ بكلمة المرور الحالية'}),
+        help_text='لا يمكن عرض كلمة المرور الحالية لأنها محفوظة بشكل مشفر. اكتب كلمة جديدة فقط إذا أردت تغييرها.'
+    )
 
     class Meta:
         model = User
         fields = ['username', 'first_name', 'email', 'is_active']
         labels = {'username': 'اسم المستخدم', 'first_name': 'الاسم', 'email': 'البريد الإلكتروني', 'is_active': 'مستخدم فعال'}
         widgets = {
-            'first_name': forms.Select(attrs={'class':'form-select'}),
+            'first_name': forms.TextInput(attrs={'class':'form-control'}),
             'email': forms.EmailInput(attrs={'class':'form-control'}),
             'is_active': forms.CheckboxInput(attrs={'class':'form-check-input'}),
         }
@@ -797,9 +801,7 @@ class EESSUserUpdateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         current_username = self.instance.username if self.instance and self.instance.pk else None
-        current_name = self.instance.first_name if self.instance and self.instance.pk else None
         self.fields['username'].choices = _job_title_username_choices(current_username)
-        self.fields['first_name'].choices = _employee_name_choices(current_name)
 
     def save(self, commit=True):
         user = super().save(commit=False)
