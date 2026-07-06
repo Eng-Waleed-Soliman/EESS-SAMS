@@ -181,6 +181,22 @@ class DailyBookingCheckout(models.Model):
         return f'{self.customer_name} - {self.income_date} - {self.total_amount}'
 
 
+class DailyIncomeSupply(models.Model):
+    supply_date = models.DateField(unique=True, verbose_name='تاريخ التوريد')
+    amount = models.PositiveIntegerField(default=0, verbose_name='مبلغ التوريد')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-supply_date']
+        verbose_name = 'توريد دخل يومي'
+        verbose_name_plural = 'توريدات الدخل اليومي'
+
+    def __str__(self):
+        return f'{self.supply_date} - {self.amount}'
+
+
 class OperationDayCancellation(models.Model):
     cancel_date = models.DateField(unique=True, verbose_name='تاريخ إلغاء التشغيل')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')

@@ -35,22 +35,37 @@
 </div>
 {% if view_mode == 'monthly' %}
 <div class="card p-3">
-  <h4 class="text-center mb-3">ملخص الدخل اليومي / الشهري لشهر {{ selected_date|date:'m/Y' }}</h4>
+  <h4 class="text-center mb-3">ملخص الدخل الشهري عن {{ month_name }} {{ selected_date|date:'Y' }}</h4>
   <div class="row g-3 text-center mb-3">
-    <div class="col-md-4"><div class="border rounded p-3 bg-light"><b>إجمالي الدخل اليومي</b><div class="fs-3">{{ month_income_total }}</div></div></div>
-    <div class="col-md-4"><div class="border rounded p-3 bg-light"><b>إجمالي المصروفات اليومية</b><div class="fs-3">{{ month_expense_total }}</div></div></div>
-    <div class="col-md-4"><div class="border rounded p-3 bg-light"><b>صافي الربح الشهري</b><div class="fs-3">{{ month_profit_total }}</div></div></div>
+    <div class="col-md-3"><div class="border rounded p-3 bg-light"><b>إجمالي الدخل اليومي</b><div class="fs-3">{{ month_income_total }}</div></div></div>
+    <div class="col-md-3"><div class="border rounded p-3 bg-light"><b>إجمالي التوريد</b><div class="fs-3">{{ month_supply_total }}</div></div></div>
+    <div class="col-md-3"><div class="border rounded p-3 bg-light"><b>المتبقي للخزينة</b><div class="fs-3">{{ month_treasury_remaining }}</div></div></div>
+    <div class="col-md-3"><div class="border rounded p-3 bg-light"><b>صافي الربح الشهري</b><div class="fs-3">{{ month_profit_total }}</div></div></div>
   </div>
+  <form method="post">
+    {% csrf_token %}
   <table class="table table-bordered align-middle text-center">
-    <thead class="table-light"><tr><th>اليوم</th><th>التاريخ</th><th>الدخل اليومي</th><th>المصروفات اليومية</th><th>صافي الربح اليومي</th></tr></thead>
+    <thead class="table-light"><tr><th>اليوم</th><th>التاريخ</th><th>الدخل اليومي</th><th>التوريد</th><th>المتبقي</th><th>المصروفات اليومية</th><th>صافي الربح اليومي</th></tr></thead>
     <tbody>
     {% for row in month_rows %}
-      <tr><td>{{ row.day_name }}</td><td>{{ row.date|date:'d/m/Y' }}</td><td>{{ row.income }}</td><td>{{ row.expenses }}</td><td>{{ row.net_profit }}</td></tr>
+      <tr>
+        <td>{{ row.day_name }}</td>
+        <td>{{ row.date|date:'d/m/Y' }}</td>
+        <td>{{ row.income }}</td>
+        <td><input type="number" min="0" step="1" class="form-control text-center" name="supply_{{ row.date|date:'Y-m-d' }}" value="{{ row.supply }}"></td>
+        <td>{{ row.treasury_remaining }}</td>
+        <td>{{ row.expenses }}</td>
+        <td>{{ row.net_profit }}</td>
+      </tr>
     {% empty %}
-      <tr><td colspan="5">لا توجد بيانات</td></tr>
+      <tr><td colspan="7">لا توجد بيانات</td></tr>
     {% endfor %}
     </tbody>
   </table>
+    <div class="d-flex justify-content-end no-print">
+      <button class="btn btn-primary">حفظ التوريد</button>
+    </div>
+  </form>
 </div>
 {% else %}
 <div class="card p-3">

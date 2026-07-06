@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Q
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, JobTitle, BonusTier
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 
@@ -27,6 +27,7 @@ def _ensure_user_profile(user):
 
 REPORT_PERMISSION_FIELDS = {
     'income': 'can_report_income',
+    'daily_booking_monthly': 'can_report_income',
     'shareholders': 'can_report_shareholders',
     'employees': 'can_report_employees',
     'payroll': 'can_report_payroll',
@@ -40,6 +41,21 @@ REPORT_PERMISSION_FIELDS = {
     'cafeteria_sales': 'can_report_cafeteria',
     'cafeteria_purchases': 'can_report_cafeteria',
     'deposits': 'can_report_deposits',
+}
+
+ARABIC_MONTH_NAMES = {
+    1: 'يناير',
+    2: 'فبراير',
+    3: 'مارس',
+    4: 'أبريل',
+    5: 'مايو',
+    6: 'يونيو',
+    7: 'يوليو',
+    8: 'أغسطس',
+    9: 'سبتمبر',
+    10: 'أكتوبر',
+    11: 'نوفمبر',
+    12: 'ديسمبر',
 }
 
 def _user_allowed_report_types(user):
@@ -524,6 +540,25 @@ def daily_income(request):
         selected_date = date.today()
 
     view_mode = request.GET.get('view', 'daily')
+
+    if request.method == 'POST' and view_mode == 'monthly':
+        days_count = monthrange(selected_date.year, selected_date.month)[1]
+        for day_no in range(1, days_count + 1):
+            current_date = date(selected_date.year, selected_date.month, day_no)
+            raw_amount = (request.POST.get(f'supply_{current_date.isoformat()}') or '0').strip()
+            try:
+                amount = max(0, int(raw_amount or 0))
+            except ValueError:
+                amount = 0
+            if amount:
+                DailyIncomeSupply.objects.update_or_create(
+                    supply_date=current_date,
+                    defaults={'amount': amount},
+                )
+            else:
+                DailyIncomeSupply.objects.filter(supply_date=current_date).delete()
+        return redirect(f"{request.path}?date={selected_date.isoformat()}&view=monthly")
+
     rows = DailyBookingCheckout.objects.filter(income_date=selected_date).order_by('start_time', 'customer_name')
     total_income = rows.aggregate(total=Sum('total_amount'))['total'] or 0
     total_advance = rows.aggregate(total=Sum('advance_payment'))['total'] or 0
@@ -533,22 +568,36 @@ def daily_income(request):
     month_income_total = 0
     month_expense_total = 0
     month_profit_total = 0
+    month_supply_total = 0
+    month_treasury_remaining = 0
     if view_mode == 'monthly':
         days_count = monthrange(selected_date.year, selected_date.month)[1]
+        supply_map = {
+            item.supply_date: item.amount
+            for item in DailyIncomeSupply.objects.filter(
+                supply_date__year=selected_date.year,
+                supply_date__month=selected_date.month,
+            )
+        }
         for day_no in range(1, days_count + 1):
             current_date = date(selected_date.year, selected_date.month, day_no)
             day_income = DailyBookingCheckout.objects.filter(income_date=current_date).aggregate(total=Sum('total_amount'))['total'] or 0
             day_expenses = (DailyExpense.objects.filter(expense_date=current_date).aggregate(total=Sum('amount'))['total'] or 0) + (OperatingExpense.objects.filter(expense_date=current_date).aggregate(total=Sum('amount'))['total'] or 0)
             net_profit = int(day_income) - int(day_expenses)
+            day_supply = int(supply_map.get(current_date, 0) or 0)
+            month_treasury_remaining = month_treasury_remaining + int(day_income) - day_supply
             month_income_total += int(day_income)
             month_expense_total += int(day_expenses)
             month_profit_total += int(net_profit)
+            month_supply_total += day_supply
             month_rows.append({
                 'date': current_date,
                 'day_name': WEEKDAY_AR[current_date.weekday()],
                 'income': day_income,
                 'expenses': day_expenses,
                 'net_profit': net_profit,
+                'supply': day_supply,
+                'treasury_remaining': month_treasury_remaining,
             })
 
     return render(request, 'academies/daily_income.html', {
@@ -563,6 +612,9 @@ def daily_income(request):
         'month_income_total': month_income_total,
         'month_expense_total': month_expense_total,
         'month_profit_total': month_profit_total,
+        'month_supply_total': month_supply_total,
+        'month_treasury_remaining': month_treasury_remaining,
+        'month_name': ARABIC_MONTH_NAMES[selected_date.month],
     })
 
 
@@ -919,6 +971,7 @@ def reports_home(request):
     fixed_income = sum(_calculate_fixed_income_with_operation_changes(a, year, month) for a in academies if a.subscription_type == 'fixed')
     variable_income = sum(_calculate_variable_income_with_operation_changes(a, year, month) for a in academies if a.subscription_type == 'variable')
     daily_booking_income = DailyBooking.objects.filter(booking_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
+    daily_booking_checkout_income = DailyBookingCheckout.objects.filter(income_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
     total_academy_income = fixed_income + variable_income + daily_booking_income
 
     founding_expenses = FoundingExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
@@ -961,12 +1014,26 @@ def reports_home(request):
         })
     academy_rows.sort(key=lambda row: (row['sort_type'], row['activity'] or '', row['academy'].name or ''))
 
+    daily_booking_monthly_rows = []
+    for day_number in range(1, monthrange(year, month)[1] + 1):
+        current = date(year, month, day_number)
+        checkouts = DailyBookingCheckout.objects.filter(income_date=current)
+        daily_booking_monthly_rows.append({
+            'date': current,
+            'day_name': WEEKDAY_AR[current.weekday()],
+            'total': checkouts.aggregate(total=Sum('total_amount'))['total'] or 0,
+            'advance': checkouts.aggregate(total=Sum('advance_payment'))['total'] or 0,
+            'remaining': checkouts.aggregate(total=Sum('remaining_amount'))['total'] or 0,
+            'count': checkouts.count(),
+        })
+
     deposit_academies = Academy.objects.all().order_by('sport_activity', 'name')
     security_deposit_total = sum(a.security_deposit for a in deposit_academies)
 
     report_type = request.GET.get('report_type', 'income')
     report_titles = {
         'income': 'تقرير الدخل من الأكاديميات والحجز اليومي',
+        'daily_booking_monthly': 'تقرير الدخل الشهري من الحجز اليومي',
         'shareholders': 'تقرير المساهمين والنسب والأرباح',
         'employees': 'تقرير الموظفين',
         'payroll': 'تقرير المرتبات الشهرية والبونص',
@@ -994,6 +1061,7 @@ def reports_home(request):
         'fixed_income': fixed_income,
         'variable_income': variable_income,
         'daily_booking_income': daily_booking_income,
+        'daily_booking_checkout_income': daily_booking_checkout_income,
         'total_academy_income': total_academy_income,
         'founding_expenses': founding_expenses,
         'monthly_expenses': monthly_expenses,
@@ -1008,6 +1076,7 @@ def reports_home(request):
         'employees': employees,
         'low_stock_items': low_stock_items,
         'academy_rows': academy_rows,
+        'daily_booking_monthly_rows': daily_booking_monthly_rows,
         'cafe_sales': cafe_sales,
         'cafe_purchases': cafe_purchases,
         'deposit_academies': deposit_academies,

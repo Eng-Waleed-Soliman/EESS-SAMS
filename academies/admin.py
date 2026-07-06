@@ -4,6 +4,7 @@ from .models import (
     FoundingExpense, MonthlyExpense, DailyExpense,
     CafeteriaItem, CafeteriaPurchase, CafeteriaSale,
     OperationDayCancellation, AcademyOperationOverride, UserPermission, DailyBookingCheckout,
+    DailyIncomeSupply,
 )
 
 
@@ -29,6 +30,12 @@ class DailyBookingAdmin(admin.ModelAdmin):
 class DailyBookingCheckoutAdmin(admin.ModelAdmin):
     list_display = ('income_date', 'customer_name', 'customer_phone', 'venue', 'booking_date', 'start_time', 'end_time', 'total_amount', 'advance_payment', 'remaining_amount')
     search_fields = ('customer_name', 'customer_phone', 'venue')
+
+
+@admin.register(DailyIncomeSupply)
+class DailyIncomeSupplyAdmin(admin.ModelAdmin):
+    list_display = ('supply_date', 'amount', 'updated_at')
+    search_fields = ('supply_date', 'notes')
 
 
 @admin.register(Shareholder)
