@@ -5,7 +5,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Count
 from datetime import date, timedelta
 from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, split_values
@@ -960,6 +960,72 @@ def _calculate_variable_income_with_operation_changes(academy, year, month):
             total_units += 1
     return int(rent_value * total_units)
 
+
+def _monthly_academy_operation_counts(year, month, academies):
+    start = date(year, month, 1)
+    end = date(year, month, monthrange(year, month)[1])
+    academy_ids = [academy.id for academy in academies]
+    cancelled_dates = set(
+        OperationDayCancellation.objects.filter(
+            cancel_date__range=(start, end)
+        ).values_list('cancel_date', flat=True)
+    )
+    deleted_overrides = {
+        (item.academy_id, item.booking_date, _norm(item.original_place), item.original_slot_index)
+        for item in AcademyOperationOverride.objects.filter(
+            academy_id__in=academy_ids,
+            booking_date__range=(start, end),
+            is_deleted=True,
+        )
+    }
+    total_counts = {}
+    active_counts = {}
+    active_days = {}
+    for day_number in range(1, monthrange(year, month)[1] + 1):
+        current = date(year, month, day_number)
+        day_ar = WEEKDAY_AR[current.weekday()]
+        is_cancelled = current in cancelled_dates
+        for academy in academies:
+            if not (academy.contract_start_date <= current <= academy.contract_end_date):
+                continue
+            day_active_count = 0
+            occurrence_sources = []
+            if _contains_value(academy.training_days, day_ar):
+                occurrence_sources.append((academy.operation_place, academy.training_hours))
+            extra_days = academy.extra_training_days or academy.training_days
+            if academy.has_extra_hours and _contains_value(extra_days, day_ar):
+                occurrence_sources.append((academy.extra_training_place, academy.extra_training_hours))
+            for places_text, hours_text in occurrence_sources:
+                for place in split_values(places_text):
+                    for slot in split_values(hours_text):
+                        slot_index = _slot_label_to_index(slot)
+                        if slot_index is None:
+                            continue
+                        total_counts[academy.id] = total_counts.get(academy.id, 0) + 1
+                        deleted_key = (academy.id, current, _norm(place), slot_index)
+                        if not is_cancelled and deleted_key not in deleted_overrides:
+                            active_counts[academy.id] = active_counts.get(academy.id, 0) + 1
+                            day_active_count += 1
+            if day_active_count:
+                active_days[academy.id] = active_days.get(academy.id, 0) + 1
+    return total_counts, active_counts, active_days
+
+
+def _academy_month_income_from_counts(academy, total_counts, active_counts, active_days):
+    academy_id = academy.id
+    if academy.subscription_type == 'fixed':
+        total_planned = total_counts.get(academy_id, 0)
+        active_planned = active_counts.get(academy_id, 0)
+        if total_planned <= 0:
+            return int(academy.monthly_subscription or 0)
+        return int((academy.monthly_subscription or 0) * active_planned / total_planned)
+    rent_value = int(academy.variable_rent_value or 0)
+    if academy.variable_rent_type == 'hour':
+        return rent_value * active_counts.get(academy_id, 0)
+    if academy.variable_rent_type == 'day':
+        return rent_value * active_days.get(academy_id, 0)
+    return 0
+
 @login_required
 def reports_home(request):
     allowed_report_types = _user_allowed_report_types(request.user)
@@ -967,69 +1033,6 @@ def reports_home(request):
         messages.error(request, 'ليس لديك صلاحية عرض التقارير.')
         return redirect('dashboard')
     year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
-    academies = Academy.objects.filter(contract_start_date__lte=end, contract_end_date__gte=start)
-    fixed_income = sum(_calculate_fixed_income_with_operation_changes(a, year, month) for a in academies if a.subscription_type == 'fixed')
-    variable_income = sum(_calculate_variable_income_with_operation_changes(a, year, month) for a in academies if a.subscription_type == 'variable')
-    daily_booking_income = DailyBooking.objects.filter(booking_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
-    daily_booking_checkout_income = DailyBookingCheckout.objects.filter(income_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
-    total_academy_income = fixed_income + variable_income + daily_booking_income
-
-    founding_expenses = FoundingExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
-    monthly_expenses = MonthlyExpense.objects.filter(expense_month__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
-    daily_expenses = DailyExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
-    operating_expenses = OperatingExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
-    salaries_total = Employee.objects.aggregate(total=Sum('salary'))['total'] or 0
-
-    cafe_purchases = CafeteriaPurchase.objects.filter(purchase_date__range=(start, end))
-    cafe_sales = CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item')
-    cafe_purchase_total = sum(p.total_amount for p in cafe_purchases)
-    cafe_sales_total = sum(s.total_amount for s in cafe_sales)
-    cafe_profit = cafe_sales_total - cafe_purchase_total - operating_expenses
-
-    net_profit = total_academy_income + cafe_profit - founding_expenses - monthly_expenses - daily_expenses - operating_expenses - salaries_total
-    shareholders = Shareholder.objects.all()
-    shareholder_rows = []
-    for sh in shareholders:
-        shareholder_rows.append({'shareholder': sh, 'profit_share': int(net_profit * sh.share_percentage / 100)})
-
-    employees = Employee.objects.all()
-    low_stock_items = [item for item in CafeteriaItem.objects.all() if item.is_low_stock]
-
-    academy_rows = []
-    for a in academies:
-        if a.subscription_type == 'variable':
-            value = _calculate_variable_income_with_operation_changes(a, year, month)
-            kind = 'متغير'
-            sort_type = 1
-        else:
-            value = _calculate_fixed_income_with_operation_changes(a, year, month)
-            kind = 'ثابت'
-            sort_type = 0
-        academy_rows.append({
-            'academy': a,
-            'activity': a.sport_activity,
-            'kind': kind,
-            'value': value,
-            'sort_type': sort_type,
-        })
-    academy_rows.sort(key=lambda row: (row['sort_type'], row['activity'] or '', row['academy'].name or ''))
-
-    daily_booking_monthly_rows = []
-    for day_number in range(1, monthrange(year, month)[1] + 1):
-        current = date(year, month, day_number)
-        checkouts = DailyBookingCheckout.objects.filter(income_date=current)
-        daily_booking_monthly_rows.append({
-            'date': current,
-            'day_name': WEEKDAY_AR[current.weekday()],
-            'total': checkouts.aggregate(total=Sum('total_amount'))['total'] or 0,
-            'advance': checkouts.aggregate(total=Sum('advance_payment'))['total'] or 0,
-            'remaining': checkouts.aggregate(total=Sum('remaining_amount'))['total'] or 0,
-            'count': checkouts.count(),
-        })
-
-    deposit_academies = Academy.objects.all().order_by('sport_activity', 'name')
-    security_deposit_total = sum(a.security_deposit for a in deposit_academies)
-
     report_type = request.GET.get('report_type', 'income')
     report_titles = {
         'income': 'تقرير الدخل من الأكاديميات والحجز اليومي',
@@ -1058,30 +1061,161 @@ def reports_home(request):
         'report_type': report_type,
         'report_title': report_titles[report_type],
         'allowed_report_options': allowed_report_options,
-        'fixed_income': fixed_income,
-        'variable_income': variable_income,
-        'daily_booking_income': daily_booking_income,
-        'daily_booking_checkout_income': daily_booking_checkout_income,
-        'total_academy_income': total_academy_income,
-        'founding_expenses': founding_expenses,
-        'monthly_expenses': monthly_expenses,
-        'daily_expenses': daily_expenses,
-        'operating_expenses': operating_expenses,
-        'salaries_total': salaries_total,
-        'cafe_purchase_total': cafe_purchase_total,
-        'cafe_sales_total': cafe_sales_total,
-        'cafe_profit': cafe_profit,
-        'net_profit': net_profit,
-        'shareholder_rows': shareholder_rows,
-        'employees': employees,
-        'low_stock_items': low_stock_items,
-        'academy_rows': academy_rows,
-        'daily_booking_monthly_rows': daily_booking_monthly_rows,
-        'cafe_sales': cafe_sales,
-        'cafe_purchases': cafe_purchases,
-        'deposit_academies': deposit_academies,
-        'security_deposit_total': security_deposit_total,
+        'fixed_income': 0,
+        'variable_income': 0,
+        'daily_booking_income': 0,
+        'daily_booking_checkout_income': 0,
+        'total_academy_income': 0,
+        'founding_expenses': 0,
+        'monthly_expenses': 0,
+        'daily_expenses': 0,
+        'operating_expenses': 0,
+        'salaries_total': 0,
+        'cafe_purchase_total': 0,
+        'cafe_sales_total': 0,
+        'cafe_profit': 0,
+        'net_profit': 0,
+        'shareholder_rows': [],
+        'employees': [],
+        'low_stock_items': [],
+        'academy_rows': [],
+        'daily_booking_monthly_rows': [],
+        'cafe_sales': [],
+        'cafe_purchases': [],
+        'deposit_academies': [],
+        'security_deposit_total': 0,
     }
+
+    if report_type == 'income':
+        academies = list(Academy.objects.filter(contract_start_date__lte=end, contract_end_date__gte=start))
+        total_counts, active_counts, active_days = _monthly_academy_operation_counts(year, month, academies)
+        academy_rows = []
+        for a in academies:
+            if a.subscription_type == 'variable':
+                value = _academy_month_income_from_counts(a, total_counts, active_counts, active_days)
+                kind = 'متغير'
+                sort_type = 1
+            else:
+                value = _academy_month_income_from_counts(a, total_counts, active_counts, active_days)
+                kind = 'ثابت'
+                sort_type = 0
+            academy_rows.append({
+                'academy': a,
+                'activity': a.sport_activity,
+                'kind': kind,
+                'value': value,
+                'sort_type': sort_type,
+            })
+        academy_rows.sort(key=lambda row: (row['sort_type'], row['activity'] or '', row['academy'].name or ''))
+        fixed_income = sum(row['value'] for row in academy_rows if row['sort_type'] == 0)
+        variable_income = sum(row['value'] for row in academy_rows if row['sort_type'] == 1)
+        daily_booking_income = DailyBooking.objects.filter(booking_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
+        context.update({
+            'academy_rows': academy_rows,
+            'fixed_income': fixed_income,
+            'variable_income': variable_income,
+            'daily_booking_income': daily_booking_income,
+            'total_academy_income': fixed_income + variable_income + daily_booking_income,
+        })
+
+    elif report_type == 'daily_booking_monthly':
+        grouped = {
+            row['income_date']: row
+            for row in DailyBookingCheckout.objects.filter(income_date__range=(start, end))
+            .values('income_date')
+            .annotate(
+                total=Sum('total_amount'),
+                advance=Sum('advance_payment'),
+                remaining=Sum('remaining_amount'),
+                count=Count('id'),
+            )
+        }
+        daily_booking_monthly_rows = []
+        daily_booking_checkout_income = 0
+        for day_number in range(1, monthrange(year, month)[1] + 1):
+            current = date(year, month, day_number)
+            row = grouped.get(current, {})
+            total = row.get('total') or 0
+            daily_booking_checkout_income += int(total)
+            daily_booking_monthly_rows.append({
+                'date': current,
+                'day_name': WEEKDAY_AR[current.weekday()],
+                'total': total,
+                'advance': row.get('advance') or 0,
+                'remaining': row.get('remaining') or 0,
+                'count': row.get('count') or 0,
+            })
+        context.update({
+            'daily_booking_monthly_rows': daily_booking_monthly_rows,
+            'daily_booking_checkout_income': daily_booking_checkout_income,
+        })
+
+    elif report_type in {'expenses', 'founding_expenses', 'monthly_expenses', 'daily_expenses', 'operating_expenses'}:
+        context.update({
+            'founding_expenses': FoundingExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0,
+            'monthly_expenses': MonthlyExpense.objects.filter(expense_month__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0,
+            'daily_expenses': DailyExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0,
+            'operating_expenses': OperatingExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0,
+        })
+
+    elif report_type in {'employees', 'payroll'}:
+        employees = Employee.objects.all()
+        context.update({
+            'employees': employees,
+            'salaries_total': employees.aggregate(total=Sum('salary'))['total'] or 0,
+        })
+
+    elif report_type == 'cafeteria':
+        cafe_purchases = CafeteriaPurchase.objects.filter(purchase_date__range=(start, end))
+        cafe_sales = CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item')
+        cafe_purchase_total = sum(p.total_amount for p in cafe_purchases)
+        cafe_sales_total = sum(s.total_amount for s in cafe_sales)
+        context.update({
+            'cafe_purchases': cafe_purchases,
+            'cafe_sales': cafe_sales,
+            'cafe_purchase_total': cafe_purchase_total,
+            'cafe_sales_total': cafe_sales_total,
+            'cafe_profit': cafe_sales_total - cafe_purchase_total,
+            'low_stock_items': [item for item in CafeteriaItem.objects.all() if item.is_low_stock],
+        })
+
+    elif report_type in {'cafeteria_inventory', 'cafeteria_sales', 'cafeteria_purchases'}:
+        context.update({
+            'cafe_purchases': CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)),
+            'cafe_sales': CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item'),
+            'low_stock_items': [item for item in CafeteriaItem.objects.all() if item.is_low_stock],
+        })
+
+    elif report_type == 'deposits':
+        deposit_academies = Academy.objects.all().order_by('sport_activity', 'name')
+        context.update({
+            'deposit_academies': deposit_academies,
+            'security_deposit_total': sum(a.security_deposit for a in deposit_academies),
+        })
+
+    elif report_type == 'shareholders':
+        academies = list(Academy.objects.filter(contract_start_date__lte=end, contract_end_date__gte=start))
+        total_counts, active_counts, active_days = _monthly_academy_operation_counts(year, month, academies)
+        fixed_income = sum(_academy_month_income_from_counts(a, total_counts, active_counts, active_days) for a in academies if a.subscription_type == 'fixed')
+        variable_income = sum(_academy_month_income_from_counts(a, total_counts, active_counts, active_days) for a in academies if a.subscription_type == 'variable')
+        daily_booking_income = DailyBooking.objects.filter(booking_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
+        total_academy_income = fixed_income + variable_income + daily_booking_income
+        founding_expenses = FoundingExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
+        monthly_expenses = MonthlyExpense.objects.filter(expense_month__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
+        daily_expenses = DailyExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
+        operating_expenses = OperatingExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
+        salaries_total = Employee.objects.aggregate(total=Sum('salary'))['total'] or 0
+        cafe_purchase_total = sum(p.total_amount for p in CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)))
+        cafe_sales_total = sum(s.total_amount for s in CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item'))
+        cafe_profit = cafe_sales_total - cafe_purchase_total - operating_expenses
+        net_profit = total_academy_income + cafe_profit - founding_expenses - monthly_expenses - daily_expenses - operating_expenses - salaries_total
+        context.update({
+            'net_profit': net_profit,
+            'shareholder_rows': [
+                {'shareholder': sh, 'profit_share': int(net_profit * sh.share_percentage / 100)}
+                for sh in Shareholder.objects.all()
+            ],
+        })
     return render(request, 'academies/reports.html', context)
 
 
