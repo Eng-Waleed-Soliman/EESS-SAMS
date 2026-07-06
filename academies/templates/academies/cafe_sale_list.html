@@ -1,5 +1,168 @@
 {% extends 'academies/base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between mb-3"><h3>الكافيتريا - حركات البيع</h3><div><a class="btn btn-secondary" href="{% url 'cafe_item_list' %}">الأصناف</a> <a class="btn btn-success" href="{% url 'cafe_sale_create' %}">إضافة بيع</a></div></div>
-<div class="card p-3"><table class="table table-striped"><thead><tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th>الربح التقديري</th><th></th></tr></thead><tbody>{% for s in sales %}<tr><td>{{ s.sale_date }}</td><td>{{ s.item.name }}</td><td>{{ s.quantity }}</td><td>{{ s.unit_price }}</td><td>{{ s.total_amount }}</td><td>{{ s.estimated_profit }}</td><td><a class="btn btn-sm btn-primary" href="{% url 'cafe_sale_update' s.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'cafe_sale_delete' s.pk %}">حذف</a></td></tr>{% empty %}<tr><td colspan="7">لا توجد بيانات</td></tr>{% endfor %}</tbody></table></div>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3>الكافيتريا - البيع</h3>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn" href="{% url 'cafe_item_list' %}">الأصناف</a>
+    <a class="btn" href="{% url 'cafe_purchase_list' %}">الشراء</a>
+    <a class="btn" href="{% url 'cafe_sale_prices' %}">أسعار البيع</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4 text-center">
+  <div class="col-md-4"><div class="card p-3 h-100"><b>مبيعات اليوم</b><div class="fs-3">{{ today_total }}</div></div></div>
+  <div class="col-md-4"><div class="card p-3 h-100"><b>عدد الحركات</b><div class="fs-3">{{ today_count }}</div></div></div>
+  <div class="col-md-4"><div class="card p-3 h-100"><b>الربح التقديري</b><div class="fs-3">{{ today_profit }}</div></div></div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-7">
+    <form method="post" class="card p-4 h-100" id="quickSaleForm">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      <h5 class="fw-bold mb-3">تسجيل بيع سريع</h5>
+      <div class="row g-3">
+        <div class="col-md-7">
+          <label class="form-label fw-bold">{{ form.item.label }}</label>
+          {{ form.item }}
+          <div class="text-danger small">{{ form.item.errors }}</div>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label fw-bold">{{ form.sale_date.label }}</label>
+          {{ form.sale_date }}
+          <div class="text-danger small">{{ form.sale_date.errors }}</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-bold">{{ form.quantity.label }}</label>
+          {{ form.quantity }}
+          <div class="text-danger small">{{ form.quantity.errors }}</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-bold">{{ form.unit_price.label }}</label>
+          {{ form.unit_price }}
+          <div class="text-danger small">{{ form.unit_price.errors }}</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-bold">الإجمالي</label>
+          <input class="form-control fw-bold text-center" id="sale_total" value="0" readonly>
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-bold">{{ form.notes.label }}</label>
+          {{ form.notes }}
+          <div class="text-danger small">{{ form.notes.errors }}</div>
+        </div>
+      </div>
+      <div class="d-flex gap-2 align-items-center justify-content-between mt-4 flex-wrap">
+        <div class="text-muted" id="stockInfo">اختر الصنف لعرض المخزون المتاح.</div>
+        <button class="btn" id="saveSaleBtn">حفظ البيع</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card p-4 h-100">
+      <h5 class="fw-bold mb-3">الأصناف المتاحة</h5>
+      <div class="row g-2" id="itemCards">
+        {% for item in items %}
+        <div class="col-md-6">
+          <button type="button" class="cafe-item-card" data-id="{{ item.id }}">
+            <span class="item-name">{{ item.name }}</span>
+            <span class="item-meta">سعر {{ item.sale_price }} | مخزون {{ item.stock_quantity }}</span>
+          </button>
+        </div>
+        {% empty %}
+        <div class="text-muted">لا توجد أصناف مسجلة.</div>
+        {% endfor %}
+      </div>
+      {% if low_stock_items %}
+      <div class="alert alert-warning mt-3 mb-0">
+        مخزون منخفض:
+        {% for item in low_stock_items %}{{ item.name }}{% if not forloop.last %}، {% endif %}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card p-3">
+  <h5 class="fw-bold mb-3">آخر حركات البيع</h5>
+  <table class="table table-striped align-middle text-center">
+    <thead><tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th>الربح التقديري</th><th></th></tr></thead>
+    <tbody>
+      {% for s in sales %}
+      <tr>
+        <td>{{ s.sale_date }}</td>
+        <td>{{ s.item.name }}</td>
+        <td>{{ s.quantity }}</td>
+        <td>{{ s.unit_price }}</td>
+        <td>{{ s.total_amount }}</td>
+        <td>{{ s.estimated_profit }}</td>
+        <td><a class="btn btn-sm" href="{% url 'cafe_sale_update' s.pk %}">تعديل</a> <a class="btn btn-sm" href="{% url 'cafe_sale_delete' s.pk %}">حذف</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7">لا توجد بيانات</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{{ items|json_script:"items-data" }}
+<style>
+.cafe-item-card{width:100%;min-height:78px;border:1px solid #dbe4ef;border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:10px 12px;text-align:right;transition:.15s;box-shadow:0 6px 14px rgba(15,23,42,.05)}
+.cafe-item-card:hover,.cafe-item-card.active{border-color:#38bdf8;background:#effaff;transform:translateY(-1px)}
+.item-name{font-weight:900;color:#0f172a}
+.item-meta{font-size:14px;color:#64748b;margin-top:4px}
+</style>
+<script>
+const rawItems = JSON.parse(document.getElementById('items-data').textContent);
+const itemMap = {};
+rawItems.forEach(function(item){ itemMap[item.id] = item; });
+
+const itemSelect = document.getElementById('id_item');
+const quantityInput = document.getElementById('id_quantity');
+const priceInput = document.getElementById('id_unit_price');
+const totalInput = document.getElementById('sale_total');
+const stockInfo = document.getElementById('stockInfo');
+const saleDate = document.getElementById('id_sale_date');
+
+if(saleDate && !saleDate.value){
+  saleDate.value = new Date().toISOString().slice(0, 10);
+}
+
+function selectedItem(){
+  return itemSelect ? itemMap[itemSelect.value] : null;
+}
+
+function refreshSale(){
+  const item = selectedItem();
+  if(item && (!priceInput.value || priceInput.value === '0')){
+    priceInput.value = item.sale_price || 0;
+  }
+  const qty = parseInt(quantityInput.value || '0', 10);
+  const price = parseInt(priceInput.value || '0', 10);
+  totalInput.value = Math.max(0, qty * price);
+  if(item){
+    stockInfo.textContent = 'المخزون المتاح: ' + item.stock_quantity;
+  }else{
+    stockInfo.textContent = 'اختر الصنف لعرض المخزون المتاح.';
+  }
+  document.querySelectorAll('.cafe-item-card').forEach(function(card){
+    card.classList.toggle('active', item && String(item.id) === card.dataset.id);
+  });
+}
+
+document.querySelectorAll('.cafe-item-card').forEach(function(card){
+  card.addEventListener('click', function(){
+    itemSelect.value = card.dataset.id;
+    priceInput.value = '';
+    refreshSale();
+    quantityInput.focus();
+  });
+});
+
+if(itemSelect){ itemSelect.addEventListener('change', function(){ priceInput.value=''; refreshSale(); }); }
+if(quantityInput){ quantityInput.addEventListener('input', refreshSale); }
+if(priceInput){ priceInput.addEventListener('input', refreshSale); }
+refreshSale();
+</script>
 {% endblock %}

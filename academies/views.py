@@ -887,8 +887,39 @@ def cafe_purchase_delete(request, pk):
 
 @login_required
 def cafe_sale_list(request):
-    sales = CafeteriaSale.objects.select_related('item').all()
-    return render(request, 'academies/cafe_sale_list.html', {'sales': sales})
+    form = CafeteriaSaleForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        sale = form.save(commit=False)
+        if not sale.unit_price and sale.item_id:
+            sale.unit_price = sale.item.sale_price
+        sale.save()
+        messages.success(request, 'تم تسجيل البيع بنجاح.')
+        return redirect('cafe_sale_list')
+
+    sales = CafeteriaSale.objects.select_related('item').all()[:50]
+    today = date.today()
+    today_sales = CafeteriaSale.objects.filter(sale_date=today).select_related('item')
+    today_total = sum(sale.total_amount for sale in today_sales)
+    today_profit = sum(sale.estimated_profit for sale in today_sales)
+    low_stock_items = [item for item in CafeteriaItem.objects.all().order_by('name') if item.is_low_stock]
+    items = [
+        {
+            'id': item.id,
+            'name': item.name,
+            'sale_price': item.sale_price,
+            'stock_quantity': item.stock_quantity,
+        }
+        for item in CafeteriaItem.objects.all().order_by('name')
+    ]
+    return render(request, 'academies/cafe_sale_list.html', {
+        'form': form,
+        'sales': sales,
+        'items': items,
+        'today_total': today_total,
+        'today_profit': today_profit,
+        'today_count': today_sales.count(),
+        'low_stock_items': low_stock_items,
+    })
 
 @login_required
 def cafe_sale_create(request):
