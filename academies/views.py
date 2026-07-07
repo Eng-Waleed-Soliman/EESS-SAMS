@@ -26,6 +26,7 @@ def _ensure_user_profile(user):
 
 
 REPORT_PERMISSION_FIELDS = {
+    'company_income': 'can_report_income',
     'income': 'can_report_income',
     'daily_booking_monthly': 'can_report_income',
     'academy_rent_payments': 'can_report_income',
@@ -1112,8 +1113,9 @@ def reports_home(request):
         messages.error(request, 'ليس لديك صلاحية عرض التقارير.')
         return redirect('dashboard')
     year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
-    report_type = request.GET.get('report_type', 'income')
+    report_type = request.GET.get('report_type', 'company_income')
     report_titles = {
+        'company_income': 'إجمالي دخل الشركة',
         'income': 'تقرير الدخل من الأكاديميات والحجز اليومي',
         'daily_booking_monthly': 'تقرير الدخل الشهري من الحجز اليومي',
         'academy_rent_payments': 'تقرير سداد إيجارات الأكاديميات الشهرية',
@@ -1166,13 +1168,48 @@ def reports_home(request):
         'academy_rent_remaining_total': 0,
         'academy_rent_supplied_total': 0,
         'academy_rent_unsupplied_total': 0,
+        'company_income_daily_total': 0,
+        'company_income_daily_supplied_total': 0,
+        'company_income_daily_unsupplied_total': 0,
+        'company_income_expected_total': 0,
+        'company_income_paid_total': 0,
+        'company_income_remaining_total': 0,
+        'company_income_supplied_total': 0,
+        'company_income_unsupplied_total': 0,
+        'company_income_total_due': 0,
+        'company_income_rows': [],
         'cafe_sales': [],
         'cafe_purchases': [],
         'deposit_academies': [],
         'security_deposit_total': 0,
     }
 
-    if report_type == 'income':
+    if report_type == 'company_income':
+        rent_rows = _academy_rent_rows(year, month, start, end)
+        daily_total = DailyBookingCheckout.objects.filter(income_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
+        daily_supplied_total = DailyIncomeSupply.objects.filter(supply_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
+        daily_unsupplied_total = max(0, int(daily_total or 0) - int(daily_supplied_total or 0))
+        academy_expected_total = sum(row['expected'] for row in rent_rows)
+        academy_paid_total = sum(row['paid'] for row in rent_rows)
+        academy_remaining_total = sum(row['remaining'] for row in rent_rows)
+        academy_supplied_total = sum(row['supplied'] for row in rent_rows)
+        academy_unsupplied_total = sum(row['unsupplied'] for row in rent_rows)
+        context.update({
+            'company_income_rows': rent_rows,
+            'company_income_daily_total': daily_total,
+            'company_income_daily_supplied_total': daily_supplied_total,
+            'company_income_daily_unsupplied_total': daily_unsupplied_total,
+            'company_income_expected_total': academy_expected_total,
+            'company_income_paid_total': academy_paid_total,
+            'company_income_remaining_total': academy_remaining_total,
+            'company_income_supplied_total': academy_supplied_total + int(daily_supplied_total or 0),
+            'company_income_unsupplied_total': academy_unsupplied_total + daily_unsupplied_total,
+            'company_income_total_due': academy_expected_total + int(daily_total or 0),
+            'academy_rent_supplied_total': academy_supplied_total,
+            'academy_rent_unsupplied_total': academy_unsupplied_total,
+        })
+
+    elif report_type == 'income':
         academies = list(Academy.objects.filter(contract_start_date__lte=end, contract_end_date__gte=start))
         total_counts, active_counts, active_days = _monthly_academy_operation_counts(year, month, academies)
         academy_rows = []

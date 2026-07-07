@@ -24,6 +24,60 @@
   </form>
 </div>
 
+{% if report_type == 'company_income' %}
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="card p-3"><b>إجمالي المستحق</b><h3>{{ company_income_total_due }}</h3></div></div>
+  <div class="col-md-4"><div class="card p-3"><b>مستحق الأكاديميات</b><h3>{{ company_income_expected_total }}</h3></div></div>
+  <div class="col-md-4"><div class="card p-3"><b>إجمالي الدخل اليومي</b><h3>{{ company_income_daily_total }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>المسدد من الأكاديميات</b><h3>{{ company_income_paid_total }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>المتبقي على الأكاديميات</b><h3>{{ company_income_remaining_total }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>إجمالي المورد</b><h3>{{ company_income_supplied_total }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>إجمالي غير المورد</b><h3>{{ company_income_unsupplied_total }}</h3></div></div>
+</div>
+
+<div class="card p-3 mb-4">
+  <h4>إجمالي دخل الشركة</h4>
+  <div class="table-responsive">
+    <table class="table table-striped text-center align-middle">
+      <thead>
+        <tr>
+          <th>الأكاديمية</th>
+          <th>الفرع</th>
+          <th>النشاط</th>
+          <th>المستحق</th>
+          <th>المسدد</th>
+          <th>المتبقي</th>
+          <th>المورد</th>
+          <th>غير المورد</th>
+          <th>حالة السداد</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in company_income_rows %}
+        <tr>
+          <td>{{ row.academy.name }}</td>
+          <td>{{ row.academy.branch.name|default:'-' }}</td>
+          <td>{{ row.academy.sport_activity }}</td>
+          <td>{{ row.expected }}</td>
+          <td>{{ row.paid }}</td>
+          <td>{{ row.remaining }}</td>
+          <td>{{ row.supplied }}</td>
+          <td>{{ row.unsupplied }}</td>
+          <td>{% if row.is_paid %}مسدد{% else %}غير مسدد{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9">لا توجد أكاديميات سارية في هذا الشهر</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr><th colspan="3">إجمالي الأكاديميات</th><th>{{ company_income_expected_total }}</th><th>{{ company_income_paid_total }}</th><th>{{ company_income_remaining_total }}</th><th>{{ academy_rent_supplied_total }}</th><th>{{ academy_rent_unsupplied_total }}</th><th></th></tr>
+        <tr><th colspan="3">إجمالي الدخل اليومي</th><th>{{ company_income_daily_total }}</th><th></th><th></th><th>{{ company_income_daily_supplied_total }}</th><th>{{ company_income_daily_unsupplied_total }}</th><th></th></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% if report_type == 'income' %}
 <div class="row g-3 mb-4">
   <div class="col-md-3"><div class="card p-3"><b>دخل الاشتراكات الثابتة</b><h3>{{ fixed_income }}</h3></div></div>
