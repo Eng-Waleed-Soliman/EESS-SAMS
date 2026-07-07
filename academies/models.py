@@ -12,7 +12,83 @@ def split_values(value):
     return [item.strip() for item in str(value).split(',') if item.strip()]
 
 
+class AppSetting(models.Model):
+    program_name = models.CharField(max_length=200, default='EESS Management System', verbose_name='اسم البرنامج')
+    company_name = models.CharField(max_length=250, default='Egyptian English Sports Services', verbose_name='اسم الشركة')
+    company_logo = models.FileField(upload_to='branding/', blank=True, verbose_name='لوجو الشركة')
+    main_screen_image = models.FileField(upload_to='branding/', blank=True, verbose_name='صورة الشاشة الرئيسية')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'إعدادات البرنامج'
+        verbose_name_plural = 'إعدادات البرنامج'
+
+    def __str__(self):
+        return self.program_name
+
+    @classmethod
+    def current(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
+class Branch(models.Model):
+    name = models.CharField(max_length=200, verbose_name='اسم الفرع')
+    location = models.CharField(max_length=250, blank=True, verbose_name='الموقع')
+    logo = models.FileField(upload_to='branches/logos/', blank=True, verbose_name='لوجو الفرع')
+    image = models.FileField(upload_to='branches/images/', blank=True, verbose_name='صورة الفرع')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'فرع'
+        verbose_name_plural = 'الأفرع'
+
+    def __str__(self):
+        return self.name
+
+
+class Facility(models.Model):
+    FACILITY_TYPES = [
+        ('field', 'ملعب'),
+        ('hall', 'صالة رياضية'),
+        ('other', 'أخرى'),
+    ]
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='facilities', verbose_name='الفرع')
+    name = models.CharField(max_length=200, verbose_name='اسم الملعب / الصالة')
+    facility_type = models.CharField(max_length=20, choices=FACILITY_TYPES, default='field', verbose_name='النوع')
+    image = models.FileField(upload_to='facilities/', blank=True, verbose_name='الصورة')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['branch__name', 'name']
+        verbose_name = 'ملعب / صالة'
+        verbose_name_plural = 'الملاعب والصالات'
+
+    def __str__(self):
+        return f'{self.branch} - {self.name}'
+
+
+class SportActivityMedia(models.Model):
+    name = models.CharField(max_length=200, verbose_name='اسم الرياضة / النشاط')
+    image = models.FileField(upload_to='sports/', blank=True, verbose_name='الصورة')
+    description = models.TextField(blank=True, verbose_name='وصف مختصر')
+    is_active = models.BooleanField(default=True, verbose_name='نشط')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'صورة رياضة / نشاط'
+        verbose_name_plural = 'صور الرياضات والأنشطة'
+
+    def __str__(self):
+        return self.name
+
+
 class Academy(models.Model):
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='academies', verbose_name='الفرع')
     name = models.CharField(max_length=200, verbose_name='اسم الأكاديمية')
     sport_activity = models.CharField(max_length=150, verbose_name='النشاط الرياضي')
     company_name = models.CharField(max_length=200, verbose_name='اسم الشركة')
@@ -195,6 +271,43 @@ class DailyIncomeSupply(models.Model):
 
     def __str__(self):
         return f'{self.supply_date} - {self.amount}'
+
+
+class AcademyMonthlyRentPayment(models.Model):
+    academy = models.ForeignKey(Academy, on_delete=models.CASCADE, related_name='monthly_rent_payments', verbose_name='الأكاديمية')
+    month = models.DateField(verbose_name='الشهر')
+    expected_amount = models.PositiveIntegerField(default=0, verbose_name='الإيجار المستحق')
+    paid_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المدفوع')
+    supplied_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المورد للشركة')
+    payment_date = models.DateField(null=True, blank=True, verbose_name='تاريخ الدفع')
+    supplied_date = models.DateField(null=True, blank=True, verbose_name='تاريخ التوريد')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('academy', 'month')
+        ordering = ['month', 'academy__name']
+        verbose_name = 'سداد إيجار أكاديمية شهري'
+        verbose_name_plural = 'سدادات إيجارات الأكاديميات الشهرية'
+
+    @property
+    def remaining_amount(self):
+        return max(0, int(self.expected_amount or 0) - int(self.paid_amount or 0))
+
+    @property
+    def unsupplied_amount(self):
+        return max(0, int(self.paid_amount or 0) - int(self.supplied_amount or 0))
+
+    @property
+    def is_paid(self):
+        return int(self.paid_amount or 0) >= int(self.expected_amount or 0)
+
+    @property
+    def is_supplied(self):
+        return int(self.supplied_amount or 0) >= int(self.paid_amount or 0) and int(self.paid_amount or 0) > 0
+
+    def __str__(self):
+        return f'{self.academy} - {self.month:%Y-%m}'
 
 
 class OperationDayCancellation(models.Model):

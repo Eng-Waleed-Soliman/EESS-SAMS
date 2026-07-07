@@ -7,8 +7,8 @@ from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Q, Count
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, AcademyMonthlyRentPayment
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 
 
@@ -28,6 +28,7 @@ def _ensure_user_profile(user):
 REPORT_PERMISSION_FIELDS = {
     'income': 'can_report_income',
     'daily_booking_monthly': 'can_report_income',
+    'academy_rent_payments': 'can_report_income',
     'shareholders': 'can_report_shareholders',
     'employees': 'can_report_employees',
     'payroll': 'can_report_payroll',
@@ -718,7 +719,7 @@ def _generic_crud_list(request, model, template, context_name, search_fields=Non
 
 
 def _generic_form(request, form_class, title, back_url, instance=None):
-    form = form_class(request.POST or None, instance=instance)
+    form = form_class(request.POST or None, request.FILES or None, instance=instance)
     if form.is_valid():
         form.save()
         return redirect(back_url)
@@ -1057,6 +1058,42 @@ def _academy_month_income_from_counts(academy, total_counts, active_counts, acti
         return rent_value * active_days.get(academy_id, 0)
     return 0
 
+
+def _academy_rent_rows(year, month, start, end):
+    academies = list(
+        Academy.objects.select_related('branch').filter(
+            contract_start_date__lte=end,
+            contract_end_date__gte=start,
+        )
+    )
+    total_counts, active_counts, active_days = _monthly_academy_operation_counts(year, month, academies)
+    month_start = date(year, month, 1)
+    rows = []
+    for academy in academies:
+        expected = _academy_month_income_from_counts(academy, total_counts, active_counts, active_days)
+        payment, _ = AcademyMonthlyRentPayment.objects.get_or_create(
+            academy=academy,
+            month=month_start,
+            defaults={'expected_amount': expected},
+        )
+        if payment.expected_amount != expected:
+            payment.expected_amount = expected
+            payment.save(update_fields=['expected_amount', 'updated_at'])
+        rows.append({
+            'academy': academy,
+            'payment': payment,
+            'expected': int(expected or 0),
+            'paid': int(payment.paid_amount or 0),
+            'remaining': payment.remaining_amount,
+            'supplied': int(payment.supplied_amount or 0),
+            'unsupplied': payment.unsupplied_amount,
+            'is_paid': payment.is_paid,
+            'is_supplied': payment.is_supplied,
+        })
+    rows.sort(key=lambda row: (row['academy'].branch.name if row['academy'].branch_id else '', row['academy'].name))
+    return rows
+
+
 @login_required
 def reports_home(request):
     allowed_report_types = _user_allowed_report_types(request.user)
@@ -1068,6 +1105,7 @@ def reports_home(request):
     report_titles = {
         'income': 'تقرير الدخل من الأكاديميات والحجز اليومي',
         'daily_booking_monthly': 'تقرير الدخل الشهري من الحجز اليومي',
+        'academy_rent_payments': 'تقرير سداد إيجارات الأكاديميات الشهرية',
         'shareholders': 'تقرير المساهمين والنسب والأرباح',
         'employees': 'تقرير الموظفين',
         'payroll': 'تقرير المرتبات الشهرية والبونص',
@@ -1111,6 +1149,12 @@ def reports_home(request):
         'low_stock_items': [],
         'academy_rows': [],
         'daily_booking_monthly_rows': [],
+        'academy_rent_rows': [],
+        'academy_rent_expected_total': 0,
+        'academy_rent_paid_total': 0,
+        'academy_rent_remaining_total': 0,
+        'academy_rent_supplied_total': 0,
+        'academy_rent_unsupplied_total': 0,
         'cafe_sales': [],
         'cafe_purchases': [],
         'deposit_academies': [],
@@ -1147,6 +1191,17 @@ def reports_home(request):
             'variable_income': variable_income,
             'daily_booking_income': daily_booking_income,
             'total_academy_income': fixed_income + variable_income + daily_booking_income,
+        })
+
+    elif report_type == 'academy_rent_payments':
+        rent_rows = _academy_rent_rows(year, month, start, end)
+        context.update({
+            'academy_rent_rows': rent_rows,
+            'academy_rent_expected_total': sum(row['expected'] for row in rent_rows),
+            'academy_rent_paid_total': sum(row['paid'] for row in rent_rows),
+            'academy_rent_remaining_total': sum(row['remaining'] for row in rent_rows),
+            'academy_rent_supplied_total': sum(row['supplied'] for row in rent_rows),
+            'academy_rent_unsupplied_total': sum(row['unsupplied'] for row in rent_rows),
         })
 
     elif report_type == 'daily_booking_monthly':
@@ -1259,6 +1314,172 @@ def settings_home(request):
         'users_count': User.objects.count(),
         'jobs_count': JobTitle.objects.count(),
         'bonus_count': BonusTier.objects.count(),
+        'branches_count': Branch.objects.count(),
+        'facilities_count': Facility.objects.count(),
+        'sports_media_count': SportActivityMedia.objects.count(),
+    })
+
+
+@login_required
+def branding_settings(request):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    setting = AppSetting.current()
+    form = AppSettingForm(request.POST or None, request.FILES or None, instance=setting)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'تم حفظ اسم البرنامج واللوجو.')
+        return redirect('settings_home')
+    return render(request, 'academies/simple_form.html', {'form': form, 'title': 'هوية البرنامج واللوجو', 'back_url': 'settings_home'})
+
+
+@login_required
+def branch_list(request):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    q = request.GET.get('q', '').strip()
+    branches = Branch.objects.all()
+    if q:
+        branches = branches.filter(Q(name__icontains=q) | Q(location__icontains=q) | Q(notes__icontains=q))
+    return render(request, 'academies/branch_list.html', {'branches': branches, 'q': q})
+
+
+@login_required
+def branch_create(request):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_form(request, BranchForm, 'إضافة فرع', 'branch_list')
+
+
+@login_required
+def branch_update(request, pk):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_form(request, BranchForm, 'تعديل فرع', 'branch_list', get_object_or_404(Branch, pk=pk))
+
+
+@login_required
+def branch_delete(request, pk):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_delete(request, get_object_or_404(Branch, pk=pk), 'حذف فرع', 'branch_list')
+
+
+@login_required
+def facility_list(request):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    q = request.GET.get('q', '').strip()
+    facilities = Facility.objects.select_related('branch').all()
+    if q:
+        facilities = facilities.filter(Q(name__icontains=q) | Q(branch__name__icontains=q) | Q(notes__icontains=q))
+    return render(request, 'academies/facility_list.html', {'facilities': facilities, 'q': q})
+
+
+@login_required
+def facility_create(request):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_form(request, FacilityForm, 'إضافة ملعب / صالة', 'facility_list')
+
+
+@login_required
+def facility_update(request, pk):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_form(request, FacilityForm, 'تعديل ملعب / صالة', 'facility_list', get_object_or_404(Facility, pk=pk))
+
+
+@login_required
+def facility_delete(request, pk):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_delete(request, get_object_or_404(Facility, pk=pk), 'حذف ملعب / صالة', 'facility_list')
+
+
+@login_required
+def sport_media_list(request):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    q = request.GET.get('q', '').strip()
+    sports_media = SportActivityMedia.objects.all()
+    if q:
+        sports_media = sports_media.filter(Q(name__icontains=q) | Q(description__icontains=q))
+    return render(request, 'academies/sport_media_list.html', {'sports_media': sports_media, 'q': q})
+
+
+@login_required
+def sport_media_create(request):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_form(request, SportActivityMediaForm, 'إضافة صورة رياضة / نشاط', 'sport_media_list')
+
+
+@login_required
+def sport_media_update(request, pk):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_form(request, SportActivityMediaForm, 'تعديل صورة رياضة / نشاط', 'sport_media_list', get_object_or_404(SportActivityMedia, pk=pk))
+
+
+@login_required
+def sport_media_delete(request, pk):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_delete(request, get_object_or_404(SportActivityMedia, pk=pk), 'حذف صورة رياضة / نشاط', 'sport_media_list')
+
+
+@login_required
+def academy_rent_payments(request):
+    if not _can_access_reports(request.user):
+        messages.error(request, 'ليس لديك صلاحية عرض الإيجارات الشهرية.')
+        return redirect('dashboard')
+    year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
+    rows = _academy_rent_rows(year, month, start, end)
+    if request.method == 'POST':
+        for row in rows:
+            payment = row['payment']
+            prefix = f'payment_{payment.id}_'
+            for field_name in ['paid_amount', 'supplied_amount']:
+                raw_value = (request.POST.get(prefix + field_name) or '0').strip()
+                try:
+                    setattr(payment, field_name, max(0, int(raw_value or 0)))
+                except ValueError:
+                    setattr(payment, field_name, 0)
+            for field_name in ['payment_date', 'supplied_date']:
+                raw_date = (request.POST.get(prefix + field_name) or '').strip()
+                try:
+                    setattr(payment, field_name, date.fromisoformat(raw_date) if raw_date else None)
+                except ValueError:
+                    setattr(payment, field_name, None)
+            payment.notes = request.POST.get(prefix + 'notes', '').strip()
+            payment.save()
+        messages.success(request, 'تم حفظ سدادات وتوريدات إيجارات الأكاديميات.')
+        return redirect(f"{request.path}?month={month_value}")
+    totals = {
+        'expected': sum(row['expected'] for row in rows),
+        'paid': sum(row['paid'] for row in rows),
+        'remaining': sum(row['remaining'] for row in rows),
+        'supplied': sum(row['supplied'] for row in rows),
+        'unsupplied': sum(row['unsupplied'] for row in rows),
+    }
+    return render(request, 'academies/academy_rent_payments.html', {
+        'rows': rows,
+        'totals': totals,
+        'month_value': month_value,
     })
 
 @login_required

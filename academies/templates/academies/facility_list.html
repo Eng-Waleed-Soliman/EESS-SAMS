@@ -1,0 +1,26 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3 flex-wrap gap-2">
+  <h3>الملاعب والصالات</h3>
+  <a class="btn btn-primary" href="{% url 'facility_create' %}">إضافة ملعب / صالة</a>
+</div>
+<form class="mb-3"><input name="q" value="{{ q }}" class="form-control search-box w-half" placeholder="بحث"></form>
+<div class="card p-3">
+  <div class="table-responsive">
+    <table class="table table-striped align-middle">
+      <thead><tr><th>الصورة</th><th>الاسم</th><th>الفرع</th><th>النوع</th><th></th></tr></thead>
+      <tbody>
+        {% for facility in facilities %}
+        <tr>
+          <td>{% if facility.image %}<img class="media-thumb" src="{{ facility.image.url }}" alt="{{ facility.name }}">{% else %}-{% endif %}</td>
+          <td>{{ facility.name }}</td>
+          <td>{{ facility.branch.name }}</td>
+          <td>{{ facility.get_facility_type_display }}</td>
+          <td><a class="btn btn-sm btn-primary" href="{% url 'facility_update' facility.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'facility_delete' facility.pk %}">حذف</a></td>
+        </tr>
+        {% empty %}<tr><td colspan="5">لا توجد بيانات</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -4,14 +4,37 @@ from .models import (
     FoundingExpense, MonthlyExpense, DailyExpense,
     CafeteriaItem, CafeteriaPurchase, CafeteriaSale,
     OperationDayCancellation, AcademyOperationOverride, UserPermission, DailyBookingCheckout,
-    DailyIncomeSupply,
+    DailyIncomeSupply, AppSetting, Branch, Facility, SportActivityMedia, AcademyMonthlyRentPayment,
 )
 
 
 @admin.register(Academy)
 class AcademyAdmin(admin.ModelAdmin):
-    list_display = ('name', 'sport_activity', 'manager_name', 'manager_phone', 'contract_end_date', 'subscription_type', 'security_deposit')
-    search_fields = ('name', 'sport_activity', 'manager_name', 'manager_phone')
+    list_display = ('name', 'branch', 'sport_activity', 'manager_name', 'manager_phone', 'contract_end_date', 'subscription_type', 'security_deposit')
+    search_fields = ('name', 'sport_activity', 'manager_name', 'manager_phone', 'branch__name')
+
+
+@admin.register(AppSetting)
+class AppSettingAdmin(admin.ModelAdmin):
+    list_display = ('program_name', 'company_name', 'updated_at')
+
+
+@admin.register(Branch)
+class BranchAdmin(admin.ModelAdmin):
+    list_display = ('name', 'location', 'created_at')
+    search_fields = ('name', 'location', 'notes')
+
+
+@admin.register(Facility)
+class FacilityAdmin(admin.ModelAdmin):
+    list_display = ('name', 'branch', 'facility_type', 'created_at')
+    search_fields = ('name', 'branch__name', 'notes')
+
+
+@admin.register(SportActivityMedia)
+class SportActivityMediaAdmin(admin.ModelAdmin):
+    list_display = ('name', 'is_active', 'created_at')
+    search_fields = ('name', 'description')
 
 
 @admin.register(Customer)
@@ -36,6 +59,13 @@ class DailyBookingCheckoutAdmin(admin.ModelAdmin):
 class DailyIncomeSupplyAdmin(admin.ModelAdmin):
     list_display = ('supply_date', 'amount', 'updated_at')
     search_fields = ('supply_date', 'notes')
+
+
+@admin.register(AcademyMonthlyRentPayment)
+class AcademyMonthlyRentPaymentAdmin(admin.ModelAdmin):
+    list_display = ('academy', 'month', 'expected_amount', 'paid_amount', 'supplied_amount', 'updated_at')
+    list_filter = ('month',)
+    search_fields = ('academy__name', 'notes')
 
 
 @admin.register(Shareholder)

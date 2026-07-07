@@ -1,4 +1,13 @@
 {% extends 'academies/base.html' %}{% block content %}
+<div class="card p-4 mb-4">
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    {% if app_settings and app_settings.company_logo %}<img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
+    <div>
+      <h2 class="mb-1 fw-bold">{% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</h2>
+      <div class="text-muted">{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
+    </div>
+  </div>
+</div>
 <h3 class="page-title">لوحة التحكم</h3>
 <div class="row g-3 mb-4">
  <div class="col-md-3"><a class="stat-link" href="{% url 'academy_list' %}"><div class="card stat-card p-3"><b>عدد الأكاديميات</b><h2>{{ total_academies }}</h2></div></a></div>

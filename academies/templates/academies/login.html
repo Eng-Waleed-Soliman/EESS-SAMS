@@ -3,11 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>تسجيل الدخول - SAMS</title>
+  <title>تسجيل الدخول - {% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
   <style>
     body{background:#f4f6f9;font-family:"Times New Roman", Times, serif;font-size:18px}
     .login-card{max-width:440px;margin:auto;border:0;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.12)}
+    .login-logo{width:86px;height:86px;object-fit:contain;border-radius:14px;background:#fff;padding:6px;box-shadow:0 8px 18px rgba(15,23,42,.10);display:block;margin:0 auto 12px}
     input,select,button{font-family:"Times New Roman", Times, serif;font-size:18px!important}
     .btn{height:48px!important;border-radius:10px!important;background:#dff6ff!important;border-color:#9bdcf5!important;color:#0f172a!important;font-weight:900!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
     .btn:hover{background:#2563eb!important;border-color:#2563eb!important;color:#fff!important}
@@ -19,7 +20,8 @@
     <div class="col-md-5">
       <div class="card login-card">
         <div class="card-body p-4">
-          <h3 class="mb-1 text-center">SAMS</h3>
+          {% if app_settings and app_settings.company_logo %}<img class="login-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
+          <h3 class="mb-1 text-center">{% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</h3>
           <h5 class="mb-4 text-center text-muted">تسجيل الدخول إلى برنامج إدارة الأكاديميات</h5>
           {% if form.errors or login_error %}<div class="alert alert-danger">{{ login_error|default:'اسم المستخدم أو كلمة المرور غير صحيحة.' }}</div>{% endif %}
           <form method="post">

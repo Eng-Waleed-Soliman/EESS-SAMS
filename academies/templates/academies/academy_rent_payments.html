@@ -1,0 +1,56 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3>إيجارات الأكاديميات الشهرية</h3>
+  <a class="btn btn-secondary" href="{% url 'settings_home' %}">رجوع للإعدادات</a>
+</div>
+
+<div class="card p-3 mb-4">
+  <form class="row g-3 align-items-end" method="get">
+    <div class="col-md-4">
+      <label class="form-label fw-bold">الشهر</label>
+      <input type="month" name="month" value="{{ month_value }}" class="form-control">
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-primary w-100">عرض</button>
+    </div>
+  </form>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md"><div class="card p-3"><b>المستحق</b><h3>{{ totals.expected }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>المدفوع</b><h3>{{ totals.paid }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>المتبقي</b><h3>{{ totals.remaining }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>المورد</b><h3>{{ totals.supplied }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>لم يورد</b><h3>{{ totals.unsupplied }}</h3></div></div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="card p-3">
+    <div class="table-responsive">
+      <table class="table table-striped align-middle text-center">
+        <thead><tr><th>الأكاديمية</th><th>الفرع</th><th>المستحق</th><th>المدفوع</th><th>تاريخ الدفع</th><th>المتبقي</th><th>التوريد للشركة</th><th>تاريخ التوريد</th><th>غير مورد</th><th>الحالة</th><th>ملاحظات</th></tr></thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>{{ row.academy.name }}</td>
+            <td>{{ row.academy.branch.name|default:'-' }}</td>
+            <td>{{ row.expected }}</td>
+            <td><input class="form-control" type="number" min="0" name="payment_{{ row.payment.id }}_paid_amount" value="{{ row.paid }}"></td>
+            <td><input class="form-control" type="date" name="payment_{{ row.payment.id }}_payment_date" value="{{ row.payment.payment_date|date:'Y-m-d' }}"></td>
+            <td>{{ row.remaining }}</td>
+            <td><input class="form-control" type="number" min="0" name="payment_{{ row.payment.id }}_supplied_amount" value="{{ row.supplied }}"></td>
+            <td><input class="form-control" type="date" name="payment_{{ row.payment.id }}_supplied_date" value="{{ row.payment.supplied_date|date:'Y-m-d' }}"></td>
+            <td>{{ row.unsupplied }}</td>
+            <td>{% if row.is_paid %}مدفوع{% else %}غير مدفوع{% endif %}</td>
+            <td><input class="form-control" name="payment_{{ row.payment.id }}_notes" value="{{ row.payment.notes }}"></td>
+          </tr>
+          {% empty %}<tr><td colspan="11">لا توجد أكاديميات سارية في هذا الشهر</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button class="btn btn-primary mt-3">حفظ</button>
+  </div>
+</form>
+{% endblock %}

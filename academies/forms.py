@@ -2,7 +2,7 @@ from django import forms
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, AcademyMonthlyRentPayment
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -161,12 +161,13 @@ class AcademyForm(forms.ModelForm):
     class Meta:
         model = Academy
         fields = [
-            'name', 'sport_activity', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone',
+            'branch', 'name', 'sport_activity', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone',
             'operation_place', 'contract_start_date', 'contract_end_date', 'subscription_type', 'monthly_subscription',
             'variable_rent_type', 'variable_rent_value', 'security_deposit', 'training_days', 'training_hours',
             'has_extra_hours', 'extra_training_days', 'extra_training_place', 'extra_training_hours', 'notes'
         ]
         widgets = {
+            'branch': forms.Select(attrs={'class': 'form-select'}),
             'contract_start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'contract_end_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
@@ -227,6 +228,91 @@ class AcademyForm(forms.ModelForm):
         if commit:
             academy.save()
         return academy
+
+
+class AppSettingForm(forms.ModelForm):
+    class Meta:
+        model = AppSetting
+        fields = ['program_name', 'company_name', 'company_logo', 'main_screen_image']
+        widgets = {
+            'program_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'company_name': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            css = field.widget.attrs.get('class', '')
+            if 'form-control' not in css:
+                field.widget.attrs['class'] = (css + ' form-control').strip()
+
+
+class BranchForm(forms.ModelForm):
+    class Meta:
+        model = Branch
+        fields = ['name', 'location', 'logo', 'image', 'notes']
+        widgets = {
+            'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            css = field.widget.attrs.get('class', '')
+            if 'form-control' not in css:
+                field.widget.attrs['class'] = (css + ' form-control').strip()
+
+
+class FacilityForm(forms.ModelForm):
+    class Meta:
+        model = Facility
+        fields = ['branch', 'name', 'facility_type', 'image', 'notes']
+        widgets = {
+            'branch': forms.Select(attrs={'class': 'form-select'}),
+            'facility_type': forms.Select(attrs={'class': 'form-select'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            css = field.widget.attrs.get('class', '')
+            if field.widget.__class__.__name__ == 'Select':
+                field.widget.attrs['class'] = 'form-select'
+            elif 'form-control' not in css:
+                field.widget.attrs['class'] = (css + ' form-control').strip()
+
+
+class SportActivityMediaForm(forms.ModelForm):
+    class Meta:
+        model = SportActivityMedia
+        fields = ['name', 'image', 'description', 'is_active']
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if name == 'is_active':
+                continue
+            css = field.widget.attrs.get('class', '')
+            if 'form-control' not in css:
+                field.widget.attrs['class'] = (css + ' form-control').strip()
+
+
+class AcademyMonthlyRentPaymentForm(forms.ModelForm):
+    class Meta:
+        model = AcademyMonthlyRentPayment
+        fields = ['paid_amount', 'payment_date', 'supplied_amount', 'supplied_date', 'notes']
+        widgets = {
+            'paid_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
+            'payment_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'supplied_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
+            'supplied_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'notes': forms.TextInput(attrs={'class': 'form-control'}),
+        }
 
 
 class DailyBookingForm(forms.ModelForm):

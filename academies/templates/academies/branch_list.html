@@ -1,0 +1,26 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3 flex-wrap gap-2">
+  <h3>الأفرع</h3>
+  <a class="btn btn-primary" href="{% url 'branch_create' %}">إضافة فرع</a>
+</div>
+<form class="mb-3"><input name="q" value="{{ q }}" class="form-control search-box w-half" placeholder="بحث"></form>
+<div class="card p-3">
+  <div class="table-responsive">
+    <table class="table table-striped align-middle">
+      <thead><tr><th>اللوجو</th><th>الصورة</th><th>اسم الفرع</th><th>الموقع</th><th></th></tr></thead>
+      <tbody>
+        {% for branch in branches %}
+        <tr>
+          <td>{% if branch.logo %}<img class="media-thumb" src="{{ branch.logo.url }}" alt="{{ branch.name }}">{% else %}-{% endif %}</td>
+          <td>{% if branch.image %}<img class="media-thumb" src="{{ branch.image.url }}" alt="{{ branch.name }}">{% else %}-{% endif %}</td>
+          <td>{{ branch.name }}</td>
+          <td>{{ branch.location|default:'-' }}</td>
+          <td><a class="btn btn-sm btn-primary" href="{% url 'branch_update' branch.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'branch_delete' branch.pk %}">حذف</a></td>
+        </tr>
+        {% empty %}<tr><td colspan="5">لا توجد بيانات</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

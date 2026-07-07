@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, re_path
+from django.views.static import serve
 from academies import views
 
 urlpatterns = [
@@ -61,6 +63,20 @@ urlpatterns = [
     path('cafeteria/sales/<int:pk>/edit/', views.cafe_sale_update, name='cafe_sale_update'),
     path('cafeteria/sales/<int:pk>/delete/', views.cafe_sale_delete, name='cafe_sale_delete'),
     path('settings/', views.settings_home, name='settings_home'),
+    path('settings/branding/', views.branding_settings, name='branding_settings'),
+    path('settings/branches/', views.branch_list, name='branch_list'),
+    path('settings/branches/add/', views.branch_create, name='branch_create'),
+    path('settings/branches/<int:pk>/edit/', views.branch_update, name='branch_update'),
+    path('settings/branches/<int:pk>/delete/', views.branch_delete, name='branch_delete'),
+    path('settings/facilities/', views.facility_list, name='facility_list'),
+    path('settings/facilities/add/', views.facility_create, name='facility_create'),
+    path('settings/facilities/<int:pk>/edit/', views.facility_update, name='facility_update'),
+    path('settings/facilities/<int:pk>/delete/', views.facility_delete, name='facility_delete'),
+    path('settings/sports-media/', views.sport_media_list, name='sport_media_list'),
+    path('settings/sports-media/add/', views.sport_media_create, name='sport_media_create'),
+    path('settings/sports-media/<int:pk>/edit/', views.sport_media_update, name='sport_media_update'),
+    path('settings/sports-media/<int:pk>/delete/', views.sport_media_delete, name='sport_media_delete'),
+    path('academy-rent-payments/', views.academy_rent_payments, name='academy_rent_payments'),
     path('users/', views.user_list, name='user_list'),
     path('users/add/', views.user_create, name='user_create'),
     path('users/<int:pk>/edit/', views.user_update, name='user_update'),
@@ -74,4 +90,5 @@ urlpatterns = [
     path('settings/bonus/<int:pk>/edit/', views.bonus_tier_update, name='bonus_tier_update'),
     path('settings/bonus/<int:pk>/delete/', views.bonus_tier_delete, name='bonus_tier_delete'),
     path('reports/', views.reports_home, name='reports_home'),
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
