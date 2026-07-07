@@ -29,7 +29,7 @@
   {% csrf_token %}
   <div class="card p-3">
     <div class="table-responsive">
-      <table class="table table-striped align-middle text-center">
+      <table class="table table-striped align-middle text-center rent-payments-table">
         <thead><tr><th>الأكاديمية</th><th>الفرع</th><th>المستحق</th><th>المدفوع</th><th>تاريخ الدفع</th><th>المتبقي</th><th>التوريد للشركة</th><th>تاريخ التوريد</th><th>غير مورد</th><th>الحالة</th><th>ملاحظات</th></tr></thead>
         <tbody>
           {% for row in rows %}
@@ -37,10 +37,10 @@
             <td>{{ row.academy.name }}</td>
             <td>{{ row.academy.branch.name|default:'-' }}</td>
             <td>{{ row.expected }}</td>
-            <td><input class="form-control" type="number" min="0" name="payment_{{ row.payment.id }}_paid_amount" value="{{ row.paid }}"></td>
+            <td><input class="form-control money-input" type="number" min="0" name="payment_{{ row.payment.id }}_paid_amount" value="{{ row.paid }}"></td>
             <td><input class="form-control" type="date" name="payment_{{ row.payment.id }}_payment_date" value="{{ row.payment.payment_date|date:'Y-m-d' }}"></td>
             <td>{{ row.remaining }}</td>
-            <td><input class="form-control" type="number" min="0" name="payment_{{ row.payment.id }}_supplied_amount" value="{{ row.supplied }}"></td>
+            <td><input class="form-control money-input" type="number" min="0" name="payment_{{ row.payment.id }}_supplied_amount" value="{{ row.supplied }}"></td>
             <td><input class="form-control" type="date" name="payment_{{ row.payment.id }}_supplied_date" value="{{ row.payment.supplied_date|date:'Y-m-d' }}"></td>
             <td>{{ row.unsupplied }}</td>
             <td>{% if row.is_paid %}مدفوع{% else %}غير مدفوع{% endif %}</td>
