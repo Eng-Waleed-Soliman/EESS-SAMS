@@ -1059,6 +1059,16 @@ def _academy_month_income_from_counts(academy, total_counts, active_counts, acti
     return 0
 
 
+BALL_FIELD_NAMES = ['ملعب كرة القدم #1', 'ملعب كرة القدم #2', 'ملعب الباسكت']
+
+
+def _is_ball_field_academy(academy):
+    places = [academy.operation_place]
+    if academy.has_extra_hours:
+        places.append(academy.extra_training_place)
+    return any(_contains_value(place_text, field_name) for place_text in places for field_name in BALL_FIELD_NAMES)
+
+
 def _academy_rent_rows(year, month, start, end):
     academies = list(
         Academy.objects.select_related('branch').filter(
@@ -1089,6 +1099,7 @@ def _academy_rent_rows(year, month, start, end):
             'unsupplied': payment.unsupplied_amount,
             'is_paid': payment.is_paid,
             'is_supplied': payment.is_supplied,
+            'is_ball_field_academy': _is_ball_field_academy(academy),
         })
     rows.sort(key=lambda row: (row['academy'].branch.name if row['academy'].branch_id else '', row['academy'].name))
     return rows
@@ -1184,7 +1195,7 @@ def reports_home(request):
         academy_rows.sort(key=lambda row: (row['sort_type'], row['activity'] or '', row['academy'].name or ''))
         fixed_income = sum(row['value'] for row in academy_rows if row['sort_type'] == 0)
         variable_income = sum(row['value'] for row in academy_rows if row['sort_type'] == 1)
-        daily_booking_income = DailyBooking.objects.filter(booking_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
+        daily_booking_income = DailyBookingCheckout.objects.filter(income_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
         context.update({
             'academy_rows': academy_rows,
             'fixed_income': fixed_income,
@@ -1284,7 +1295,7 @@ def reports_home(request):
         total_counts, active_counts, active_days = _monthly_academy_operation_counts(year, month, academies)
         fixed_income = sum(_academy_month_income_from_counts(a, total_counts, active_counts, active_days) for a in academies if a.subscription_type == 'fixed')
         variable_income = sum(_academy_month_income_from_counts(a, total_counts, active_counts, active_days) for a in academies if a.subscription_type == 'variable')
-        daily_booking_income = DailyBooking.objects.filter(booking_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
+        daily_booking_income = DailyBookingCheckout.objects.filter(income_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
         total_academy_income = fixed_income + variable_income + daily_booking_income
         founding_expenses = FoundingExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
         monthly_expenses = MonthlyExpense.objects.filter(expense_month__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
@@ -1472,6 +1483,8 @@ def academy_rent_payments(request):
     totals = {
         'expected': sum(row['expected'] for row in rows),
         'paid': sum(row['paid'] for row in rows),
+        'ball_field_paid': sum(row['paid'] for row in rows if row['is_ball_field_academy']),
+        'daily_booking_income': DailyBookingCheckout.objects.filter(income_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0,
         'remaining': sum(row['remaining'] for row in rows),
         'supplied': sum(row['supplied'] for row in rows),
         'unsupplied': sum(row['unsupplied'] for row in rows),

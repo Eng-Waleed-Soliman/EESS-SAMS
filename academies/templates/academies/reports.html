@@ -64,7 +64,7 @@
 {% if report_type == 'academy_rent_payments' %}
 <div class="row g-3 mb-4">
   <div class="col-md"><div class="card p-3"><b>إجمالي المستحق</b><h3>{{ academy_rent_expected_total }}</h3></div></div>
-  <div class="col-md"><div class="card p-3"><b>إجمالي المدفوع</b><h3>{{ academy_rent_paid_total }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>إجمالي المسدد</b><h3>{{ academy_rent_paid_total }}</h3></div></div>
   <div class="col-md"><div class="card p-3"><b>إجمالي المتبقي</b><h3>{{ academy_rent_remaining_total }}</h3></div></div>
   <div class="col-md"><div class="card p-3"><b>إجمالي المورد</b><h3>{{ academy_rent_supplied_total }}</h3></div></div>
 </div>
@@ -72,7 +72,7 @@
   <h4>تقرير سداد إيجارات الأكاديميات الشهرية</h4>
   <div class="table-responsive">
     <table class="table table-striped text-center align-middle">
-      <thead><tr><th>الأكاديمية</th><th>الفرع</th><th>النشاط</th><th>المستحق</th><th>المدفوع</th><th>المتبقي</th><th>المورد</th><th>غير مورد</th><th>حالة الدفع</th><th>حالة التوريد</th></tr></thead>
+      <thead><tr><th>الأكاديمية</th><th>الفرع</th><th>النشاط</th><th>المستحق</th><th>المسدد</th><th>المتبقي</th><th>المورد</th><th>غير مورد</th><th>حالة السداد</th><th>حالة التوريد</th></tr></thead>
       <tbody>
         {% for row in academy_rent_rows %}
         <tr>
@@ -84,7 +84,7 @@
           <td>{{ row.remaining }}</td>
           <td>{{ row.supplied }}</td>
           <td>{{ row.unsupplied }}</td>
-          <td>{% if row.is_paid %}مدفوع{% else %}غير مدفوع{% endif %}</td>
+          <td>{% if row.is_paid %}مسدد{% else %}غير مسدد{% endif %}</td>
           <td>{% if row.is_supplied %}مورد{% else %}غير مكتمل{% endif %}</td>
         </tr>
         {% empty %}<tr><td colspan="10">لا توجد أكاديميات سارية في هذا الشهر</td></tr>{% endfor %}

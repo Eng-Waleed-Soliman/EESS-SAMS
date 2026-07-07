@@ -19,8 +19,8 @@
 
 <div class="row g-3 mb-4">
   <div class="col-md"><div class="card p-3"><b>المستحق</b><h3>{{ totals.expected }}</h3></div></div>
-  <div class="col-md"><div class="card p-3"><b>المدفوع</b><h3>{{ totals.paid }}</h3></div></div>
-  <div class="col-md"><div class="card p-3"><b>المتبقي</b><h3>{{ totals.remaining }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>المسدد من أكاديميات الملاعب</b><h3>{{ totals.ball_field_paid }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>حجز ملاعب الكرة</b><h3>{{ totals.daily_booking_income }}</h3></div></div>
   <div class="col-md"><div class="card p-3"><b>المورد</b><h3>{{ totals.supplied }}</h3></div></div>
   <div class="col-md"><div class="card p-3"><b>لم يورد</b><h3>{{ totals.unsupplied }}</h3></div></div>
 </div>
@@ -30,7 +30,21 @@
   <div class="card p-3">
     <div class="table-responsive">
       <table class="table table-striped align-middle text-center rent-payments-table">
-        <thead><tr><th>الأكاديمية</th><th>الفرع</th><th>المستحق</th><th>المدفوع</th><th>تاريخ الدفع</th><th>المتبقي</th><th>التوريد للشركة</th><th>تاريخ التوريد</th><th>غير مورد</th><th>الحالة</th><th>ملاحظات</th></tr></thead>
+        <thead>
+          <tr>
+            <th>الأكاديمية</th>
+            <th>الفرع</th>
+            <th>المستحق</th>
+            <th>المسدد</th>
+            <th>تاريخ السداد</th>
+            <th>المتبقي</th>
+            <th>التوريد للشركة</th>
+            <th>تاريخ التوريد</th>
+            <th>غير مورد</th>
+            <th>الحالة</th>
+            <th>ملاحظات</th>
+          </tr>
+        </thead>
         <tbody>
           {% for row in rows %}
           <tr>
@@ -43,7 +57,7 @@
             <td><input class="form-control money-input" type="number" min="0" name="payment_{{ row.payment.id }}_supplied_amount" value="{{ row.supplied }}"></td>
             <td><input class="form-control" type="date" name="payment_{{ row.payment.id }}_supplied_date" value="{{ row.payment.supplied_date|date:'Y-m-d' }}"></td>
             <td>{{ row.unsupplied }}</td>
-            <td>{% if row.is_paid %}مدفوع{% else %}غير مدفوع{% endif %}</td>
+            <td>{% if row.is_paid %}مسدد{% else %}غير مسدد{% endif %}</td>
             <td><input class="form-control" name="payment_{{ row.payment.id }}_notes" value="{{ row.payment.notes }}"></td>
           </tr>
           {% empty %}<tr><td colspan="11">لا توجد أكاديميات سارية في هذا الشهر</td></tr>{% endfor %}
