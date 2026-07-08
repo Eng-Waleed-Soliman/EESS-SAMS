@@ -1,0 +1,27 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3 flex-wrap gap-2">
+  <h3>الأنشطة المتاحة</h3>
+  <a class="btn btn-primary" href="{% url 'activity_create' %}">إضافة نشاط</a>
+</div>
+<form class="mb-3"><input name="q" value="{{ q }}" class="form-control search-box w-half" placeholder="بحث"></form>
+<div class="card p-3">
+  <div class="table-responsive">
+    <table class="table table-striped align-middle">
+      <thead><tr><th>النشاط</th><th>نوع الدخل</th><th>أماكن التدريب</th><th>نسبة EESS</th><th>الحالة</th><th></th></tr></thead>
+      <tbody>
+        {% for activity in activities %}
+        <tr>
+          <td>{{ activity.name }}</td>
+          <td>{{ activity.get_income_type_display }}</td>
+          <td>{{ activity.training_places|default:'-' }}</td>
+          <td>{{ activity.eess_share_percentage }}%</td>
+          <td>{% if activity.is_active %}نشط{% else %}غير نشط{% endif %}</td>
+          <td><a class="btn btn-sm btn-primary" href="{% url 'activity_update' activity.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'activity_delete' activity.pk %}">حذف</a></td>
+        </tr>
+        {% empty %}<tr><td colspan="6">لا توجد أنشطة بعد</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3>الحسابات</h3>
+  <button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button>
+</div>
+<div class="card p-3 mb-4">
+  <form class="row g-3 align-items-end" method="get">
+    <div class="col-md-4">
+      <label class="form-label fw-bold">الشهر</label>
+      <input type="month" name="month" value="{{ month_value }}" class="form-control">
+    </div>
+    <div class="col-md-3"><button class="btn btn-primary w-100">عرض</button></div>
+  </form>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card p-3"><b>إجمالي الدخل الشهري</b><h3>{{ summary.gross_income }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>دخل الأكاديميات</b><h3>{{ summary.academy_income }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>الدخل اليومي</b><h3>{{ summary.daily_income_total }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>إجمالي المصروفات</b><h3>{{ summary.total_expenses }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>المرتبات + البونص</b><h3>{{ summary.payroll_total }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>المصروفات الشهرية</b><h3>{{ summary.monthly_expenses }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>مصروفات التشغيل</b><h3>{{ summary.operating_expenses }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>صافي الربح</b><h3>{{ summary.net_profit }}</h3></div></div>
+</div>
+<div class="card p-3 mb-4">
+  <h4>المرتبات والبونص</h4>
+  <table class="table table-striped text-center"><thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب</th><th>البونص</th><th>الإجمالي</th></tr></thead><tbody>{% for row in summary.payroll_rows %}<tr><td>{{ row.employee.name }}</td><td>{{ row.employee.job_title }}</td><td>{{ row.salary }}</td><td>{{ row.bonus }}</td><td>{{ row.total }}</td></tr>{% empty %}<tr><td colspan="5">لا توجد بيانات موظفين</td></tr>{% endfor %}</tbody></table>
+</div>
+<div class="card p-3">
+  <h4>توزيع الأرباح على المساهمين</h4>
+  <table class="table table-striped text-center"><thead><tr><th>المساهم</th><th>النسبة</th><th>النصيب من صافي الربح</th></tr></thead><tbody>{% for row in shareholder_rows %}<tr><td>{{ row.shareholder.name }}</td><td>{{ row.shareholder.share_percentage }}%</td><td>{{ row.profit_share }}</td></tr>{% empty %}<tr><td colspan="3">لا توجد بيانات مساهمين</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endblock %}

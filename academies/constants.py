@@ -96,6 +96,7 @@ PERIOD_SLOT_RANGES = {
 SUBSCRIPTION_TYPE_CHOICES = [
     ('fixed', 'قيمة ثابتة'),
     ('variable', 'قيمة متغيرة'),
+    ('revenue_share', 'نسبة مشاركة'),
 ]
 
 VARIABLE_RENT_TYPE_CHOICES = [

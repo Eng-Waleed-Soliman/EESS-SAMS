@@ -2,7 +2,7 @@ from django import forms
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, AcademyMonthlyRentPayment
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -163,7 +163,7 @@ class AcademyForm(forms.ModelForm):
         fields = [
             'branch', 'name', 'sport_activity', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone',
             'operation_place', 'contract_start_date', 'contract_end_date', 'subscription_type', 'monthly_subscription',
-            'variable_rent_type', 'variable_rent_value', 'security_deposit', 'training_days', 'training_hours',
+            'variable_rent_type', 'variable_rent_value', 'eess_share_percentage', 'security_deposit', 'training_days', 'training_hours',
             'has_extra_hours', 'extra_training_days', 'extra_training_place', 'extra_training_hours', 'notes'
         ]
         widgets = {
@@ -172,11 +172,21 @@ class AcademyForm(forms.ModelForm):
             'contract_end_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control fixed-field', 'step': '1'}),
+            'eess_share_percentage': forms.NumberInput(attrs={'class': 'form-control share-field', 'step': '1', 'min': '0', 'max': '100'}),
             'security_deposit': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        activity_names = list(Activity.objects.filter(is_active=True).values_list('name', flat=True).order_by('name'))
+        static_names = [value for value, _ in SPORT_ACTIVITY_CHOICES]
+        choices = []
+        for name in activity_names + static_names:
+            if name and name not in [value for value, _ in choices]:
+                choices.append((name, name))
+        if self.instance and self.instance.pk and self.instance.sport_activity and self.instance.sport_activity not in [value for value, _ in choices]:
+            choices.insert(0, (self.instance.sport_activity, self.instance.sport_activity))
+        self.fields['sport_activity'].choices = [('', 'اختر النشاط الرياضي')] + choices
         for name, field in self.fields.items():
             css_class = field.widget.attrs.get('class', '')
             if name == 'has_extra_hours':
@@ -225,9 +235,80 @@ class AcademyForm(forms.ModelForm):
         if academy.subscription_type == 'fixed':
             academy.variable_rent_type = ''
             academy.variable_rent_value = 0
+            academy.eess_share_percentage = 0
+        if academy.subscription_type == 'variable':
+            academy.eess_share_percentage = 0
+        if academy.subscription_type == 'revenue_share':
+            academy.monthly_subscription = 0
+            academy.variable_rent_type = ''
+            academy.variable_rent_value = 0
         if commit:
             academy.save()
         return academy
+
+
+class ActivityForm(forms.ModelForm):
+    training_places = forms.MultipleChoiceField(
+        label='أماكن التدريب المتاحة',
+        choices=OPERATION_PLACE_CHOICES,
+        widget=forms.SelectMultiple(attrs={'class': 'form-select multi-select', 'size': '7'}),
+        required=False,
+    )
+
+    class Meta:
+        model = Activity
+        fields = ['name', 'training_places', 'income_type', 'eess_share_percentage', 'is_active', 'notes']
+        widgets = {
+            'income_type': forms.Select(attrs={'class': 'form-select'}),
+            'eess_share_percentage': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'max': '100'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields['training_places'].initial = split_values(self.instance.training_places)
+        for name, field in self.fields.items():
+            if name == 'is_active':
+                continue
+            css = field.widget.attrs.get('class', '')
+            if field.widget.__class__.__name__ == 'Select':
+                field.widget.attrs['class'] = 'form-select'
+            elif 'form-control' not in css and 'form-select' not in css:
+                field.widget.attrs['class'] = (css + ' form-control').strip()
+
+    def save(self, commit=True):
+        activity = super().save(commit=False)
+        activity.training_places = ', '.join(self.cleaned_data.get('training_places', []))
+        if activity.income_type != Activity.INCOME_REVENUE_SHARE:
+            activity.eess_share_percentage = 0
+        if commit:
+            activity.save()
+        return activity
+
+
+class AcademyMemberForm(forms.ModelForm):
+    class Meta:
+        model = AcademyMember
+        fields = ['role', 'name', 'phone', 'national_id', 'monthly_subscription', 'is_active', 'notes']
+        widgets = {
+            'role': forms.Select(attrs={'class': 'form-select'}),
+            'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '1'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if name == 'is_active':
+                continue
+            css = field.widget.attrs.get('class', '')
+            if field.widget.__class__.__name__ == 'Select':
+                field.widget.attrs['class'] = 'form-select'
+            elif 'form-control' not in css:
+                field.widget.attrs['class'] = (css + ' form-control').strip()
 
 
 class AppSettingForm(forms.ModelForm):

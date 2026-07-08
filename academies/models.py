@@ -87,6 +87,36 @@ class SportActivityMedia(models.Model):
         return self.name
 
 
+class Activity(models.Model):
+    INCOME_FIXED = 'fixed'
+    INCOME_VARIABLE = 'variable'
+    INCOME_REVENUE_SHARE = 'revenue_share'
+    INCOME_CHOICES = [
+        (INCOME_FIXED, 'قيمة ثابتة'),
+        (INCOME_VARIABLE, 'قيمة متغيرة حسب الأيام والساعات'),
+        (INCOME_REVENUE_SHARE, 'نسبة مشاركة من اشتراكات اللاعبين'),
+    ]
+    name = models.CharField(max_length=200, unique=True, verbose_name='اسم النشاط')
+    training_places = models.CharField(max_length=500, blank=True, verbose_name='أماكن التدريب المتاحة')
+    income_type = models.CharField(max_length=30, choices=INCOME_CHOICES, default=INCOME_FIXED, verbose_name='نوع الدخل')
+    eess_share_percentage = models.PositiveIntegerField(default=0, verbose_name='نسبة EESS من الاشتراكات %')
+    is_active = models.BooleanField(default=True, verbose_name='نشط')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'نشاط متاح'
+        verbose_name_plural = 'الأنشطة المتاحة'
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def training_places_list(self):
+        return split_values(self.training_places)
+
+
 class Academy(models.Model):
     branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='academies', verbose_name='الفرع')
     name = models.CharField(max_length=200, verbose_name='اسم الأكاديمية')
@@ -102,6 +132,7 @@ class Academy(models.Model):
     monthly_subscription = models.PositiveIntegerField(default=0, verbose_name='قيمة الاشتراك الثابت')
     variable_rent_type = models.CharField(max_length=20, blank=True, verbose_name='نوع القيمة المتغيرة')
     variable_rent_value = models.PositiveIntegerField(default=0, verbose_name='قيمة الإيجار')
+    eess_share_percentage = models.PositiveIntegerField(default=0, verbose_name='نسبة EESS من اشتراكات اللاعبين %')
     security_deposit = models.PositiveIntegerField(default=0, verbose_name='مبلغ التأمين')
     training_days = models.CharField(max_length=250, blank=True, verbose_name='أيام التدريب')
     training_hours = models.TextField(blank=True, verbose_name='ساعات التدريب الأساسية')
@@ -184,6 +215,34 @@ class Academy(models.Model):
             return int(rent_value * Decimal(base_days_count))
 
         return 0
+
+
+class AcademyMember(models.Model):
+    ROLE_COACH = 'coach'
+    ROLE_ADMIN = 'admin'
+    ROLE_PLAYER = 'player'
+    ROLE_CHOICES = [
+        (ROLE_COACH, 'مدرب'),
+        (ROLE_ADMIN, 'إداري'),
+        (ROLE_PLAYER, 'لاعب'),
+    ]
+    academy = models.ForeignKey(Academy, on_delete=models.CASCADE, related_name='members', verbose_name='الأكاديمية')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, verbose_name='النوع')
+    name = models.CharField(max_length=200, verbose_name='الاسم')
+    phone = models.CharField(max_length=50, blank=True, verbose_name='رقم الهاتف')
+    national_id = models.CharField(max_length=50, blank=True, verbose_name='الرقم القومي')
+    monthly_subscription = models.PositiveIntegerField(default=0, verbose_name='الاشتراك الشهري للاعب')
+    is_active = models.BooleanField(default=True, verbose_name='نشط')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['academy__name', 'role', 'name']
+        verbose_name = 'عضو أكاديمية'
+        verbose_name_plural = 'مدربين وإداريين ولاعبين الأكاديميات'
+
+    def __str__(self):
+        return f'{self.name} - {self.academy}'
 
 
 class Customer(models.Model):

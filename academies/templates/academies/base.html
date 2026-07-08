@@ -36,6 +36,7 @@
       {% if request.user.is_superuser or request.user.is_staff or p.can_shareholders %}<a href="{% url 'shareholder_list' %}">المساهمين</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_employees %}<a href="{% url 'employee_list' %}">الموظفين</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_general_expenses %}<a href="{% url 'general_expenses_home' %}">المصروفات العامة</a>{% endif %}
+      {% if request.user.is_superuser or request.user.is_staff or p.can_access_any_report %}<a href="{% url 'accounts_home' %}">الحسابات</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_cafeteria %}<a href="{% url 'cafe_item_list' %}">الكافيتريا</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_access_any_report %}<a href="{% url 'reports_home' %}">التقارير</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_users %}<a href="{% url 'settings_home' %}">الإعدادات</a>{% endif %}

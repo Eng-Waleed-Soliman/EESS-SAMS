@@ -15,7 +15,11 @@
       {% endfor %}
     </div>
     <button class="btn btn-success">حفظ</button>
+    {% if back_url_path %}
+    <a class="btn btn-secondary" href="{{ back_url_path }}">رجوع</a>
+    {% else %}
     <a class="btn btn-secondary" href="{% url back_url %}">رجوع</a>
+    {% endif %}
   </form>
 </div>
 {% endblock %}

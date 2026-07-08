@@ -1,7 +1,8 @@
 {% extends 'academies/base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h3>{{ report_title }}</h3>
+  <button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button>
 </div>
 
 <div class="card p-3 mb-4">
@@ -82,6 +83,7 @@
 <div class="row g-3 mb-4">
   <div class="col-md-3"><div class="card p-3"><b>دخل الاشتراكات الثابتة</b><h3>{{ fixed_income }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>دخل الاشتراكات المتغيرة</b><h3>{{ variable_income }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>دخل نسبة المشاركة</b><h3>{{ revenue_share_income }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>دخل الحجز اليومي</b><h3>{{ daily_booking_income }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>الإجمالي</b><h3>{{ total_academy_income }}</h3></div></div>
 </div>
@@ -149,6 +151,22 @@
 </div>
 {% endif %}
 
+{% if report_type == 'training_place_income' %}
+<div class="card p-3 mb-4">
+  <h4>تقرير دخل أماكن التدريب</h4>
+  <div class="table-responsive">
+    <table class="table table-striped text-center align-middle">
+      <thead><tr><th>مكان التدريب</th><th>إجمالي الدخل في الشهر المختار</th></tr></thead>
+      <tbody>
+        {% for row in training_place_rows %}
+        <tr><td>{{ row.place }}</td><td>{{ row.income }}</td></tr>
+        {% empty %}<tr><td colspan="2">لا توجد بيانات في هذا الشهر</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% if report_type == 'shareholders' %}
 <div class="card p-3 mb-4">
   <h4>تقرير المساهمين والنسب والأرباح</h4>
@@ -174,22 +192,33 @@
 <div class="card p-3 mb-4">
   <h4>تقرير المرتبات الشهرية والبونص</h4>
   <table class="table table-striped">
-    <thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب الشهري</th><th>البونص</th></tr></thead>
-    <tbody>{% for e in employees %}<tr><td>{{ e.name }}</td><td>{{ e.job_title }}</td><td>{{ e.salary }}</td><td>سيتم تحديد طريقة حسابه لاحقًا</td></tr>{% empty %}<tr><td colspan="4">لا توجد بيانات موظفين</td></tr>{% endfor %}</tbody>
-    <tfoot><tr><th colspan="2">إجمالي المرتبات</th><th>{{ salaries_total }}</th><th></th></tr></tfoot>
+    <thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب الشهري</th><th>البونص</th><th>الإجمالي</th></tr></thead>
+    <tbody>
+      {% for row in payroll_rows %}
+      <tr>
+        <td>{{ row.employee.name }}</td>
+        <td>{{ row.employee.job_title }}</td>
+        <td>{{ row.salary }}</td>
+        <td>{{ row.bonus }}</td>
+        <td>{{ row.total }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">لا توجد بيانات موظفين</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot><tr><th colspan="4">إجمالي المرتبات والبونص</th><th>{{ payroll_total }}</th></tr></tfoot>
   </table>
 </div>
 {% endif %}
 
-{% if report_type == 'expenses' or report_type == 'founding_expenses' or report_type == 'monthly_expenses' or report_type == 'daily_expenses' or report_type == 'operating_expenses' %}
+{% if report_type == 'expenses' or report_type == 'monthly_expenses' or report_type == 'daily_expenses' or report_type == 'operating_expenses' %}
 <div class="card p-3 mb-4">
   <h4>تقرير المصروفات</h4>
   <table class="table table-striped">
-    <tr><th>مصروفات التأسيس للشهر المختار</th><td>{{ founding_expenses }}</td></tr>
     <tr><th>المصروفات الشهرية للشهر المختار</th><td>{{ monthly_expenses }}</td></tr>
     <tr><th>المصروفات اليومية خلال الشهر</th><td>{{ daily_expenses }}</td></tr>
     <tr><th>مصروفات التشغيل خلال الشهر</th><td>{{ operating_expenses }}</td></tr>
-    <tr><th>إجمالي المصروفات</th><td>{{ founding_expenses|add:monthly_expenses|add:daily_expenses|add:operating_expenses }}</td></tr>
+    <tr><th>إجمالي المصروفات</th><td>{{ monthly_expenses|add:daily_expenses|add:operating_expenses }}</td></tr>
   </table>
 </div>
 {% endif %}

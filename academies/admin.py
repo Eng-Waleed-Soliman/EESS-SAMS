@@ -4,7 +4,7 @@ from .models import (
     FoundingExpense, MonthlyExpense, DailyExpense,
     CafeteriaItem, CafeteriaPurchase, CafeteriaSale,
     OperationDayCancellation, AcademyOperationOverride, UserPermission, DailyBookingCheckout,
-    DailyIncomeSupply, AppSetting, Branch, Facility, SportActivityMedia, AcademyMonthlyRentPayment,
+    DailyIncomeSupply, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment,
 )
 
 
@@ -35,6 +35,19 @@ class FacilityAdmin(admin.ModelAdmin):
 class SportActivityMediaAdmin(admin.ModelAdmin):
     list_display = ('name', 'is_active', 'created_at')
     search_fields = ('name', 'description')
+
+
+@admin.register(Activity)
+class ActivityAdmin(admin.ModelAdmin):
+    list_display = ('name', 'income_type', 'training_places', 'eess_share_percentage', 'is_active')
+    search_fields = ('name', 'training_places', 'notes')
+
+
+@admin.register(AcademyMember)
+class AcademyMemberAdmin(admin.ModelAdmin):
+    list_display = ('academy', 'role', 'name', 'phone', 'monthly_subscription', 'is_active')
+    list_filter = ('role', 'is_active')
+    search_fields = ('academy__name', 'name', 'phone', 'national_id')
 
 
 @admin.register(Customer)
