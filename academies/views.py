@@ -7,8 +7,8 @@ from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Q, Count
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 
 
@@ -814,15 +814,42 @@ def operating_expense_delete(request, pk):
 
 @login_required
 def cafe_item_list(request):
-    return _generic_crud_list(request, CafeteriaItem, 'academies/cafe_item_list.html', 'items', ['name', 'notes'])
+    q = request.GET.get('q', '').strip()
+    items = CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name')
+    if q:
+        items = items.filter(Q(name__icontains=q) | Q(notes__icontains=q) | Q(category__name__icontains=q))
+    return render(request, 'academies/cafe_item_list.html', {'items': items, 'q': q})
+
+@login_required
+def cafe_category_list(request):
+    q = request.GET.get('q', '').strip()
+    categories = CafeteriaCategory.objects.all().order_by('code', 'name')
+    if q:
+        categories = categories.filter(Q(name__icontains=q) | Q(notes__icontains=q))
+    return render(request, 'academies/cafe_category_list.html', {'categories': categories, 'q': q})
+
+@login_required
+def cafe_category_create(request):
+    return _generic_form(request, CafeteriaCategoryForm, 'إضافة فئة أصناف', 'cafe_category_list')
+
+@login_required
+def cafe_category_update(request, pk):
+    return _generic_form(request, CafeteriaCategoryForm, 'تعديل فئة أصناف', 'cafe_category_list', get_object_or_404(CafeteriaCategory, pk=pk))
+
+@login_required
+def cafe_category_delete(request, pk):
+    return _generic_delete(request, get_object_or_404(CafeteriaCategory, pk=pk), 'حذف فئة أصناف', 'cafe_category_list')
 
 @login_required
 def cafe_settings(request):
-    return render(request, 'academies/cafe_settings.html')
+    return render(request, 'academies/cafe_settings.html', {
+        'category_count': CafeteriaCategory.objects.count(),
+        'item_count': CafeteriaItem.objects.count(),
+    })
 
 @login_required
 def cafe_stock_adjust(request):
-    items = CafeteriaItem.objects.all().order_by('name')
+    items = CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name')
     if request.method == 'POST':
         for item in items:
             value = request.POST.get(f'quantity_{item.id}', '').strip()
@@ -839,7 +866,7 @@ def cafe_stock_adjust(request):
 
 @login_required
 def cafe_sale_prices(request):
-    items = CafeteriaItem.objects.all().order_by('name')
+    items = CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name')
     if request.method == 'POST':
         for item in items:
             value = request.POST.get(f'price_{item.id}', '').strip()
@@ -896,25 +923,33 @@ def cafe_sale_list(request):
         messages.success(request, 'تم تسجيل البيع بنجاح.')
         return redirect('cafe_sale_list')
 
-    sales = CafeteriaSale.objects.select_related('item').all()[:50]
+    sales = CafeteriaSale.objects.select_related('item', 'item__category').all()[:50]
     today = date.today()
     today_sales = CafeteriaSale.objects.filter(sale_date=today).select_related('item')
     today_total = sum(sale.total_amount for sale in today_sales)
     today_profit = sum(sale.estimated_profit for sale in today_sales)
-    low_stock_items = [item for item in CafeteriaItem.objects.all().order_by('name') if item.is_low_stock]
+    category_id = request.GET.get('category', '').strip()
+    categories = list(CafeteriaCategory.objects.all().order_by('code', 'name'))
+    item_queryset = CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name')
+    low_stock_items = [item for item in CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name') if item.is_low_stock]
     items = [
         {
             'id': item.id,
+            'code': item.code,
             'name': item.name,
+            'category_id': item.category_id,
+            'category_name': item.category.name if item.category_id else 'بدون فئة',
             'sale_price': item.sale_price,
             'stock_quantity': item.stock_quantity,
         }
-        for item in CafeteriaItem.objects.all().order_by('name')
+        for item in item_queryset
     ]
     return render(request, 'academies/cafe_sale_list.html', {
         'form': form,
         'sales': sales,
         'items': items,
+        'categories': categories,
+        'selected_category': category_id,
         'today_total': today_total,
         'today_profit': today_profit,
         'today_count': today_sales.count(),

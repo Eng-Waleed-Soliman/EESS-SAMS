@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Academy, Customer, DailyBooking, Shareholder, Employee,
     FoundingExpense, MonthlyExpense, DailyExpense,
-    CafeteriaItem, CafeteriaPurchase, CafeteriaSale,
+    CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale,
     OperationDayCancellation, AcademyOperationOverride, UserPermission, DailyBookingCheckout,
     DailyIncomeSupply, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment,
 )
@@ -111,10 +111,19 @@ class DailyExpenseAdmin(admin.ModelAdmin):
     search_fields = ('title', 'notes')
 
 
+@admin.register(CafeteriaCategory)
+class CafeteriaCategoryAdmin(admin.ModelAdmin):
+    list_display = ('code', 'name')
+    search_fields = ('name',)
+    ordering = ('code', 'name')
+
+
 @admin.register(CafeteriaItem)
 class CafeteriaItemAdmin(admin.ModelAdmin):
-    list_display = ('name', 'purchase_price', 'sale_price', 'stock_quantity', 'is_low_stock')
-    search_fields = ('name',)
+    list_display = ('code', 'name', 'category', 'purchase_price', 'sale_price', 'stock_quantity', 'is_low_stock')
+    search_fields = ('name', 'category__name')
+    list_filter = ('category',)
+    ordering = ('category__code', 'code', 'name')
 
 
 @admin.register(CafeteriaPurchase)

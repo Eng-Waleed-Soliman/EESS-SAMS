@@ -3,6 +3,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h3>الكافيتريا - البيع</h3>
   <div class="d-flex gap-2 flex-wrap">
+    <a class="btn" href="{% url 'cafe_category_list' %}">فئات الأصناف</a>
     <a class="btn" href="{% url 'cafe_item_list' %}">الأصناف</a>
     <a class="btn" href="{% url 'cafe_purchase_list' %}">الشراء</a>
     <a class="btn" href="{% url 'cafe_sale_prices' %}">أسعار البيع</a>
@@ -16,12 +17,38 @@
 </div>
 
 <div class="row g-3 mb-4">
-  <div class="col-lg-7">
+  <div class="col-lg-3">
+    <div class="card p-4 h-100">
+      <h5 class="fw-bold mb-3">فئات الأصناف</h5>
+      <div class="d-grid gap-2" id="categoryCards">
+        <button type="button" class="cafe-category-card {% if not selected_category %}active{% endif %}" data-category="">كل الفئات</button>
+        {% for category in categories %}
+        <button type="button" class="cafe-category-card {% if selected_category == category.id|stringformat:'s' %}active{% endif %}" data-category="{{ category.id }}">
+          <span>{{ category.code }}</span>
+          <strong>{{ category.name }}</strong>
+        </button>
+        {% empty %}
+        <div class="text-muted">لا توجد فئات مسجلة.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
     <form method="post" class="card p-4 h-100" id="quickSaleForm">
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
       <h5 class="fw-bold mb-3">تسجيل بيع سريع</h5>
       <div class="row g-3">
+        <div class="col-md-5">
+          <label class="form-label fw-bold">فئة الصنف</label>
+          <select class="form-select" id="categoryFilter">
+            <option value="">كل الفئات</option>
+            {% for category in categories %}
+            <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:'s' %}selected{% endif %}>{{ category.code }} - {{ category.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <div class="col-md-7">
           <label class="form-label fw-bold">{{ form.item.label }}</label>
           {{ form.item }}
@@ -59,15 +86,15 @@
     </form>
   </div>
 
-  <div class="col-lg-5">
+  <div class="col-lg-4">
     <div class="card p-4 h-100">
       <h5 class="fw-bold mb-3">الأصناف المتاحة</h5>
       <div class="row g-2" id="itemCards">
         {% for item in items %}
         <div class="col-md-6">
-          <button type="button" class="cafe-item-card" data-id="{{ item.id }}">
-            <span class="item-name">{{ item.name }}</span>
-            <span class="item-meta">سعر {{ item.sale_price }} | مخزون {{ item.stock_quantity }}</span>
+          <button type="button" class="cafe-item-card" data-id="{{ item.id }}" data-category="{{ item.category_id|default:'' }}">
+            <span class="item-name">{{ item.code }} - {{ item.name }}</span>
+            <span class="item-meta">{{ item.category_name }} | سعر {{ item.sale_price }} | مخزون {{ item.stock_quantity }}</span>
           </button>
         </div>
         {% empty %}
@@ -108,6 +135,8 @@
 
 {{ items|json_script:"items-data" }}
 <style>
+.cafe-category-card{width:100%;min-height:54px;border:1px solid #bae6fd;border-radius:10px;background:#e0f7ff;display:flex;gap:8px;align-items:center;justify-content:flex-start;padding:10px 12px;text-align:right;font-weight:800;color:#0f172a;transition:.15s}
+.cafe-category-card:hover,.cafe-category-card.active{background:#2563eb;color:#fff;border-color:#2563eb}
 .cafe-item-card{width:100%;min-height:78px;border:1px solid #dbe4ef;border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:10px 12px;text-align:right;transition:.15s;box-shadow:0 6px 14px rgba(15,23,42,.05)}
 .cafe-item-card:hover,.cafe-item-card.active{border-color:#38bdf8;background:#effaff;transform:translateY(-1px)}
 .item-name{font-weight:900;color:#0f172a}
@@ -119,6 +148,7 @@ const itemMap = {};
 rawItems.forEach(function(item){ itemMap[item.id] = item; });
 
 const itemSelect = document.getElementById('id_item');
+const categoryFilter = document.getElementById('categoryFilter');
 const quantityInput = document.getElementById('id_quantity');
 const priceInput = document.getElementById('id_unit_price');
 const totalInput = document.getElementById('sale_total');
@@ -151,6 +181,42 @@ function refreshSale(){
   });
 }
 
+function currentCategory(){
+  return categoryFilter ? categoryFilter.value : '';
+}
+
+function filterItemsByCategory(){
+  const category = currentCategory();
+  document.querySelectorAll('.cafe-category-card').forEach(function(card){
+    card.classList.toggle('active', card.dataset.category === category);
+  });
+  document.querySelectorAll('.cafe-item-card').forEach(function(card){
+    const wrapper = card.closest('.col-md-6');
+    const visible = !category || card.dataset.category === category;
+    if(wrapper){ wrapper.style.display = visible ? '' : 'none'; }
+  });
+  if(itemSelect){
+    Array.from(itemSelect.options).forEach(function(option){
+      if(!option.value){ return; }
+      const item = itemMap[option.value];
+      option.hidden = !!category && item && String(item.category_id || '') !== category;
+    });
+    const item = selectedItem();
+    if(item && category && String(item.category_id || '') !== category){
+      itemSelect.value = '';
+      priceInput.value = '';
+    }
+  }
+  refreshSale();
+}
+
+document.querySelectorAll('.cafe-category-card').forEach(function(card){
+  card.addEventListener('click', function(){
+    if(categoryFilter){ categoryFilter.value = card.dataset.category; }
+    filterItemsByCategory();
+  });
+});
+
 document.querySelectorAll('.cafe-item-card').forEach(function(card){
   card.addEventListener('click', function(){
     itemSelect.value = card.dataset.id;
@@ -160,9 +226,10 @@ document.querySelectorAll('.cafe-item-card').forEach(function(card){
   });
 });
 
+if(categoryFilter){ categoryFilter.addEventListener('change', filterItemsByCategory); }
 if(itemSelect){ itemSelect.addEventListener('change', function(){ priceInput.value=''; refreshSale(); }); }
 if(quantityInput){ quantityInput.addEventListener('input', refreshSale); }
 if(priceInput){ priceInput.addEventListener('input', refreshSale); }
-refreshSale();
+filterItemsByCategory();
 </script>
 {% endblock %}

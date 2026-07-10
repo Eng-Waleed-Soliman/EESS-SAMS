@@ -4,16 +4,30 @@
 <div class="row g-3">
   <div class="col-md-6">
     <div class="card p-4 h-100">
+      <h5 class="fw-bold">فئات الأصناف</h5>
+      <p class="text-muted">إضافة وتعديل فئات الأصناف وأكوادها. الفئات الحالية: <strong>{{ category_count }}</strong></p>
+      <a class="btn" href="{% url 'cafe_category_list' %}">فتح القسم</a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-4 h-100">
+      <h5 class="fw-bold">الأصناف وأسعار البيع</h5>
+      <p class="text-muted">إضافة الأصناف داخل الفئات وتسجيل كود الصنف وسعر البيع. الأصناف الحالية: <strong>{{ item_count }}</strong></p>
+      <a class="btn" href="{% url 'cafe_item_list' %}">فتح القسم</a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-4 h-100">
       <h5 class="fw-bold">ضبط الكميات</h5>
       <p class="text-muted">تعديل كميات المخزون لكل الأصناف المسجلة في جدول واحد.</p>
-      <a class="btn btn-success" href="{% url 'cafe_stock_adjust' %}">فتح القسم</a>
+      <a class="btn" href="{% url 'cafe_stock_adjust' %}">فتح القسم</a>
     </div>
   </div>
   <div class="col-md-6">
     <div class="card p-4 h-100">
       <h5 class="fw-bold">أسعار البيع</h5>
       <p class="text-muted">تسجيل أسعار البيع التي تظهر تلقائيًا عند إضافة حركة بيع.</p>
-      <a class="btn btn-primary" href="{% url 'cafe_sale_prices' %}">فتح القسم</a>
+      <a class="btn" href="{% url 'cafe_sale_prices' %}">فتح القسم</a>
     </div>
   </div>
 </div>

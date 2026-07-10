@@ -2,11 +2,11 @@ from django import forms
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
-    SUBSCRIPTION_TYPE_CHOICES, VARIABLE_RENT_TYPE_CHOICES,
+    SUBSCRIPTION_TYPE_CHOICES, VARIABLE_RENT_TYPE_CHOICES, WEEKDAY_AR,
 )
 
 
@@ -50,6 +50,99 @@ def _range_indexes(start_time, end_time):
     if start is None or end is None or end <= start:
         return []
     return list(range(start, end))
+
+
+def _format_conflict_slots(indexes):
+    labels = []
+    for idx in sorted(set(indexes)):
+        if 0 <= idx < len(TIME_CHOICES) - 1:
+            labels.append(f'{TIME_CHOICES[idx][0]} - {TIME_CHOICES[idx + 1][0]}')
+    return '، '.join(labels) if labels else 'غير محدد'
+
+
+def _schedule_entries(name, places, days, hours, source_label):
+    entries = []
+    slot_indexes = []
+    for slot in hours:
+        idx = _slot_index(slot)
+        if idx is not None:
+            slot_indexes.append(idx)
+    for place in places:
+        for day in days:
+            entries.append({
+                'name': name,
+                'place': place,
+                'day': day,
+                'slots': set(slot_indexes),
+                'source': source_label,
+            })
+    return entries
+
+
+def _academy_schedule_conflict_messages(cleaned_data, instance=None):
+    places = cleaned_data.get('operation_place') or []
+    days = cleaned_data.get('training_days') or []
+    hours = cleaned_data.get('training_hours') or []
+    start_date = cleaned_data.get('contract_start_date')
+    end_date = cleaned_data.get('contract_end_date')
+    if not places or not days or not hours or not start_date or not end_date:
+        return []
+
+    academy_name = cleaned_data.get('name') or 'الأكاديمية الجديدة'
+    wanted_entries = _schedule_entries(academy_name, places, days, hours, 'التدريب الأساسي')
+    if cleaned_data.get('has_extra_hours'):
+        extra_days = cleaned_data.get('extra_training_days') or days
+        wanted_entries.extend(_schedule_entries(
+            academy_name,
+            cleaned_data.get('extra_training_place') or [],
+            extra_days,
+            cleaned_data.get('extra_training_hours') or [],
+            'التدريب الإضافي',
+        ))
+
+    messages = []
+    existing_academies = Academy.objects.filter(contract_start_date__lte=end_date, contract_end_date__gte=start_date)
+    if instance and instance.pk:
+        existing_academies = existing_academies.exclude(pk=instance.pk)
+    for academy in existing_academies:
+        existing_entries = _schedule_entries(
+            academy.name,
+            academy.operation_places_list,
+            academy.training_days_list,
+            academy.training_hours_list,
+            'التدريب الأساسي',
+        )
+        if academy.has_extra_hours:
+            existing_entries.extend(_schedule_entries(
+                academy.name,
+                split_values(academy.extra_training_place),
+                split_values(academy.extra_training_days) or academy.training_days_list,
+                academy.extra_training_hours_list,
+                'التدريب الإضافي',
+            ))
+        for wanted in wanted_entries:
+            for existing in existing_entries:
+                overlap = wanted['slots'] & existing['slots']
+                if _norm(wanted['place']) == _norm(existing['place']) and wanted['day'] == existing['day'] and overlap:
+                    messages.append(
+                        f"يوجد تداخل مع أكاديمية {academy.name}: المكان {wanted['place']}، اليوم {wanted['day']}، "
+                        f"الساعات {_format_conflict_slots(overlap)} ({existing['source']})."
+                    )
+
+    bookings = DailyBooking.objects.filter(booking_date__range=(start_date, end_date))
+    for booking in bookings:
+        day_ar = WEEKDAY_AR.get(booking.booking_date.weekday(), '')
+        booking_slots = set(_range_indexes(booking.start_time, booking.end_time))
+        if not booking_slots:
+            continue
+        for wanted in wanted_entries:
+            overlap = wanted['slots'] & booking_slots
+            if _norm(wanted['place']) == _norm(booking.venue) and wanted['day'] == day_ar and overlap:
+                messages.append(
+                    f"يوجد تداخل مع حجز يومي باسم {booking.customer_name}: التاريخ {booking.booking_date}، "
+                    f"المكان {booking.venue}، اليوم {day_ar}، الساعات {_format_conflict_slots(overlap)}."
+                )
+    return list(dict.fromkeys(messages))
 
 
 
@@ -216,6 +309,9 @@ class AcademyForm(forms.ModelForm):
                 raise forms.ValidationError('اختر ساعات التدريب الإضافية.')
             if not cleaned_data.get('extra_training_days'):
                 cleaned_data['extra_training_days'] = cleaned_data.get('training_days') or []
+        conflict_messages = _academy_schedule_conflict_messages(cleaned_data, self.instance)
+        if conflict_messages:
+            raise forms.ValidationError('لا يمكن حفظ الأكاديمية بسبب تداخل في مواعيد التدريب: ' + ' '.join(conflict_messages))
         return cleaned_data
 
     def save(self, commit=True):
@@ -774,11 +870,30 @@ class OperatingExpenseForm(forms.ModelForm):
                 field.widget.attrs['class'] = (css + ' form-control').strip()
 
 
+class CafeteriaCategoryForm(forms.ModelForm):
+    class Meta:
+        model = CafeteriaCategory
+        fields = ['code', 'name', 'notes']
+        widgets = {
+            'code': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '1'}),
+            'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            css = field.widget.attrs.get('class', '')
+            if 'form-control' not in css and 'form-select' not in css:
+                field.widget.attrs['class'] = (css + ' form-control').strip()
+
+
 class CafeteriaItemForm(forms.ModelForm):
     class Meta:
         model = CafeteriaItem
-        fields = ['name', 'opening_quantity', 'purchase_price', 'sale_price', 'notes']
+        fields = ['category', 'code', 'name', 'opening_quantity', 'purchase_price', 'sale_price', 'notes']
         widgets = {
+            'category': forms.Select(attrs={'class': 'form-select'}),
+            'code': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '1'}),
             'opening_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'sale_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
@@ -804,6 +919,8 @@ class CafeteriaPurchaseForm(forms.ModelForm):
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['item'].queryset = CafeteriaItem.objects.select_related('category').order_by('category__code', 'code', 'name')
+        self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name}"
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
@@ -824,6 +941,8 @@ class CafeteriaSaleForm(forms.ModelForm):
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['item'].queryset = CafeteriaItem.objects.select_related('category').order_by('category__code', 'code', 'name')
+        self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name}"
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:

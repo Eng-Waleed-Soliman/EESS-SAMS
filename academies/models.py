@@ -584,7 +584,24 @@ class OperatingExpense(models.Model):
         return f'{self.title} - {self.amount}'
 
 
+class CafeteriaCategory(models.Model):
+    code = models.PositiveIntegerField(unique=True, verbose_name='كود الفئة')
+    name = models.CharField(max_length=200, unique=True, verbose_name='اسم الفئة')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['code', 'name']
+        verbose_name = 'فئة صنف كافيتريا'
+        verbose_name_plural = 'فئات أصناف الكافيتريا'
+
+    def __str__(self):
+        return f'{self.code} - {self.name}'
+
+
 class CafeteriaItem(models.Model):
+    category = models.ForeignKey(CafeteriaCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name='items', verbose_name='فئة الصنف')
+    code = models.PositiveIntegerField(default=0, verbose_name='كود الصنف')
     name = models.CharField(max_length=200, verbose_name='اسم الصنف')
     opening_quantity = models.PositiveIntegerField(default=0, verbose_name='رصيد افتتاحي')
     purchase_price = models.PositiveIntegerField(default=0, verbose_name='سعر الشراء')
@@ -593,12 +610,13 @@ class CafeteriaItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['name']
+        ordering = ['category__code', 'code', 'name']
+        unique_together = [('category', 'code')]
         verbose_name = 'صنف كافيتريا'
         verbose_name_plural = 'أصناف الكافيتريا'
 
     def __str__(self):
-        return self.name
+        return f'{self.code} - {self.name}' if self.code else self.name
 
     @property
     def purchased_quantity(self):
