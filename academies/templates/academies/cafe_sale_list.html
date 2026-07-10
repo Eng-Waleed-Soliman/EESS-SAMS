@@ -17,24 +17,7 @@
 </div>
 
 <div class="row g-3 mb-4">
-  <div class="col-lg-3">
-    <div class="card p-4 h-100">
-      <h5 class="fw-bold mb-3">فئات الأصناف</h5>
-      <div class="d-grid gap-2" id="categoryCards">
-        <button type="button" class="cafe-category-card {% if not selected_category %}active{% endif %}" data-category="">كل الفئات</button>
-        {% for category in categories %}
-        <button type="button" class="cafe-category-card {% if selected_category == category.id|stringformat:'s' %}active{% endif %}" data-category="{{ category.id }}">
-          <span>{{ category.code }}</span>
-          <strong>{{ category.name }}</strong>
-        </button>
-        {% empty %}
-        <div class="text-muted">لا توجد فئات مسجلة.</div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <div class="col-lg-5">
+  <div class="col-lg-7">
     <form method="post" class="card p-4 h-100" id="quickSaleForm">
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
@@ -86,19 +69,27 @@
     </form>
   </div>
 
-  <div class="col-lg-4">
+  <div class="col-lg-5">
     <div class="card p-4 h-100">
-      <h5 class="fw-bold mb-3">الأصناف المتاحة</h5>
-      <div class="row g-2" id="itemCards">
-        {% for item in items %}
+      <h5 class="fw-bold mb-3">فئات الأصناف</h5>
+      <div class="row g-2" id="categoryCards">
         <div class="col-md-6">
-          <button type="button" class="cafe-item-card" data-id="{{ item.id }}" data-category="{{ item.category_id|default:'' }}">
-            <span class="item-name">{{ item.code }} - {{ item.name }}</span>
-            <span class="item-meta">{{ item.category_name }} | سعر {{ item.sale_price }} | مخزون {{ item.stock_quantity }}</span>
+          <button type="button" class="cafe-category-card {% if not selected_category %}active{% endif %}" data-category="">
+            <span class="category-code">الكل</span>
+            <strong>كل الفئات</strong>
+            <small>عرض كل الأصناف</small>
+          </button>
+        </div>
+        {% for category in categories %}
+        <div class="col-md-6">
+          <button type="button" class="cafe-category-card {% if selected_category == category.id|stringformat:'s' %}active{% endif %}" data-category="{{ category.id }}">
+            <span class="category-code">{{ category.code }}</span>
+            <strong>{{ category.name }}</strong>
+            <small>اختيار الفئة</small>
           </button>
         </div>
         {% empty %}
-        <div class="text-muted">لا توجد أصناف مسجلة.</div>
+        <div class="text-muted">لا توجد فئات مسجلة.</div>
         {% endfor %}
       </div>
       {% if low_stock_items %}
@@ -135,12 +126,11 @@
 
 {{ items|json_script:"items-data" }}
 <style>
-.cafe-category-card{width:100%;min-height:54px;border:1px solid #bae6fd;border-radius:10px;background:#e0f7ff;display:flex;gap:8px;align-items:center;justify-content:flex-start;padding:10px 12px;text-align:right;font-weight:800;color:#0f172a;transition:.15s}
+.cafe-category-card{width:100%;min-height:88px;border:1px solid #bae6fd;border-radius:10px;background:#e0f7ff;display:flex;flex-direction:column;gap:4px;align-items:flex-start;justify-content:center;padding:12px 14px;text-align:right;font-weight:800;color:#0f172a;transition:.15s}
 .cafe-category-card:hover,.cafe-category-card.active{background:#2563eb;color:#fff;border-color:#2563eb}
-.cafe-item-card{width:100%;min-height:78px;border:1px solid #dbe4ef;border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:10px 12px;text-align:right;transition:.15s;box-shadow:0 6px 14px rgba(15,23,42,.05)}
-.cafe-item-card:hover,.cafe-item-card.active{border-color:#38bdf8;background:#effaff;transform:translateY(-1px)}
-.item-name{font-weight:900;color:#0f172a}
-.item-meta{font-size:14px;color:#64748b;margin-top:4px}
+.category-code{font-size:20px;font-weight:900}
+.cafe-category-card small{font-size:13px;color:#64748b}
+.cafe-category-card:hover small,.cafe-category-card.active small{color:#dbeafe}
 </style>
 <script>
 const rawItems = JSON.parse(document.getElementById('items-data').textContent);
@@ -176,9 +166,6 @@ function refreshSale(){
   }else{
     stockInfo.textContent = 'اختر الصنف لعرض المخزون المتاح.';
   }
-  document.querySelectorAll('.cafe-item-card').forEach(function(card){
-    card.classList.toggle('active', item && String(item.id) === card.dataset.id);
-  });
 }
 
 function currentCategory(){
@@ -189,11 +176,6 @@ function filterItemsByCategory(){
   const category = currentCategory();
   document.querySelectorAll('.cafe-category-card').forEach(function(card){
     card.classList.toggle('active', card.dataset.category === category);
-  });
-  document.querySelectorAll('.cafe-item-card').forEach(function(card){
-    const wrapper = card.closest('.col-md-6');
-    const visible = !category || card.dataset.category === category;
-    if(wrapper){ wrapper.style.display = visible ? '' : 'none'; }
   });
   if(itemSelect){
     Array.from(itemSelect.options).forEach(function(option){
@@ -214,15 +196,6 @@ document.querySelectorAll('.cafe-category-card').forEach(function(card){
   card.addEventListener('click', function(){
     if(categoryFilter){ categoryFilter.value = card.dataset.category; }
     filterItemsByCategory();
-  });
-});
-
-document.querySelectorAll('.cafe-item-card').forEach(function(card){
-  card.addEventListener('click', function(){
-    itemSelect.value = card.dataset.id;
-    priceInput.value = '';
-    refreshSale();
-    quantityInput.focus();
   });
 });
 
