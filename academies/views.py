@@ -5,6 +5,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
+from django.db import transaction
 from django.db.models import Sum, Q, Count
 from datetime import date, timedelta
 from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment
@@ -915,13 +916,53 @@ def cafe_purchase_delete(request, pk):
 @login_required
 def cafe_sale_list(request):
     form = CafeteriaSaleForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        sale = form.save(commit=False)
-        if not sale.unit_price and sale.item_id:
-            sale.unit_price = sale.item.sale_price
-        sale.save()
-        messages.success(request, 'تم تسجيل البيع بنجاح.')
-        return redirect('cafe_sale_list')
+    if request.method == 'POST':
+        raw_order = request.POST.get('order_items', '').strip()
+        if raw_order:
+            try:
+                order_items = json.loads(raw_order)
+            except json.JSONDecodeError:
+                order_items = []
+            sale_date = request.POST.get('sale_date') or date.today().isoformat()
+            notes = request.POST.get('notes', '').strip()
+            if not order_items:
+                messages.error(request, 'أضف صنف واحد على الأقل قبل Checkout.')
+                return redirect('cafe_sale_list')
+            prepared_rows = []
+            try:
+                for row in order_items:
+                    item = get_object_or_404(CafeteriaItem, pk=row.get('item_id'))
+                    quantity = max(1, int(row.get('quantity') or 1))
+                    unit_price = max(0, int(row.get('unit_price') or item.sale_price or 0))
+                    prepared_rows.append((item, quantity, unit_price))
+            except (TypeError, ValueError):
+                messages.error(request, 'بيانات الأوردر غير صحيحة.')
+                return redirect('cafe_sale_list')
+            requested_by_item = {}
+            for item, quantity, unit_price in prepared_rows:
+                requested_by_item[item.id] = requested_by_item.get(item.id, 0) + quantity
+                if requested_by_item[item.id] > item.stock_quantity:
+                    messages.error(request, f'المخزون غير كاف للصنف {item.name}. المتاح: {item.stock_quantity}.')
+                    return redirect('cafe_sale_list')
+            with transaction.atomic():
+                for item, quantity, unit_price in prepared_rows:
+                    CafeteriaSale.objects.create(
+                        item=item,
+                        sale_date=sale_date,
+                        quantity=quantity,
+                        unit_price=unit_price,
+                        notes=notes,
+                    )
+            created_count = len(prepared_rows)
+            messages.success(request, f'تم Checkout للأوردر وحفظ {created_count} صنف بنجاح.')
+            return redirect('cafe_sale_list')
+        if form.is_valid():
+            sale = form.save(commit=False)
+            if not sale.unit_price and sale.item_id:
+                sale.unit_price = sale.item.sale_price
+            sale.save()
+            messages.success(request, 'تم تسجيل البيع بنجاح.')
+            return redirect('cafe_sale_list')
 
     sales = CafeteriaSale.objects.select_related('item', 'item__category').all()[:50]
     today = date.today()
