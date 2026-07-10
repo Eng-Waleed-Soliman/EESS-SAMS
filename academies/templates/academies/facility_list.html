@@ -8,7 +8,7 @@
 <div class="card p-3">
   <div class="table-responsive">
     <table class="table table-striped align-middle">
-      <thead><tr><th>الصورة</th><th>الاسم</th><th>الفرع</th><th>النوع</th><th></th></tr></thead>
+      <thead><tr><th>الصورة</th><th>الاسم</th><th>الفرع</th><th>النوع</th><th>إيجار الساعة</th><th>إيجار اليوم</th><th></th></tr></thead>
       <tbody>
         {% for facility in facilities %}
         <tr>
@@ -16,9 +16,11 @@
           <td>{{ facility.name }}</td>
           <td>{{ facility.branch.name }}</td>
           <td>{{ facility.get_facility_type_display }}</td>
+          <td>{{ facility.hourly_rent }}</td>
+          <td>{{ facility.daily_rent }}</td>
           <td><a class="btn btn-sm btn-primary" href="{% url 'facility_update' facility.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'facility_delete' facility.pk %}">حذف</a></td>
         </tr>
-        {% empty %}<tr><td colspan="5">لا توجد بيانات</td></tr>{% endfor %}
+        {% empty %}<tr><td colspan="7">لا توجد بيانات</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>

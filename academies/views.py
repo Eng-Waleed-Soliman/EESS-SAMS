@@ -17,7 +17,7 @@ def _can_manage_users(user):
     if user.is_superuser or user.is_staff:
         return True
     try:
-        return bool(user.eess_permissions.can_users)
+        return bool(user.eess_permissions.can_users or user.eess_permissions.can_settings)
     except Exception:
         return False
 
@@ -46,6 +46,41 @@ REPORT_PERMISSION_FIELDS = {
     'deposits': 'can_report_deposits',
 }
 
+SIDEBAR_PERMISSION_MODULES = [
+    {'key': 'academies', 'field': 'can_academies', 'label': 'الأكاديميات', 'buttons': ['إضافة أكاديمية', 'تعديل أكاديمية', 'حذف أكاديمية', 'المدربين', 'الإداريين', 'اللاعبين']},
+    {'key': 'daily_booking', 'field': 'can_daily_booking', 'label': 'الحجز اليومي', 'buttons': ['إضافة حجز', 'تعديل حجز', 'حذف حجز', 'Checkout', 'إلغاء يوم تشغيل']},
+    {'key': 'daily_income', 'field': 'can_daily_income', 'label': 'الدخل اليومي / الشهري', 'buttons': ['عرض', 'المصروفات اليومية', 'مصروفات تشغيل', 'تصدير PDF', 'تعديل التوريد']},
+    {'key': 'academy_rent', 'field': 'can_academy_rent', 'label': 'إيجارات الأكاديميات', 'buttons': ['عرض', 'تعديل المسدد', 'تعديل التوريد للشركة', 'تصدير PDF']},
+    {'key': 'operation', 'field': 'can_operation', 'label': 'التشغيل', 'buttons': ['تعديل موعد', 'حذف من التشغيل', 'نقل مكان التدريب', 'إرجاع للحالة الأصلية']},
+    {'key': 'shareholders', 'field': 'can_shareholders', 'label': 'المساهمين', 'buttons': ['إضافة مساهم', 'تعديل مساهم', 'حذف مساهم']},
+    {'key': 'employees', 'field': 'can_employees', 'label': 'الموظفين', 'buttons': ['إضافة موظف', 'تعديل موظف', 'حذف موظف']},
+    {'key': 'general_expenses', 'field': 'can_general_expenses', 'label': 'المصروفات العامة', 'buttons': ['مصروف شهري', 'مصروف يومي', 'مصروف تشغيل', 'تعديل', 'حذف']},
+    {'key': 'accounts', 'field': 'can_accounts', 'label': 'الحسابات', 'buttons': ['عرض الحسابات', 'تصدير PDF']},
+    {'key': 'cafeteria', 'field': 'can_cafeteria', 'label': 'الكافيتريا', 'buttons': ['إضافة صنف', 'فئات الأصناف', 'الشراء', 'إضافة للأوردر', 'Checkout', 'تعديل حركة بيع', 'حذف حركة بيع']},
+    {'key': 'reports', 'field': 'can_reports', 'label': 'التقارير', 'buttons': ['عرض التقرير', 'تصدير PDF']},
+    {'key': 'settings', 'field': 'can_settings', 'label': 'الإعدادات', 'buttons': ['المستخدمين والصلاحيات', 'الوظائف والمرتبات', 'شرائح البونص', 'هوية البرنامج', 'الأفرع', 'الملاعب والصالات', 'صور الرياضات والأنشطة']},
+]
+
+REPORT_TYPE_OPTIONS = [
+    ('company_income', 'إجمالي دخل الشركة'),
+    ('income', 'تقرير الدخل من الأكاديميات والحجز اليومي'),
+    ('daily_booking_monthly', 'تقرير الدخل الشهري من الحجز اليومي'),
+    ('academy_rent_payments', 'تقرير سداد إيجارات الأكاديميات الشهرية'),
+    ('training_place_income', 'تقرير دخل أماكن التدريب'),
+    ('shareholders', 'تقرير المساهمين والنسب والأرباح'),
+    ('employees', 'تقرير الموظفين'),
+    ('payroll', 'تقرير المرتبات الشهرية والبونص'),
+    ('expenses', 'تقرير المصروفات'),
+    ('monthly_expenses', 'تقرير المصروفات الشهرية'),
+    ('daily_expenses', 'تقرير المصروفات اليومية'),
+    ('operating_expenses', 'تقرير مصروفات التشغيل'),
+    ('cafeteria', 'تقرير الكافيتريا والأرباح والمخزون'),
+    ('cafeteria_inventory', 'تقرير مخزون الكافيتريا'),
+    ('cafeteria_sales', 'تقرير مبيعات الكافيتريا'),
+    ('cafeteria_purchases', 'تقرير مشتريات الكافيتريا'),
+    ('deposits', 'تقرير مبالغ التأمين للأكاديميات'),
+]
+
 ARABIC_MONTH_NAMES = {
     1: 'يناير',
     2: 'فبراير',
@@ -69,9 +104,18 @@ def _user_allowed_report_types(user):
         profile = user.eess_permissions
     except Exception:
         return []
+    report_permissions = getattr(profile, 'report_permissions', {}) or {}
+    if report_permissions:
+        return [
+            key for key, field in REPORT_PERMISSION_FIELDS.items()
+            if report_permissions.get(key) or getattr(profile, field, False)
+        ]
     if getattr(profile, 'can_reports', False):
         return all_report_types
-    return [key for key, field in REPORT_PERMISSION_FIELDS.items() if getattr(profile, field, False)]
+    return [
+        key for key, field in REPORT_PERMISSION_FIELDS.items()
+        if getattr(profile, field, False)
+    ]
 
 def _can_access_reports(user):
     return bool(_user_allowed_report_types(user))
@@ -1068,6 +1112,39 @@ def _calculate_variable_income_with_operation_changes(academy, year, month):
     return int(rent_value * total_units)
 
 
+def _facility_rent_for_place(place, rent_type, fallback_value):
+    place_norm = _norm(place)
+    facility = next((item for item in Facility.objects.all() if _norm(item.name) == place_norm), None)
+    if not facility:
+        return int(fallback_value or 0)
+    if rent_type == 'hour':
+        return int(facility.hourly_rent or fallback_value or 0)
+    if rent_type == 'day':
+        return int(facility.daily_rent or fallback_value or 0)
+    return int(fallback_value or 0)
+
+
+def _calculate_variable_income_by_facility(academy, year, month):
+    if academy.subscription_type != 'variable':
+        return int(academy.monthly_subscription or 0)
+    fallback_value = int(academy.variable_rent_value or 0)
+    total = 0
+    for day_number in range(1, monthrange(year, month)[1] + 1):
+        current = date(year, month, day_number)
+        if not (academy.contract_start_date <= current <= academy.contract_end_date):
+            continue
+        if OperationDayCancellation.objects.filter(cancel_date=current).exists():
+            continue
+        occs = [o for o in _academy_occurrences_for_date(current) if o['academy'].id == academy.id]
+        if academy.variable_rent_type == 'hour':
+            for occ in occs:
+                total += _facility_rent_for_place(occ['place'], 'hour', fallback_value)
+        elif academy.variable_rent_type == 'day' and occs:
+            for place in sorted({_norm(occ['place']): occ['place'] for occ in occs}.values()):
+                total += _facility_rent_for_place(place, 'day', fallback_value)
+    return int(total)
+
+
 def _monthly_academy_operation_counts(year, month, academies):
     start = date(year, month, 1)
     end = date(year, month, monthrange(year, month)[1])
@@ -1118,13 +1195,15 @@ def _monthly_academy_operation_counts(year, month, academies):
     return total_counts, active_counts, active_days
 
 
-def _academy_month_income_from_counts(academy, total_counts, active_counts, active_days):
+def _academy_month_income_from_counts(academy, total_counts, active_counts, active_days, year=None, month=None):
     academy_id = academy.id
     if academy.subscription_type == 'revenue_share':
         players_total = academy.members.filter(role=AcademyMember.ROLE_PLAYER, is_active=True).aggregate(total=Sum('monthly_subscription'))['total'] or 0
         return int(players_total * (academy.eess_share_percentage or 0) / 100)
     if academy.subscription_type == 'fixed':
         return int(academy.monthly_subscription or 0)
+    if year and month:
+        return _calculate_variable_income_by_facility(academy, year, month)
     rent_value = int(academy.variable_rent_value or 0)
     if academy.variable_rent_type == 'hour':
         return rent_value * active_counts.get(academy_id, 0)
@@ -1154,7 +1233,7 @@ def _academy_rent_rows(year, month, start, end):
     month_start = date(year, month, 1)
     rows = []
     for academy in academies:
-        expected = _academy_month_income_from_counts(academy, total_counts, active_counts, active_days)
+        expected = _academy_month_income_from_counts(academy, total_counts, active_counts, active_days, year, month)
         payment, _ = AcademyMonthlyRentPayment.objects.get_or_create(
             academy=academy,
             month=month_start,
@@ -1338,15 +1417,15 @@ def reports_home(request):
         academy_rows = []
         for a in academies:
             if a.subscription_type == 'variable':
-                value = _academy_month_income_from_counts(a, total_counts, active_counts, active_days)
+                value = _academy_month_income_from_counts(a, total_counts, active_counts, active_days, year, month)
                 kind = 'متغير'
                 sort_type = 1
             elif a.subscription_type == 'revenue_share':
-                value = _academy_month_income_from_counts(a, total_counts, active_counts, active_days)
+                value = _academy_month_income_from_counts(a, total_counts, active_counts, active_days, year, month)
                 kind = 'نسبة مشاركة'
                 sort_type = 2
             else:
-                value = _academy_month_income_from_counts(a, total_counts, active_counts, active_days)
+                value = _academy_month_income_from_counts(a, total_counts, active_counts, active_days, year, month)
                 kind = 'ثابت'
                 sort_type = 0
             academy_rows.append({
@@ -1879,6 +1958,39 @@ def user_list(request):
         _ensure_user_profile(u)
     return render(request, 'academies/user_list.html', {'users': users, 'q': q})
 
+
+def _permission_detail_context(profile=None):
+    saved_buttons = (getattr(profile, 'button_permissions', {}) or {}) if profile else {}
+    saved_reports = (getattr(profile, 'report_permissions', {}) or {}) if profile else {}
+    modules = []
+    for module in SIDEBAR_PERMISSION_MODULES:
+        item = module.copy()
+        selected = set(saved_buttons.get(module['key'], []))
+        item['button_options'] = [
+            {'name': button, 'checked': button in selected}
+            for button in module['buttons']
+        ]
+        modules.append(item)
+    return {
+        'permission_modules': modules,
+        'report_type_options': [
+            {'key': key, 'label': label, 'checked': bool(saved_reports.get(key) or (profile and getattr(profile, REPORT_PERMISSION_FIELDS.get(key, ''), False)))}
+            for key, label in REPORT_TYPE_OPTIONS
+        ],
+    }
+
+
+def _apply_permission_details_from_post(profile, post_data):
+    button_permissions = {}
+    for module in SIDEBAR_PERMISSION_MODULES:
+        selected_buttons = post_data.getlist(f'buttons_{module["key"]}')
+        button_permissions[module['key']] = selected_buttons
+    profile.button_permissions = button_permissions
+    profile.report_permissions = {
+        report_key: (f'report_{report_key}' in post_data)
+        for report_key, _ in REPORT_TYPE_OPTIONS
+    }
+
 @login_required
 def user_create(request):
     if not _can_manage_users(request.user):
@@ -1890,10 +2002,13 @@ def user_create(request):
         user = form.save()
         profile = permission_form.save(commit=False)
         profile.user = user
+        _apply_permission_details_from_post(profile, request.POST)
         profile.save()
         messages.success(request, 'تم إضافة المستخدم وتحديد صلاحياته.')
         return redirect('user_list')
-    return render(request, 'academies/user_form.html', {'form': form, 'permission_form': permission_form, 'title': 'إضافة مستخدم'})
+    context = {'form': form, 'permission_form': permission_form, 'title': 'إضافة مستخدم'}
+    context.update(_permission_detail_context())
+    return render(request, 'academies/user_form.html', context)
 
 @login_required
 def user_update(request, pk):
@@ -1906,10 +2021,14 @@ def user_update(request, pk):
     permission_form = EESSPermissionForm(request.POST or None, instance=profile)
     if form.is_valid() and permission_form.is_valid():
         form.save()
-        permission_form.save()
+        saved_profile = permission_form.save(commit=False)
+        _apply_permission_details_from_post(saved_profile, request.POST)
+        saved_profile.save()
         messages.success(request, 'تم تعديل المستخدم وصلاحياته.')
         return redirect('user_list')
-    return render(request, 'academies/user_form.html', {'form': form, 'permission_form': permission_form, 'title': 'تعديل مستخدم'})
+    context = {'form': form, 'permission_form': permission_form, 'title': 'تعديل مستخدم'}
+    context.update(_permission_detail_context(profile))
+    return render(request, 'academies/user_form.html', context)
 
 @login_required
 def user_delete(request, pk):

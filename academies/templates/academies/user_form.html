@@ -14,58 +14,77 @@
       </div>
     {% endfor %}
   </div>
+
   <hr>
   <h5 class="mb-3">الصلاحيات</h5>
+  {% if permission_form.job_title %}
   <div class="row g-3 mt-2 mb-3">
-    {% if permission_form.job_title %}
     <div class="col-md-6">
       <label class="form-label fw-bold">{{ permission_form.job_title.label }}</label>
       {{ permission_form.job_title }}
       {% for error in permission_form.job_title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
     </div>
-    {% endif %}
   </div>
+  {% endif %}
 
-  <div class="alert alert-info">يمكنك إعطاء المستخدم صلاحيات محددة لكل موديول، ويمكنك تحديد تقارير معينة فقط بدل فتح كل التقارير.</div>
+  <div class="alert alert-info">اختر الموديولات التي تظهر للمستخدم في السايد بار. بعد اختيار أي موديول تظهر أزراره وصلاحياته التفصيلية في الجزء المقابل.</div>
   {% if permission_form.non_field_errors %}<div class="alert alert-danger">{{ permission_form.non_field_errors }}</div>{% endif %}
 
   <div class="row g-4">
-    <div class="col-md-6">
+    <div class="col-lg-5">
       <div class="border rounded p-3 h-100">
-        <h6 class="fw-bold mb-3">صلاحيات الموديولات</h6>
-        <div class="row g-3">
-          {% for field in permission_form %}
-            {% if field.name == 'can_academies' or field.name == 'can_daily_booking' or field.name == 'can_operation' or field.name == 'can_shareholders' or field.name == 'can_employees' or field.name == 'can_general_expenses' or field.name == 'can_cafeteria' or field.name == 'can_users' %}
-            <div class="col-md-6">
-              <div class="form-check">
-                {{ field }}
-                <label class="form-check-label fw-bold">{{ field.label }}</label>
+        <h6 class="fw-bold mb-3">موديولات السايد بار</h6>
+        <div class="row g-2">
+          {% for module in permission_modules %}
+            {% for field in permission_form %}
+              {% if field.name == module.field %}
+              <div class="col-md-6">
+                <label class="permission-module-card" data-module-card="{{ module.key }}">
+                  {{ field }}
+                  <span>{{ module.label }}</span>
+                </label>
+                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
               </div>
-              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-            {% endif %}
+              {% endif %}
+            {% endfor %}
           {% endfor %}
         </div>
       </div>
     </div>
 
-    <div class="col-md-6">
+    <div class="col-lg-7">
       <div class="border rounded p-3 h-100">
-        <h6 class="fw-bold mb-3">صلاحيات التقارير</h6>
-        <div class="form-text mb-2">اختيار "التقارير" يفتح كل التقارير، أو اختر تقارير محددة فقط.</div>
-        <div class="row g-3">
-          {% for field in permission_form %}
-            {% if field.name == 'can_reports' or field.name == 'can_report_income' or field.name == 'can_report_shareholders' or field.name == 'can_report_employees' or field.name == 'can_report_payroll' or field.name == 'can_report_expenses' or field.name == 'can_report_cafeteria' or field.name == 'can_report_deposits' %}
+        <h6 class="fw-bold mb-3">أزرار وصلاحيات الموديول المختار</h6>
+        <div id="moduleDetailsEmpty" class="text-muted">علّم على موديول من اليمين لعرض الأزرار والتفاصيل هنا.</div>
+        {% for module in permission_modules %}
+        <div class="module-detail-panel" data-module-panel="{{ module.key }}">
+          <h6 class="fw-bold mb-3">{{ module.label }}</h6>
+          {% if module.key == 'reports' %}
+          <div class="alert alert-light border">اختر أنواع التقارير التي يستطيع المستخدم عرضها.</div>
+          <div class="row g-2">
+            {% for report in report_type_options %}
             <div class="col-md-6">
-              <div class="form-check">
-                {{ field }}
-                <label class="form-check-label fw-bold">{{ field.label }}</label>
-              </div>
-              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+              <label class="detail-check">
+                <input class="form-check-input" type="checkbox" name="report_{{ report.key }}" {% if report.checked %}checked{% endif %}>
+                <span>{{ report.label }}</span>
+              </label>
             </div>
-            {% endif %}
-          {% endfor %}
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="row g-2">
+            {% for button in module.button_options %}
+            <div class="col-md-6">
+              <label class="detail-check">
+                <input class="form-check-input" type="checkbox" name="buttons_{{ module.key }}" value="{{ button.name }}" {% if button.checked %}checked{% endif %}>
+                <span>{{ button.name }}</span>
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
+        {% endfor %}
       </div>
     </div>
   </div>
@@ -75,4 +94,44 @@
     <a class="btn btn-secondary" href="{% url 'user_list' %}">رجوع</a>
   </div>
 </form>
+
+<style>
+  .permission-module-card{min-height:54px;border:1px solid #bae6fd;border-radius:8px;background:#e0f7ff;padding:10px 12px;display:flex;gap:10px;align-items:center;font-weight:800;cursor:pointer;transition:.15s}
+  .permission-module-card:hover,.permission-module-card.active{background:#2563eb;color:#fff;border-color:#2563eb}
+  .module-detail-panel{display:none}
+  .module-detail-panel.active{display:block}
+  .detail-check{border:1px solid #dbeafe;border-radius:8px;background:#f8fafc;padding:10px 12px;display:flex;gap:10px;align-items:center;font-weight:700;height:100%}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const cards = Array.from(document.querySelectorAll('[data-module-card]'));
+  const panels = Array.from(document.querySelectorAll('[data-module-panel]'));
+  const empty = document.getElementById('moduleDetailsEmpty');
+  function moduleCheckbox(card){
+    return card.querySelector('input[type="checkbox"]');
+  }
+  function refreshPermissionPanels(preferred){
+    const activeKeys = cards.filter(function(card){
+      const checkbox = moduleCheckbox(card);
+      const active = checkbox && checkbox.checked;
+      card.classList.toggle('active', active);
+      return active;
+    }).map(function(card){ return card.dataset.moduleCard; });
+    const shownKey = preferred && activeKeys.includes(preferred) ? preferred : activeKeys[0];
+    panels.forEach(function(panel){
+      panel.classList.toggle('active', panel.dataset.modulePanel === shownKey);
+    });
+    if(empty){ empty.style.display = shownKey ? 'none' : ''; }
+  }
+  cards.forEach(function(card){
+    const checkbox = moduleCheckbox(card);
+    if(checkbox){
+      checkbox.classList.add('form-check-input');
+      checkbox.addEventListener('change', function(){ refreshPermissionPanels(card.dataset.moduleCard); });
+    }
+    card.addEventListener('click', function(){ refreshPermissionPanels(card.dataset.moduleCard); });
+  });
+  refreshPermissionPanels();
+});
+</script>
 {% endblock %}

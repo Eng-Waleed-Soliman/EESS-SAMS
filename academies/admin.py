@@ -27,7 +27,7 @@ class BranchAdmin(admin.ModelAdmin):
 
 @admin.register(Facility)
 class FacilityAdmin(admin.ModelAdmin):
-    list_display = ('name', 'branch', 'facility_type', 'created_at')
+    list_display = ('name', 'branch', 'facility_type', 'hourly_rent', 'daily_rent', 'created_at')
     search_fields = ('name', 'branch__name', 'notes')
 
 
@@ -148,4 +148,4 @@ class AcademyOperationOverrideAdmin(admin.ModelAdmin):
 
 @admin.register(UserPermission)
 class UserPermissionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'can_academies', 'can_daily_booking', 'can_operation', 'can_reports', 'can_report_income', 'can_report_expenses', 'can_users')
+    list_display = ('user', 'can_academies', 'can_daily_booking', 'can_daily_income', 'can_academy_rent', 'can_operation', 'can_accounts', 'can_cafeteria', 'can_reports', 'can_settings', 'can_users')

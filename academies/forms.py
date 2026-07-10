@@ -210,7 +210,7 @@ class AcademyForm(forms.ModelForm):
         widget=forms.Select(attrs={'class': 'form-select variable-field'}),
     )
     variable_rent_value = forms.IntegerField(
-        label='قيمة الإيجار',
+        label='قيمة إيجار افتراضية',
         required=False,
         min_value=0,
         widget=forms.NumberInput(attrs={'class': 'form-control variable-field', 'step': '1'}),
@@ -443,10 +443,12 @@ class BranchForm(forms.ModelForm):
 class FacilityForm(forms.ModelForm):
     class Meta:
         model = Facility
-        fields = ['branch', 'name', 'facility_type', 'image', 'notes']
+        fields = ['branch', 'name', 'facility_type', 'hourly_rent', 'daily_rent', 'image', 'notes']
         widgets = {
             'branch': forms.Select(attrs={'class': 'form-select'}),
             'facility_type': forms.Select(attrs={'class': 'form-select'}),
+            'hourly_rent': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
+            'daily_rent': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
 
@@ -1100,11 +1102,12 @@ class EESSUserUpdateForm(forms.ModelForm):
 
 
 PERMISSION_MODULE_FIELDS = [
-    'can_academies', 'can_daily_booking', 'can_operation', 'can_shareholders',
-    'can_employees', 'can_general_expenses', 'can_cafeteria', 'can_users'
+    'can_academies', 'can_daily_booking', 'can_daily_income', 'can_academy_rent',
+    'can_operation', 'can_shareholders', 'can_employees', 'can_general_expenses',
+    'can_accounts', 'can_cafeteria', 'can_reports', 'can_settings'
 ]
 PERMISSION_REPORT_FIELDS = [
-    'can_reports', 'can_report_income', 'can_report_shareholders', 'can_report_employees',
+    'can_report_income', 'can_report_shareholders', 'can_report_employees',
     'can_report_payroll', 'can_report_expenses', 'can_report_cafeteria', 'can_report_deposits'
 ]
 
@@ -1115,7 +1118,7 @@ class EESSPermissionForm(forms.ModelForm):
 
     class Meta:
         model = UserPermission
-        exclude = ['user']
+        fields = PERMISSION_MODULE_FIELDS + PERMISSION_REPORT_FIELDS
         labels = {'job_title': 'المسمى الوظيفي'}
         widgets = {
             'job_title': forms.Select(attrs={'class': 'form-select'}),
@@ -1127,3 +1130,12 @@ class EESSPermissionForm(forms.ModelForm):
         if 'job_title' in self.fields:
             self.fields['job_title'].queryset = JobTitle.objects.all()
             self.fields['job_title'].empty_label = 'اختر من الوظائف المسجلة'
+        if self.instance and self.instance.pk and not self.is_bound:
+            if 'can_daily_income' in self.fields and self.instance.can_daily_booking and not self.instance.can_daily_income:
+                self.fields['can_daily_income'].initial = True
+            if 'can_academy_rent' in self.fields and self.instance.can_report_income and not self.instance.can_academy_rent:
+                self.fields['can_academy_rent'].initial = True
+            if 'can_accounts' in self.fields and self.instance.can_access_any_report and not self.instance.can_accounts:
+                self.fields['can_accounts'].initial = True
+            if 'can_settings' in self.fields and self.instance.can_users and not self.instance.can_settings:
+                self.fields['can_settings'].initial = True

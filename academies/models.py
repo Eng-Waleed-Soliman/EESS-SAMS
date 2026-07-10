@@ -58,6 +58,8 @@ class Facility(models.Model):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='facilities', verbose_name='الفرع')
     name = models.CharField(max_length=200, verbose_name='اسم الملعب / الصالة')
     facility_type = models.CharField(max_length=20, choices=FACILITY_TYPES, default='field', verbose_name='النوع')
+    hourly_rent = models.PositiveIntegerField(default=0, verbose_name='قيمة إيجار الساعة')
+    daily_rent = models.PositiveIntegerField(default=0, verbose_name='قيمة إيجار اليوم')
     image = models.FileField(upload_to='facilities/', blank=True, verbose_name='الصورة')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -408,12 +410,16 @@ class UserPermission(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='eess_permissions', verbose_name='المستخدم')
     can_academies = models.BooleanField(default=False, verbose_name='الأكاديميات')
     can_daily_booking = models.BooleanField(default=False, verbose_name='الحجز اليومي')
+    can_daily_income = models.BooleanField(default=False, verbose_name='الدخل اليومي / الشهري')
+    can_academy_rent = models.BooleanField(default=False, verbose_name='إيجارات الأكاديميات')
     can_operation = models.BooleanField(default=False, verbose_name='التشغيل')
     can_shareholders = models.BooleanField(default=False, verbose_name='المساهمين')
     can_employees = models.BooleanField(default=False, verbose_name='الموظفين')
     can_general_expenses = models.BooleanField(default=False, verbose_name='المصروفات العامة')
+    can_accounts = models.BooleanField(default=False, verbose_name='الحسابات')
     can_cafeteria = models.BooleanField(default=False, verbose_name='الكافيتريا')
     can_reports = models.BooleanField(default=False, verbose_name='التقارير')
+    can_settings = models.BooleanField(default=False, verbose_name='الإعدادات')
     can_report_income = models.BooleanField(default=False, verbose_name='تقرير الدخل')
     can_report_shareholders = models.BooleanField(default=False, verbose_name='تقرير المساهمين والأرباح')
     can_report_employees = models.BooleanField(default=False, verbose_name='تقرير الموظفين')
@@ -422,9 +428,12 @@ class UserPermission(models.Model):
     can_report_cafeteria = models.BooleanField(default=False, verbose_name='تقرير الكافيتريا')
     can_report_deposits = models.BooleanField(default=False, verbose_name='تقرير مبالغ التأمين')
     can_users = models.BooleanField(default=False, verbose_name='إدارة المستخدمين')
+    button_permissions = models.JSONField(default=dict, blank=True, verbose_name='صلاحيات أزرار الموديولات')
+    report_permissions = models.JSONField(default=dict, blank=True, verbose_name='صلاحيات أنواع التقارير')
 
     def can_access_any_report(self):
         return bool(
+            any((self.report_permissions or {}).values()) or
             self.can_reports or self.can_report_income or self.can_report_shareholders or
             self.can_report_employees or self.can_report_payroll or self.can_report_expenses or
             self.can_report_cafeteria or self.can_report_deposits
