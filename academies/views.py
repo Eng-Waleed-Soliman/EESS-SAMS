@@ -1,5 +1,6 @@
 import json
 from calendar import monthrange
+from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
@@ -330,6 +331,36 @@ def _slot_label_to_index(slot_label):
     return _time_to_index(slot_label)
 
 
+def _academy_schedule_occurrences_for_date(academy, selected_date):
+    if not academy.training_schedule:
+        return []
+    selected_day_ar = WEEKDAY_AR[selected_date.weekday()]
+    occurrences = []
+    if academy.subscription_type == 'fixed':
+        for place in academy.operation_places_list:
+            for idx in range(len(SLOT_LABELS)):
+                occurrences.append({'place': place, 'slot_index': idx, 'original_place': place, 'original_slot_index': idx, 'is_extra': False, 'hourly_rent': 0})
+        return occurrences
+    for row in academy.training_schedule:
+        if row.get('day') != selected_day_ar:
+            continue
+        place = row.get('place')
+        start_time = row.get('start_time')
+        end_time = row.get('end_time')
+        if not place:
+            continue
+        for idx in _time_range_indexes(start_time, end_time):
+            occurrences.append({
+                'place': place,
+                'slot_index': idx,
+                'original_place': place,
+                'original_slot_index': idx,
+                'is_extra': False,
+                'hourly_rent': int(row.get('hourly_rent') or 0),
+            })
+    return occurrences
+
+
 def _academy_time_indexes_for_place(academy, place):
     indexes = []
     if _contains_value(academy.operation_place, place):
@@ -365,6 +396,25 @@ def _academy_occurrences_for_date(selected_date, include_cancelled=False):
         for ov in AcademyOperationOverride.objects.filter(booking_date=selected_date).select_related('academy')
     }
     for academy in academies:
+        detailed_occurrences = _academy_schedule_occurrences_for_date(academy, selected_date)
+        if detailed_occurrences:
+            for occ in detailed_occurrences:
+                key = (academy.id, _norm(occ['original_place']), occ['original_slot_index'])
+                ov = override_map.get(key)
+                if ov and ov.is_deleted and not include_cancelled:
+                    continue
+                final_place = ov.new_place if ov and ov.new_place else occ['place']
+                final_idx = ov.new_slot_index if ov and ov.new_slot_index is not None else occ['slot_index']
+                occurrences.append({
+                    'academy': academy,
+                    'place': final_place,
+                    'slot_index': final_idx,
+                    'original_place': occ['original_place'],
+                    'original_slot_index': occ['original_slot_index'],
+                    'is_extra': occ.get('is_extra', False),
+                    'hourly_rent': occ.get('hourly_rent', 0),
+                })
+            continue
         # أساسي
         if _contains_value(academy.training_days, selected_day_ar):
             for place in split_values(academy.operation_place):
@@ -1138,7 +1188,8 @@ def _calculate_variable_income_by_facility(academy, year, month):
         occs = [o for o in _academy_occurrences_for_date(current) if o['academy'].id == academy.id]
         if academy.variable_rent_type == 'hour':
             for occ in occs:
-                total += _facility_rent_for_place(occ['place'], 'hour', fallback_value)
+                hourly_rate = int(occ.get('hourly_rent') or 0) or _facility_rent_for_place(occ['place'], 'hour', fallback_value)
+                total += Decimal(hourly_rate) / Decimal(2)
         elif academy.variable_rent_type == 'day' and occs:
             for place in sorted({_norm(occ['place']): occ['place'] for occ in occs}.values()):
                 total += _facility_rent_for_place(place, 'day', fallback_value)
@@ -1173,6 +1224,17 @@ def _monthly_academy_operation_counts(year, month, academies):
             if not (academy.contract_start_date <= current <= academy.contract_end_date):
                 continue
             day_active_count = 0
+            detailed_occurrences = _academy_schedule_occurrences_for_date(academy, current)
+            if detailed_occurrences:
+                for occ in detailed_occurrences:
+                    total_counts[academy.id] = total_counts.get(academy.id, 0) + 1
+                    deleted_key = (academy.id, current, _norm(occ['original_place']), occ['original_slot_index'])
+                    if not is_cancelled and deleted_key not in deleted_overrides:
+                        active_counts[academy.id] = active_counts.get(academy.id, 0) + 1
+                        day_active_count += 1
+                if day_active_count:
+                    active_days[academy.id] = active_days.get(academy.id, 0) + 1
+                continue
             occurrence_sources = []
             if _contains_value(academy.training_days, day_ar):
                 occurrence_sources.append((academy.operation_place, academy.training_hours))

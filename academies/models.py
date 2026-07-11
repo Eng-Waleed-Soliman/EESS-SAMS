@@ -138,6 +138,7 @@ class Academy(models.Model):
     security_deposit = models.PositiveIntegerField(default=0, verbose_name='مبلغ التأمين')
     training_days = models.CharField(max_length=250, blank=True, verbose_name='أيام التدريب')
     training_hours = models.TextField(blank=True, verbose_name='ساعات التدريب الأساسية')
+    training_schedule = models.JSONField(default=list, blank=True, verbose_name='جدول التدريب التفصيلي')
     has_extra_hours = models.BooleanField(default=False, verbose_name='إضافة ساعات تدريب إضافية')
     extra_training_days = models.CharField(max_length=250, blank=True, verbose_name='أيام التدريب الإضافية')
     extra_training_place = models.CharField(max_length=500, blank=True, verbose_name='مكان التدريب الإضافي')

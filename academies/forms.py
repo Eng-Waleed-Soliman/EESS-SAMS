@@ -1,3 +1,4 @@
+import json
 from django import forms
 from django.db.models import Q
 from django.contrib.auth.models import User
@@ -52,6 +53,14 @@ def _range_indexes(start_time, end_time):
     return list(range(start, end))
 
 
+def _slot_labels_from_range(start_time, end_time):
+    return [
+        f'{TIME_CHOICES[idx][0]} - {TIME_CHOICES[idx + 1][0]}'
+        for idx in _range_indexes(start_time, end_time)
+        if 0 <= idx < len(TIME_CHOICES) - 1
+    ]
+
+
 def _format_conflict_slots(indexes):
     labels = []
     for idx in sorted(set(indexes)):
@@ -79,47 +88,78 @@ def _schedule_entries(name, places, days, hours, source_label):
     return entries
 
 
+def _entries_from_detailed_schedule(schedule_rows, academy_name, subscription_type, selected_places=None):
+    entries = []
+    if subscription_type == 'fixed':
+        all_days = [value for value, _ in TRAINING_DAY_CHOICES]
+        all_slots = set(range(len(TIME_CHOICES) - 1))
+        for place in selected_places or []:
+            for day in all_days:
+                entries.append({'name': academy_name, 'place': place, 'day': day, 'slots': all_slots, 'source': 'إيجار ثابت'})
+        return entries
+    for row in schedule_rows or []:
+        place = row.get('place')
+        day = row.get('day')
+        slots = set(_range_indexes(row.get('start_time'), row.get('end_time')))
+        if place and day and slots:
+            entries.append({'name': academy_name, 'place': place, 'day': day, 'slots': slots, 'source': 'جدول تفصيلي'})
+    return entries
+
+
 def _academy_schedule_conflict_messages(cleaned_data, instance=None):
+    schedule_rows = cleaned_data.get('parsed_training_schedule') or []
+    subscription_type = cleaned_data.get('subscription_type')
     places = cleaned_data.get('operation_place') or []
     days = cleaned_data.get('training_days') or []
     hours = cleaned_data.get('training_hours') or []
     start_date = cleaned_data.get('contract_start_date')
     end_date = cleaned_data.get('contract_end_date')
-    if not places or not days or not hours or not start_date or not end_date:
+    if not start_date or not end_date:
         return []
 
     academy_name = cleaned_data.get('name') or 'الأكاديمية الجديدة'
-    wanted_entries = _schedule_entries(academy_name, places, days, hours, 'التدريب الأساسي')
-    if cleaned_data.get('has_extra_hours'):
-        extra_days = cleaned_data.get('extra_training_days') or days
-        wanted_entries.extend(_schedule_entries(
-            academy_name,
-            cleaned_data.get('extra_training_place') or [],
-            extra_days,
-            cleaned_data.get('extra_training_hours') or [],
-            'التدريب الإضافي',
-        ))
+    wanted_entries = _entries_from_detailed_schedule(schedule_rows, academy_name, subscription_type, places)
+    if not wanted_entries and places and days and hours:
+        wanted_entries = _schedule_entries(academy_name, places, days, hours, 'التدريب الأساسي')
+        if cleaned_data.get('has_extra_hours'):
+            extra_days = cleaned_data.get('extra_training_days') or days
+            wanted_entries.extend(_schedule_entries(
+                academy_name,
+                cleaned_data.get('extra_training_place') or [],
+                extra_days,
+                cleaned_data.get('extra_training_hours') or [],
+                'التدريب الإضافي',
+            ))
+    if not wanted_entries:
+        return []
 
     messages = []
     existing_academies = Academy.objects.filter(contract_start_date__lte=end_date, contract_end_date__gte=start_date)
     if instance and instance.pk:
         existing_academies = existing_academies.exclude(pk=instance.pk)
     for academy in existing_academies:
-        existing_entries = _schedule_entries(
+        existing_entries = _entries_from_detailed_schedule(
+            academy.training_schedule,
             academy.name,
+            academy.subscription_type,
             academy.operation_places_list,
-            academy.training_days_list,
-            academy.training_hours_list,
-            'التدريب الأساسي',
         )
-        if academy.has_extra_hours:
-            existing_entries.extend(_schedule_entries(
+        if not existing_entries:
+            existing_entries = _schedule_entries(
                 academy.name,
-                split_values(academy.extra_training_place),
-                split_values(academy.extra_training_days) or academy.training_days_list,
-                academy.extra_training_hours_list,
-                'التدريب الإضافي',
-            ))
+                academy.operation_places_list,
+                academy.training_days_list,
+                academy.training_hours_list,
+                'التدريب الأساسي',
+            )
+            if academy.has_extra_hours:
+                existing_entries.extend(_schedule_entries(
+                    academy.name,
+                    split_values(academy.extra_training_place),
+                    split_values(academy.extra_training_days) or academy.training_days_list,
+                    academy.extra_training_hours_list,
+                    'التدريب الإضافي',
+                ))
         for wanted in wanted_entries:
             for existing in existing_entries:
                 overlap = wanted['slots'] & existing['slots']
@@ -177,6 +217,16 @@ def _academy_slot_conflicts(academy, booking_date, venue, wanted_slots, selected
                     return True
         return False
 
+    detailed_entries = _entries_from_detailed_schedule(
+        academy.training_schedule,
+        academy.name,
+        academy.subscription_type,
+        academy.operation_places_list,
+    )
+    for entry in detailed_entries:
+        if entry['day'] == selected_day_ar and _norm(entry['place']) == _norm(venue) and set(wanted_slots) & entry['slots']:
+            return 'base'
+
     if effective_conflict(academy.training_days, academy.operation_place, academy.training_hours):
         return 'base'
     if academy.has_extra_hours:
@@ -187,6 +237,7 @@ def _academy_slot_conflicts(academy, booking_date, venue, wanted_slots, selected
 
 
 class AcademyForm(forms.ModelForm):
+    training_schedule_data = forms.CharField(required=False, widget=forms.HiddenInput(attrs={'id': 'id_training_schedule_data'}))
     sport_activity = forms.ChoiceField(
         label='النشاط الرياضي',
         choices=[('', 'اختر النشاط الرياضي')] + SPORT_ACTIVITY_CHOICES,
@@ -196,7 +247,7 @@ class AcademyForm(forms.ModelForm):
         label='مكان التدريب',
         choices=OPERATION_PLACE_CHOICES,
         widget=forms.SelectMultiple(attrs={'class': 'form-select multi-select', 'size': '7'}),
-        required=True,
+        required=False,
     )
     subscription_type = forms.ChoiceField(
         label='نوع الاشتراك الشهري',
@@ -294,14 +345,82 @@ class AcademyForm(forms.ModelForm):
             self.fields['extra_training_place'].initial = split_values(self.instance.extra_training_place)
             self.fields['extra_training_hours'].initial = split_values(self.instance.extra_training_hours)
             self.fields['has_extra_hours'].initial = bool(self.instance.has_extra_hours)
+            self.fields['training_schedule_data'].initial = json.dumps(self._initial_schedule_rows(), ensure_ascii=False)
+
+    def _initial_schedule_rows(self):
+        if self.instance and self.instance.pk and self.instance.training_schedule:
+            return self.instance.training_schedule
+        rows = []
+        for place in split_values(getattr(self.instance, 'operation_place', '')):
+            for day in split_values(getattr(self.instance, 'training_days', '')):
+                for slot in split_values(getattr(self.instance, 'training_hours', '')):
+                    if ' - ' not in slot:
+                        continue
+                    start_time, end_time = [part.strip() for part in slot.split(' - ', 1)]
+                    rows.append({'place': place, 'day': day, 'start_time': start_time, 'end_time': end_time, 'hourly_rent': self.instance.variable_rent_value or 0})
+        return rows
 
     def clean(self):
         cleaned_data = super().clean()
         subscription_type = cleaned_data.get('subscription_type')
         variable_rent_type = cleaned_data.get('variable_rent_type')
         variable_rent_value = cleaned_data.get('variable_rent_value')
-        if subscription_type == 'variable' and (not variable_rent_type or variable_rent_value in (None, '')):
-            raise forms.ValidationError('عند اختيار قيمة متغيرة يجب اختيار نوع القيمة وإدخال قيمة الإيجار.')
+        raw_schedule = cleaned_data.get('training_schedule_data') or '[]'
+        try:
+            parsed_rows = json.loads(raw_schedule)
+        except json.JSONDecodeError:
+            parsed_rows = []
+        parsed_rows = [row for row in parsed_rows if isinstance(row, dict)]
+        selected_places = []
+        selected_days = []
+        selected_hours = []
+        normalized_rows = []
+        if subscription_type == 'fixed':
+            for row in parsed_rows:
+                place = row.get('place')
+                if place and place not in selected_places:
+                    selected_places.append(place)
+            if not selected_places:
+                selected_places = cleaned_data.get('operation_place') or []
+            if not selected_places:
+                raise forms.ValidationError('اختر مكان تدريب واحد على الأقل للأكاديمية الثابتة.')
+        elif subscription_type == 'variable':
+            if not variable_rent_type:
+                cleaned_data['variable_rent_type'] = 'hour'
+            for row in parsed_rows:
+                place = row.get('place')
+                day = row.get('day')
+                start_time = row.get('start_time')
+                end_time = row.get('end_time')
+                hourly_rent = row.get('hourly_rent')
+                slots = _range_indexes(start_time, end_time)
+                try:
+                    hourly_rent = max(0, int(hourly_rent or 0))
+                except (TypeError, ValueError):
+                    hourly_rent = 0
+                if not (place and day and slots):
+                    continue
+                if hourly_rent <= 0:
+                    raise forms.ValidationError(f'أدخل قيمة إيجار الساعة للمكان {place} يوم {day}.')
+                normalized_rows.append({'place': place, 'day': day, 'start_time': start_time, 'end_time': end_time, 'hourly_rent': hourly_rent})
+                if place not in selected_places:
+                    selected_places.append(place)
+                if day not in selected_days:
+                    selected_days.append(day)
+                for label in _slot_labels_from_range(start_time, end_time):
+                    if label not in selected_hours:
+                        selected_hours.append(label)
+            if not normalized_rows:
+                raise forms.ValidationError('أضف جدول تدريب واحد على الأقل: مكان التدريب، اليوم، من الساعة، إلى الساعة، وقيمة إيجار الساعة.')
+        cleaned_data['parsed_training_schedule'] = normalized_rows if subscription_type == 'variable' else [{'place': place} for place in selected_places]
+        cleaned_data['operation_place'] = selected_places
+        if subscription_type == 'variable':
+            cleaned_data['training_days'] = selected_days
+            cleaned_data['training_hours'] = selected_hours
+            cleaned_data['variable_rent_value'] = variable_rent_value or 0
+        if subscription_type == 'fixed':
+            cleaned_data['training_days'] = []
+            cleaned_data['training_hours'] = []
         if cleaned_data.get('has_extra_hours'):
             if not cleaned_data.get('extra_training_place'):
                 raise forms.ValidationError('اختر مكان التدريب الإضافي.')
@@ -319,6 +438,7 @@ class AcademyForm(forms.ModelForm):
         academy.operation_place = ', '.join(self.cleaned_data.get('operation_place', []))
         academy.training_days = ', '.join(self.cleaned_data.get('training_days', []))
         academy.training_hours = ', '.join(self.cleaned_data.get('training_hours', []))
+        academy.training_schedule = self.cleaned_data.get('parsed_training_schedule', [])
         academy.has_extra_hours = bool(self.cleaned_data.get('has_extra_hours'))
         if academy.has_extra_hours:
             academy.extra_training_days = ', '.join(self.cleaned_data.get('extra_training_days', []))

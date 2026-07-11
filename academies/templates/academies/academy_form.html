@@ -14,14 +14,23 @@
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_national_id.label }}</label>{{ form.manager_national_id }}<div class="text-danger small">{{ form.manager_national_id.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_phone.label }}</label>{{ form.manager_phone }}<div class="text-danger small">{{ form.manager_phone.errors }}</div></div>
 
-      <div class="col-md-6 mb-3">
+      <div class="col-12 mb-3" id="trainingScheduleSection">
+        {{ form.training_schedule_data }}
+        <label class="form-label fw-bold">جدول أماكن وأيام وساعات التدريب</label>
+        <div class="alert alert-light border mb-3">
+          في القيمة المتغيرة اختر المكان ثم اليوم ثم توقيت البداية والنهاية وقيمة إيجار الساعة. في القيمة الثابتة يكفي اختيار مكان التدريب فقط.
+        </div>
+        <div class="training-schedule-grid" id="trainingScheduleGrid"></div>
+      </div>
+
+      <div class="col-md-6 mb-3 legacy-schedule-field">
         <label class="form-label fw-bold">{{ form.operation_place.label }}</label>
         {{ form.operation_place }}
         {% if form.instance.pk and form.instance.operation_place %}<div class="alert alert-light border mt-2 mb-1 py-2">المحفوظ حاليًا: {{ form.instance.operation_place }}</div>{% endif %}
         <div class="form-text">اضغط Ctrl لاختيار أكثر من مكان تدريب.</div>
         <div class="text-danger small">{{ form.operation_place.errors }}</div>
       </div>
-      <div class="col-md-6 mb-3">
+      <div class="col-md-6 mb-3 legacy-schedule-field">
         <label class="form-label fw-bold">{{ form.training_days.label }}</label>
         {{ form.training_days }}
         {% if form.instance.pk and form.instance.training_days %}<div class="alert alert-light border mt-2 mb-1 py-2">الأيام المحفوظة: {{ form.instance.training_days }}</div>{% endif %}
@@ -34,11 +43,11 @@
 
       <div class="col-md-4 mb-3"><label class="form-label fw-bold">{{ form.subscription_type.label }}</label>{{ form.subscription_type }}<div class="text-danger small">{{ form.subscription_type.errors }}</div></div>
       <div class="col-md-4 mb-3 fixed-subscription"><label class="form-label fw-bold">{{ form.monthly_subscription.label }}</label>{{ form.monthly_subscription }}<div class="text-danger small">{{ form.monthly_subscription.errors }}</div></div>
-      <div class="col-md-4 mb-3 variable-subscription"><label class="form-label fw-bold">{{ form.variable_rent_type.label }}</label>{{ form.variable_rent_type }}<div class="text-danger small">{{ form.variable_rent_type.errors }}</div></div>
-      <div class="col-md-4 mb-3 variable-subscription"><label class="form-label fw-bold">{{ form.variable_rent_value.label }}</label>{{ form.variable_rent_value }}<div class="form-text">الحساب يستخدم سعر كل مكان تدريب من شاشة الملاعب والصالات، وهذه قيمة احتياطية لو لم يسجل سعر للمكان.</div><div class="text-danger small">{{ form.variable_rent_value.errors }}</div></div>
+      <div class="col-md-4 mb-3 variable-subscription legacy-rent-field"><label class="form-label fw-bold">{{ form.variable_rent_type.label }}</label>{{ form.variable_rent_type }}<div class="text-danger small">{{ form.variable_rent_type.errors }}</div></div>
+      <div class="col-md-4 mb-3 variable-subscription legacy-rent-field"><label class="form-label fw-bold">{{ form.variable_rent_value.label }}</label>{{ form.variable_rent_value }}<div class="form-text">قيمة احتياطية لو لم يسجل سعر داخل جدول التدريب.</div><div class="text-danger small">{{ form.variable_rent_value.errors }}</div></div>
       <div class="col-md-4 mb-3"><label class="form-label fw-bold">{{ form.security_deposit.label }}</label>{{ form.security_deposit }}<div class="text-danger small">{{ form.security_deposit.errors }}</div></div>
 
-      <div class="col-md-6 mb-3">
+      <div class="col-md-6 mb-3 legacy-schedule-field">
         <label class="form-label fw-bold">{{ form.training_hours.label }}</label>
         {{ form.training_hours }}
         {% if form.instance.pk and form.instance.training_hours %}<div class="alert alert-light border mt-2 mb-1 py-2">الساعات المحفوظة: {{ form.instance.training_hours }}</div>{% endif %}
@@ -46,7 +55,7 @@
         <div class="text-danger small">{{ form.training_hours.errors }}</div>
       </div>
 
-      <div class="col-md-6 mb-3 d-flex align-items-center gap-2 pt-4">
+      <div class="col-md-6 mb-3 d-flex align-items-center gap-2 pt-4 legacy-schedule-field">
         {{ form.has_extra_hours }}
         <label class="form-check-label fw-bold" for="id_has_extra_hours">{{ form.has_extra_hours.label }}</label>
         <button type="button" class="btn btn-outline-primary btn-sm" id="open-extra-modal">اختيار الساعات الإضافية</button>
@@ -98,14 +107,139 @@
     <a class="btn btn-secondary" href="{% url 'academy_list' %}">رجوع</a>
   </form>
 </div>
+<style>
+.legacy-schedule-field,.legacy-rent-field{display:none!important}
+.training-place-row{border:1px solid #dbeafe;border-radius:10px;background:#f8fafc;padding:12px;margin-bottom:10px}
+.training-place-head{display:flex;align-items:center;gap:10px;font-weight:900}
+.training-days{display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb}
+.training-place-row.active .training-days{display:block}
+.training-day-row{border:1px solid #e5e7eb;border-radius:8px;background:#fff;padding:10px;margin-bottom:8px}
+.training-day-controls{display:none;margin-top:10px}
+.training-day-row.active .training-day-controls{display:flex}
+</style>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
+  const places = [
+    {% for value, label in form.operation_place.field.choices %}
+      {value: "{{ value|escapejs }}", label: "{{ label|escapejs }}"}{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ];
+  const days = [
+    {% for value, label in form.training_days.field.choices %}
+      {value: "{{ value|escapejs }}", label: "{{ label|escapejs }}"}{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ];
+  const rawTimeChoices = [
+    {% for value, label in form.training_hours.field.choices %}
+      "{{ value|escapejs }}"{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ];
+  const endpointChoices = [];
+  rawTimeChoices.forEach(function(slot){
+    const parts = slot.split(' - ');
+    if(parts[0] && !endpointChoices.includes(parts[0])) endpointChoices.push(parts[0]);
+    if(parts[1] && !endpointChoices.includes(parts[1])) endpointChoices.push(parts[1]);
+  });
+  const savedScheduleInput = document.getElementById('id_training_schedule_data');
+  const scheduleGrid = document.getElementById('trainingScheduleGrid');
+  const operationPlaceSelect = document.getElementById('id_operation_place');
+  const trainingDaysSelect = document.getElementById('id_training_days');
+  const trainingHoursSelect = document.getElementById('id_training_hours');
+  const variableRentType = document.getElementById('id_variable_rent_type');
+  let savedSchedule = [];
+  try { savedSchedule = JSON.parse(savedScheduleInput.value || '[]'); } catch(e){ savedSchedule = []; }
+
+  function timeOptions(selected, fallbackIndex){
+    const selectedValue = selected || endpointChoices[fallbackIndex || 0] || '';
+    return endpointChoices.map(function(label){
+      return '<option value="' + label + '"' + (label === selectedValue ? ' selected' : '') + '>' + label + '</option>';
+    }).join('');
+  }
+
+  function savedRowsFor(place, day){
+    return savedSchedule.filter(function(row){ return row.place === place && (!day || row.day === day); });
+  }
+
+  function buildScheduleGrid(){
+    scheduleGrid.innerHTML = places.map(function(place){
+      const placeSaved = savedRowsFor(place.value);
+      const active = placeSaved.length || Array.from(operationPlaceSelect.options).some(function(opt){ return opt.selected && opt.value === place.value; });
+      const dayRows = days.map(function(day){
+        const row = savedRowsFor(place.value, day.value)[0] || {};
+        const checked = !!row.day;
+        return '<div class="training-day-row' + (checked ? ' active' : '') + '" data-day="' + day.value + '">' +
+          '<label class="form-check fw-bold"><input class="form-check-input day-check" type="checkbox"' + (checked ? ' checked' : '') + '> ' + day.label + '</label>' +
+          '<div class="training-day-controls row g-2 align-items-end">' +
+            '<div class="col-md-3"><label class="form-label">من الساعة</label><select class="form-select start-time">' + timeOptions(row.start_time, 0) + '</select></div>' +
+            '<div class="col-md-3"><label class="form-label">إلى الساعة</label><select class="form-select end-time">' + timeOptions(row.end_time, 1) + '</select></div>' +
+            '<div class="col-md-3"><label class="form-label">إيجار الساعة</label><input class="form-control hourly-rent" type="number" min="0" step="1" value="' + (row.hourly_rent || '') + '"></div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+      return '<div class="training-place-row' + (active ? ' active' : '') + '" data-place="' + place.value + '">' +
+        '<label class="training-place-head"><input class="form-check-input place-check" type="checkbox"' + (active ? ' checked' : '') + '> ' + place.label + '</label>' +
+        '<div class="training-days">' + dayRows + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function setSelectValues(select, values){
+    if(!select) return;
+    Array.from(select.options).forEach(function(option){ option.selected = values.includes(option.value); });
+  }
+
+  function collectSchedule(){
+    const typeField = document.getElementById('id_subscription_type');
+    const subscriptionType = typeField ? typeField.value : 'fixed';
+    const selectedPlaces = [];
+    const selectedDays = [];
+    const selectedHours = [];
+    const rows = [];
+    document.querySelectorAll('.training-place-row').forEach(function(placeRow){
+      const place = placeRow.dataset.place;
+      const placeChecked = placeRow.querySelector('.place-check').checked;
+      placeRow.classList.toggle('active', placeChecked);
+      if(!placeChecked) return;
+      selectedPlaces.push(place);
+      if(subscriptionType !== 'variable'){
+        rows.push({place: place});
+        return;
+      }
+      placeRow.querySelectorAll('.training-day-row').forEach(function(dayRow){
+        const dayChecked = dayRow.querySelector('.day-check').checked;
+        dayRow.classList.toggle('active', dayChecked);
+        if(!dayChecked) return;
+        const day = dayRow.dataset.day;
+        const startTime = dayRow.querySelector('.start-time').value;
+        const endTime = dayRow.querySelector('.end-time').value;
+        const hourlyRent = dayRow.querySelector('.hourly-rent').value;
+        rows.push({place: place, day: day, start_time: startTime, end_time: endTime, hourly_rent: hourlyRent});
+        if(!selectedDays.includes(day)) selectedDays.push(day);
+        const startIndex = endpointChoices.indexOf(startTime);
+        const endIndex = endpointChoices.indexOf(endTime);
+        if(startIndex >= 0 && endIndex > startIndex){
+          for(let idx = startIndex; idx < endIndex; idx++){
+            const label = endpointChoices[idx] + ' - ' + endpointChoices[idx + 1];
+            if(!selectedHours.includes(label)) selectedHours.push(label);
+          }
+        }
+      });
+    });
+    savedScheduleInput.value = JSON.stringify(rows);
+    setSelectValues(operationPlaceSelect, selectedPlaces);
+    setSelectValues(trainingDaysSelect, selectedDays);
+    setSelectValues(trainingHoursSelect, selectedHours);
+    if(variableRentType && subscriptionType === 'variable') variableRentType.value = 'hour';
+  }
+
   function updateSubscriptionFields(){
     const typeField = document.getElementById('id_subscription_type');
     if(!typeField) return;
     const type = typeField.value;
     document.querySelectorAll('.variable-subscription').forEach(el => el.style.display = type === 'variable' ? '' : 'none');
     document.querySelectorAll('.fixed-subscription').forEach(el => el.style.display = type === 'fixed' ? '' : 'none');
+    document.querySelectorAll('.training-days').forEach(el => el.style.display = type === 'variable' ? '' : 'none');
+    collectSchedule();
   }
   const sub = document.getElementById('id_subscription_type');
   if(sub){ sub.addEventListener('change', updateSubscriptionFields); updateSubscriptionFields(); }
@@ -121,6 +255,11 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   if(checkbox){ checkbox.addEventListener('change', function(){ if(this.checked) openExtra(); }); }
   if(openBtn){ openBtn.addEventListener('click', openExtra); }
+  buildScheduleGrid();
+  scheduleGrid.addEventListener('change', collectSchedule);
+  const form = document.getElementById('academy-form');
+  if(form){ form.addEventListener('submit', collectSchedule); }
+  collectSchedule();
 });
 </script>
 {% endblock %}

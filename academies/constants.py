@@ -52,45 +52,40 @@ WEEKDAY_AR = {
     4: 'الجمعة',
 }
 
-TIME_CHOICES = [
-    ('07:00 صباحًا', '07:00 صباحًا'),
-    ('08:00 صباحًا', '08:00 صباحًا'),
-    ('09:00 صباحًا', '09:00 صباحًا'),
-    ('10:00 صباحًا', '10:00 صباحًا'),
-    ('11:00 صباحًا', '11:00 صباحًا'),
-    ('12:00 ظهرًا', '12:00 ظهرًا'),
-    ('01:00 مساءً', '01:00 مساءً'),
-    ('02:00 مساءً', '02:00 مساءً'),
-    ('03:00 مساءً', '03:00 مساءً'),
-    ('04:00 مساءً', '04:00 مساءً'),
-    ('05:00 مساءً', '05:00 مساءً'),
-    ('06:00 مساءً', '06:00 مساءً'),
-    ('07:00 مساءً', '07:00 مساءً'),
-    ('08:00 مساءً', '08:00 مساءً'),
-    ('09:00 مساءً', '09:00 مساءً'),
-    ('10:00 مساءً', '10:00 مساءً'),
-    ('11:00 مساءً', '11:00 مساءً'),
-    ('12:00 منتصف الليل', '12:00 منتصف الليل'),
-    ('01:00 صباحًا', '01:00 صباحًا'),
-    ('02:00 صباحًا', '02:00 صباحًا'),
-]
+def _arabic_time_label(hour, minute=0):
+    suffix = 'صباحًا' if hour < 12 else 'مساءً'
+    display_hour = hour % 12
+    if display_hour == 0:
+        display_hour = 12
+    if hour == 12:
+        suffix = 'ظهرًا'
+    if hour == 0:
+        suffix = 'منتصف الليل'
+    return f'{display_hour:02d}:{minute:02d} {suffix}'
+
+
+_TRAINING_TIME_POINTS = (
+    [(hour, minute) for hour in range(16, 24) for minute in (0, 30)] +
+    [(hour, minute) for hour in range(0, 3) for minute in (0, 30)] +
+    [(3, 0)]
+)
+
+TIME_CHOICES = [(_arabic_time_label(hour, minute), _arabic_time_label(hour, minute)) for hour, minute in _TRAINING_TIME_POINTS]
 
 TIME_LABELS = [value for value, label in TIME_CHOICES]
 TIME_INDEX = {label: index for index, label in enumerate(TIME_LABELS)}
 
 SLOT_LABELS = [f'{TIME_LABELS[i]} - {TIME_LABELS[i + 1]}' for i in range(len(TIME_LABELS) - 1)]
-TRAINING_SLOT_CHOICES = [(label, label) for label in SLOT_LABELS[:16]]  # 07:00 صباحًا - 11:00 مساءً
+TRAINING_SLOT_CHOICES = [(label, label) for label in SLOT_LABELS]
 
 PERIOD_CHOICES = [
     ('all', 'كل اليوم'),
-    ('morning', 'الفترة الصباحية 7:00 صباحًا - 4:00 مساءً'),
-    ('evening', 'الفترة المسائية 4:00 مساءً - 2:00 صباحًا'),
+    ('evening', 'الفترة المسائية 4:00 مساءً - 3:00 صباحًا'),
 ]
 
 PERIOD_SLOT_RANGES = {
     'all': range(0, len(SLOT_LABELS)),
-    'morning': range(0, 9),
-    'evening': range(9, 19),
+    'evening': range(0, len(SLOT_LABELS)),
 }
 
 SUBSCRIPTION_TYPE_CHOICES = [
