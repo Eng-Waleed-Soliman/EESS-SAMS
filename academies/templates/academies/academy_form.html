@@ -116,7 +116,9 @@
 .training-place-row.active .training-days{display:block}
 .training-day-row{border:1px solid #e5e7eb;border-radius:8px;background:#fff;padding:10px;margin-bottom:8px}
 .training-day-controls{display:none;margin-top:10px}
-.training-day-row.active .training-day-controls{display:flex}
+.training-day-row.active .training-day-controls{display:block}
+.training-interval-row{border-top:1px dashed #dbeafe;padding-top:10px;margin-top:10px}
+.training-interval-row:first-child{border-top:0;padding-top:0;margin-top:0}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
@@ -161,19 +163,29 @@ document.addEventListener('DOMContentLoaded', function(){
     return savedSchedule.filter(function(row){ return row.place === place && (!day || row.day === day); });
   }
 
+  function intervalRowHtml(row){
+    row = row || {};
+    return '<div class="training-interval-row row g-2 align-items-end">' +
+      '<div class="col-md-3"><label class="form-label">من الساعة</label><select class="form-select start-time">' + timeOptions(row.start_time, 0) + '</select></div>' +
+      '<div class="col-md-3"><label class="form-label">إلى الساعة</label><select class="form-select end-time">' + timeOptions(row.end_time, 1) + '</select></div>' +
+      '<div class="col-md-3"><label class="form-label">إيجار الساعة</label><input class="form-control hourly-rent" type="number" min="0" step="1" value="' + (row.hourly_rent || '') + '"></div>' +
+      '<div class="col-md-3"><button type="button" class="btn btn-outline-danger btn-sm remove-interval">حذف الميعاد</button></div>' +
+    '</div>';
+  }
+
   function buildScheduleGrid(){
     scheduleGrid.innerHTML = places.map(function(place){
       const placeSaved = savedRowsFor(place.value);
       const active = placeSaved.length || Array.from(operationPlaceSelect.options).some(function(opt){ return opt.selected && opt.value === place.value; });
       const dayRows = days.map(function(day){
-        const row = savedRowsFor(place.value, day.value)[0] || {};
-        const checked = !!row.day;
+        const savedDayRows = savedRowsFor(place.value, day.value);
+        const checked = savedDayRows.length > 0;
+        const intervals = (savedDayRows.length ? savedDayRows : [{}]).map(intervalRowHtml).join('');
         return '<div class="training-day-row' + (checked ? ' active' : '') + '" data-day="' + day.value + '">' +
           '<label class="form-check fw-bold"><input class="form-check-input day-check" type="checkbox"' + (checked ? ' checked' : '') + '> ' + day.label + '</label>' +
-          '<div class="training-day-controls row g-2 align-items-end">' +
-            '<div class="col-md-3"><label class="form-label">من الساعة</label><select class="form-select start-time">' + timeOptions(row.start_time, 0) + '</select></div>' +
-            '<div class="col-md-3"><label class="form-label">إلى الساعة</label><select class="form-select end-time">' + timeOptions(row.end_time, 1) + '</select></div>' +
-            '<div class="col-md-3"><label class="form-label">إيجار الساعة</label><input class="form-control hourly-rent" type="number" min="0" step="1" value="' + (row.hourly_rent || '') + '"></div>' +
+          '<div class="training-day-controls">' +
+            '<div class="interval-list">' + intervals + '</div>' +
+            '<button type="button" class="btn btn-outline-primary btn-sm mt-2 add-interval">إضافة ميعاد آخر</button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -211,19 +223,21 @@ document.addEventListener('DOMContentLoaded', function(){
         dayRow.classList.toggle('active', dayChecked);
         if(!dayChecked) return;
         const day = dayRow.dataset.day;
-        const startTime = dayRow.querySelector('.start-time').value;
-        const endTime = dayRow.querySelector('.end-time').value;
-        const hourlyRent = dayRow.querySelector('.hourly-rent').value;
-        rows.push({place: place, day: day, start_time: startTime, end_time: endTime, hourly_rent: hourlyRent});
         if(!selectedDays.includes(day)) selectedDays.push(day);
-        const startIndex = endpointChoices.indexOf(startTime);
-        const endIndex = endpointChoices.indexOf(endTime);
-        if(startIndex >= 0 && endIndex > startIndex){
-          for(let idx = startIndex; idx < endIndex; idx++){
-            const label = endpointChoices[idx] + ' - ' + endpointChoices[idx + 1];
-            if(!selectedHours.includes(label)) selectedHours.push(label);
+        dayRow.querySelectorAll('.training-interval-row').forEach(function(intervalRow){
+          const startTime = intervalRow.querySelector('.start-time').value;
+          const endTime = intervalRow.querySelector('.end-time').value;
+          const hourlyRent = intervalRow.querySelector('.hourly-rent').value;
+          rows.push({place: place, day: day, start_time: startTime, end_time: endTime, hourly_rent: hourlyRent});
+          const startIndex = endpointChoices.indexOf(startTime);
+          const endIndex = endpointChoices.indexOf(endTime);
+          if(startIndex >= 0 && endIndex > startIndex){
+            for(let idx = startIndex; idx < endIndex; idx++){
+              const label = endpointChoices[idx] + ' - ' + endpointChoices[idx + 1];
+              if(!selectedHours.includes(label)) selectedHours.push(label);
+            }
           }
-        }
+        });
       });
     });
     savedScheduleInput.value = JSON.stringify(rows);
@@ -259,6 +273,28 @@ document.addEventListener('DOMContentLoaded', function(){
   if(openBtn){ openBtn.addEventListener('click', openExtra); }
   buildScheduleGrid();
   scheduleGrid.addEventListener('change', collectSchedule);
+  scheduleGrid.addEventListener('click', function(event){
+    const addButton = event.target.closest('.add-interval');
+    if(addButton){
+      const dayRow = addButton.closest('.training-day-row');
+      dayRow.querySelector('.day-check').checked = true;
+      dayRow.classList.add('active');
+      dayRow.querySelector('.interval-list').insertAdjacentHTML('beforeend', intervalRowHtml({}));
+      collectSchedule();
+      return;
+    }
+    const removeButton = event.target.closest('.remove-interval');
+    if(removeButton){
+      const dayRow = removeButton.closest('.training-day-row');
+      const intervals = dayRow.querySelectorAll('.training-interval-row');
+      if(intervals.length > 1){
+        removeButton.closest('.training-interval-row').remove();
+      }else{
+        removeButton.closest('.training-interval-row').querySelector('.hourly-rent').value = '';
+      }
+      collectSchedule();
+    }
+  });
   const form = document.getElementById('academy-form');
   if(form){ form.addEventListener('submit', collectSchedule); }
   collectSchedule();
