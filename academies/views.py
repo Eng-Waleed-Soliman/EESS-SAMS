@@ -976,6 +976,49 @@ def cafe_sale_prices(request):
         return redirect('cafe_item_list')
     return render(request, 'academies/cafe_sale_prices.html', {'items': items})
 
+
+@login_required
+def cafe_inventory(request):
+    today = date.today()
+    preset = request.GET.get('preset', '').strip()
+    if preset == 'today':
+        date_from = date_to = today
+    elif preset == 'month':
+        date_from = today.replace(day=1)
+        date_to = today
+    else:
+        try:
+            date_from = date.fromisoformat(request.GET.get('date_from', ''))
+        except (TypeError, ValueError):
+            date_from = today.replace(day=1)
+        try:
+            date_to = date.fromisoformat(request.GET.get('date_to', ''))
+        except (TypeError, ValueError):
+            date_to = today
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+
+    rows = []
+    for item in CafeteriaItem.objects.select_related('category').order_by('category__code', 'code', 'name'):
+        purchased_before = item.purchases.filter(purchase_date__lt=date_from).aggregate(total=Sum('quantity'))['total'] or 0
+        sold_before = item.sales.filter(sale_date__lt=date_from).aggregate(total=Sum('quantity'))['total'] or 0
+        purchased = item.purchases.filter(purchase_date__range=(date_from, date_to)).aggregate(total=Sum('quantity'))['total'] or 0
+        sold = item.sales.filter(sale_date__range=(date_from, date_to)).aggregate(total=Sum('quantity'))['total'] or 0
+        opening_balance = item.opening_quantity + purchased_before - sold_before
+        rows.append({
+            'item': item,
+            'opening_balance': opening_balance,
+            'purchased_quantity': purchased,
+            'sold_quantity': sold,
+            'remaining_quantity': opening_balance + purchased - sold,
+        })
+    return render(request, 'academies/cafe_inventory.html', {
+        'rows': rows,
+        'date_from': date_from,
+        'date_to': date_to,
+        'preset': preset,
+    })
+
 @login_required
 def cafe_item_create(request):
     return _generic_form(request, CafeteriaItemForm, 'إضافة صنف كافيتريا', 'cafe_item_list')
@@ -1027,7 +1070,7 @@ def cafe_sale_list(request):
                 for row in order_items:
                     item = get_object_or_404(CafeteriaItem, pk=row.get('item_id'))
                     quantity = max(1, int(row.get('quantity') or 1))
-                    unit_price = max(0, int(row.get('unit_price') or item.sale_price or 0))
+                    unit_price = item.sale_price
                     prepared_rows.append((item, quantity, unit_price))
             except (TypeError, ValueError):
                 messages.error(request, 'بيانات الأوردر غير صحيحة.')
@@ -1052,8 +1095,7 @@ def cafe_sale_list(request):
             return redirect('cafe_sale_list')
         if form.is_valid():
             sale = form.save(commit=False)
-            if not sale.unit_price and sale.item_id:
-                sale.unit_price = sale.item.sale_price
+            sale.unit_price = sale.item.sale_price
             sale.save()
             messages.success(request, 'تم تسجيل البيع بنجاح.')
             return redirect('cafe_sale_list')
@@ -1096,8 +1138,7 @@ def cafe_sale_create(request):
     form = CafeteriaSaleForm(request.POST or None)
     if form.is_valid():
         sale = form.save(commit=False)
-        if not sale.unit_price and sale.item_id:
-            sale.unit_price = sale.item.sale_price
+        sale.unit_price = sale.item.sale_price
         sale.save()
         messages.success(request, 'تم حفظ حركة البيع بنجاح.')
         return redirect('cafe_sale_list')
@@ -1109,8 +1150,7 @@ def cafe_sale_update(request, pk):
     form = CafeteriaSaleForm(request.POST or None, instance=sale_obj)
     if form.is_valid():
         sale = form.save(commit=False)
-        if not sale.unit_price and sale.item_id:
-            sale.unit_price = sale.item.sale_price
+        sale.unit_price = sale.item.sale_price
         sale.save()
         messages.success(request, 'تم تعديل حركة البيع بنجاح.')
         return redirect('cafe_sale_list')

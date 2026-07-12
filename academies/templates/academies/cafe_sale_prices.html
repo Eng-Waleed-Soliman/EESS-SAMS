@@ -2,7 +2,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h3>أسعار بيع الكافيتريا</h3>
-  <a class="btn btn-secondary" href="{% url 'cafe_item_list' %}">رجوع للأصناف</a>
+  <a class="btn btn-secondary" href="{% url 'cafe_settings' %}">رجوع لإعدادات الكافيتريا</a>
 </div>
 <form method="post" class="card p-3">
   {% csrf_token %}
@@ -19,6 +19,6 @@
     {% empty %}<tr><td colspan="4">لا توجد أصناف مسجلة</td></tr>{% endfor %}
     </tbody>
   </table>
-  <div class="d-flex gap-2"><button class="btn btn-success">حفظ</button><a class="btn btn-secondary" href="{% url 'cafe_item_list' %}">رجوع</a></div>
+  <div class="d-flex gap-2"><button class="btn btn-success">حفظ</button><a class="btn btn-secondary" href="{% url 'cafe_settings' %}">رجوع</a></div>
 </form>
 {% endblock %}

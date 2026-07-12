@@ -1,0 +1,47 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3>جرد الكافيتريا</h3>
+  <a class="btn btn-secondary" href="{% url 'cafe_sale_list' %}">رجوع للكافيتريا</a>
+</div>
+
+<form method="get" class="card p-3 mb-3">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label fw-bold">من تاريخ</label>
+      <input type="date" class="form-control" name="date_from" value="{{ date_from|date:'Y-m-d' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold">إلى تاريخ</label>
+      <input type="date" class="form-control" name="date_to" value="{{ date_to|date:'Y-m-d' }}">
+    </div>
+    <div class="col-md-6 d-flex gap-2 flex-wrap">
+      <button class="btn btn-primary">عرض الفترة</button>
+      <a class="btn btn-outline-primary" href="?preset=today">اليوم</a>
+      <a class="btn btn-outline-primary" href="?preset=month">الشهر الحالي</a>
+    </div>
+  </div>
+</form>
+
+<div class="alert alert-info">الجرد من {{ date_from }} إلى {{ date_to }}. المتبقي هو رصيد بداية الفترة + المشتريات - المبيعات.</div>
+<div class="card p-3 table-responsive">
+  <table class="table table-striped align-middle text-center">
+    <thead>
+      <tr><th>كود الفئة</th><th>كود الصنف</th><th>الصنف</th><th>رصيد أول الفترة</th><th>كمية الشراء</th><th>كمية البيع</th><th>الكمية المتبقية</th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="{% if row.remaining_quantity < 0 %}table-danger{% endif %}">
+        <td>{{ row.item.category.code|default:'-' }}</td>
+        <td>{{ row.item.code }}</td>
+        <td>{{ row.item.name }}</td>
+        <td>{{ row.opening_balance }}</td>
+        <td>{{ row.purchased_quantity }}</td>
+        <td>{{ row.sold_quantity }}</td>
+        <td class="fw-bold">{{ row.remaining_quantity }}</td>
+      </tr>
+      {% empty %}<tr><td colspan="7">لا توجد أصناف مسجلة</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@
     <a class="btn" href="{% url 'cafe_category_list' %}">فئات الأصناف</a>
     <a class="btn" href="{% url 'cafe_item_list' %}">الأصناف</a>
     <a class="btn" href="{% url 'cafe_purchase_list' %}">الشراء</a>
-    <a class="btn" href="{% url 'cafe_sale_prices' %}">أسعار البيع</a>
+    <a class="btn" href="{% url 'cafe_inventory' %}">الجرد</a>
   </div>
 </div>
 
@@ -49,9 +49,9 @@
           <div class="text-danger small">{{ form.quantity.errors }}</div>
         </div>
         <div class="col-md-4">
-          <label class="form-label fw-bold">{{ form.unit_price.label }}</label>
-          {{ form.unit_price }}
-          <div class="text-danger small">{{ form.unit_price.errors }}</div>
+          <label class="form-label fw-bold">سعر البيع من الإعدادات</label>
+          {{ form.unit_price.as_hidden }}
+          <input class="form-control" id="display_unit_price" value="0" readonly>
         </div>
         <div class="col-md-4">
           <label class="form-label fw-bold">الإجمالي</label>
@@ -157,6 +157,7 @@ const itemSelect = document.getElementById('id_item');
 const categoryFilter = document.getElementById('categoryFilter');
 const quantityInput = document.getElementById('id_quantity');
 const priceInput = document.getElementById('id_unit_price');
+const displayPriceInput = document.getElementById('display_unit_price');
 const totalInput = document.getElementById('sale_total');
 const stockInfo = document.getElementById('stockInfo');
 const saleDate = document.getElementById('id_sale_date');
@@ -184,6 +185,7 @@ function refreshSale(){
   const qty = parseInt(quantityInput.value || '0', 10);
   const price = parseInt(priceInput.value || '0', 10);
   totalInput.value = Math.max(0, qty * price);
+  if(displayPriceInput){ displayPriceInput.value = item ? (item.sale_price || 0) : 0; }
   if(item){
     stockInfo.textContent = 'المخزون المتاح: ' + item.stock_quantity;
   }else{
@@ -284,7 +286,6 @@ document.querySelectorAll('.cafe-category-card').forEach(function(card){
 if(categoryFilter){ categoryFilter.addEventListener('change', filterItemsByCategory); }
 if(itemSelect){ itemSelect.addEventListener('change', function(){ priceInput.value=''; refreshSale(); }); }
 if(quantityInput){ quantityInput.addEventListener('input', refreshSale); }
-if(priceInput){ priceInput.addEventListener('input', refreshSale); }
 if(addOrderItemBtn){ addOrderItemBtn.addEventListener('click', addCurrentItemToOrder); }
 if(clearOrderBtn){ clearOrderBtn.addEventListener('click', function(){ orderItems = []; renderOrder(); }); }
 if(orderRows){

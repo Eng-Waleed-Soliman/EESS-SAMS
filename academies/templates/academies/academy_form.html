@@ -14,15 +14,6 @@
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_national_id.label }}</label>{{ form.manager_national_id }}<div class="text-danger small">{{ form.manager_national_id.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_phone.label }}</label>{{ form.manager_phone }}<div class="text-danger small">{{ form.manager_phone.errors }}</div></div>
 
-      <div class="col-12 mb-3" id="trainingScheduleSection">
-        {{ form.training_schedule_data }}
-        <label class="form-label fw-bold">جدول أماكن وأيام وساعات التدريب</label>
-        <div class="alert alert-light border mb-3">
-          في القيمة المتغيرة اختر المكان ثم اليوم ثم توقيت البداية والنهاية وقيمة إيجار الساعة. في القيمة الثابتة يكفي اختيار مكان التدريب فقط.
-        </div>
-        <div class="training-schedule-grid" id="trainingScheduleGrid"></div>
-      </div>
-
       <div class="col-md-6 mb-3 legacy-schedule-field">
         <label class="form-label fw-bold">{{ form.operation_place.label }}</label>
         {{ form.operation_place }}
@@ -45,7 +36,17 @@
       <div class="col-md-4 mb-3 fixed-subscription"><label class="form-label fw-bold">{{ form.monthly_subscription.label }}</label>{{ form.monthly_subscription }}<div class="text-danger small">{{ form.monthly_subscription.errors }}</div></div>
       <div class="col-md-4 mb-3 variable-subscription legacy-rent-field"><label class="form-label fw-bold">{{ form.variable_rent_type.label }}</label>{{ form.variable_rent_type }}<div class="text-danger small">{{ form.variable_rent_type.errors }}</div></div>
       <div class="col-md-4 mb-3 variable-subscription legacy-rent-field"><label class="form-label fw-bold">{{ form.variable_rent_value.label }}</label>{{ form.variable_rent_value }}<div class="form-text">قيمة احتياطية لو لم يسجل سعر داخل جدول التدريب.</div><div class="text-danger small">{{ form.variable_rent_value.errors }}</div></div>
+      <div class="col-md-4 mb-3 share-subscription"><label class="form-label fw-bold">{{ form.eess_share_percentage.label }}</label>{{ form.eess_share_percentage }}<div class="text-danger small">{{ form.eess_share_percentage.errors }}</div></div>
       <div class="col-md-4 mb-3"><label class="form-label fw-bold">{{ form.security_deposit.label }}</label>{{ form.security_deposit }}<div class="text-danger small">{{ form.security_deposit.errors }}</div></div>
+
+      <div class="col-12 mb-3" id="trainingScheduleSection">
+        {{ form.training_schedule_data }}
+        <label class="form-label fw-bold">جدول أماكن وأيام وساعات التدريب</label>
+        <div class="alert alert-light border mb-3">
+          في القيمة المتغيرة اختر المكان ثم اليوم ثم توقيت البداية والنهاية وقيمة إيجار الساعة. في القيمة الثابتة يكفي اختيار مكان التدريب فقط.
+        </div>
+        <div class="training-schedule-grid" id="trainingScheduleGrid"></div>
+      </div>
 
       <div class="col-md-6 mb-3 legacy-schedule-field">
         <label class="form-label fw-bold">{{ form.training_hours.label }}</label>
@@ -238,6 +239,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const type = typeField.value;
     document.querySelectorAll('.variable-subscription').forEach(el => el.style.display = type === 'variable' ? '' : 'none');
     document.querySelectorAll('.fixed-subscription').forEach(el => el.style.display = type === 'fixed' ? '' : 'none');
+    document.querySelectorAll('.share-subscription').forEach(el => el.style.display = type === 'revenue_share' ? '' : 'none');
     document.querySelectorAll('.training-days').forEach(el => el.style.display = type === 'variable' ? '' : 'none');
     collectSchedule();
   }

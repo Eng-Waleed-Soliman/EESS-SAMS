@@ -312,8 +312,8 @@ class AcademyForm(forms.ModelForm):
         ]
         widgets = {
             'branch': forms.Select(attrs={'class': 'form-select'}),
-            'contract_start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'contract_end_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'contract_start_date': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
+            'contract_end_date': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control fixed-field', 'step': '1'}),
             'eess_share_percentage': forms.NumberInput(attrs={'class': 'form-control share-field', 'step': '1', 'min': '0', 'max': '100'}),
@@ -1012,13 +1012,12 @@ class CafeteriaCategoryForm(forms.ModelForm):
 class CafeteriaItemForm(forms.ModelForm):
     class Meta:
         model = CafeteriaItem
-        fields = ['category', 'code', 'name', 'opening_quantity', 'purchase_price', 'sale_price', 'notes']
+        fields = ['category', 'code', 'name', 'opening_quantity', 'purchase_price', 'notes']
         widgets = {
             'category': forms.Select(attrs={'class': 'form-select'}),
             'code': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '1'}),
             'opening_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
-            'sale_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
     def __init__(self, *args, **kwargs):
@@ -1074,56 +1073,6 @@ class CafeteriaSaleForm(forms.ModelForm):
         self.fields['unit_price'].label = 'سعر بيع الوحدة'
 
     def clean(self):
-        cleaned = super().clean()
-        item = cleaned.get('item')
-        quantity = cleaned.get('quantity') or 0
-        unit_price = cleaned.get('unit_price') or 0
-        if item and not unit_price:
-            cleaned['unit_price'] = item.sale_price
-        if item:
-            available = item.stock_quantity
-            if self.instance and self.instance.pk and self.instance.item_id == item.id:
-                available += self.instance.quantity or 0
-            if quantity > available:
-                raise forms.ValidationError(f'الكمية المطلوبة غير متاحة. المخزون الحالي للصنف {item.name} هو {available} فقط.')
-        return cleaned
-
-    def _selected_date_times(self, cleaned_data):
-        """يرجع قائمة من (التاريخ، من، إلى). عند تاريخ واحد يستخدم توقيت الشاشة الرئيسي، وعند أكثر من تاريخ يستخدم توقيت كل تاريخ."""
-        import json
-        selected_dates = self._selected_dates(cleaned_data)
-        main_start = cleaned_data.get('start_time')
-        main_end = cleaned_data.get('end_time')
-        raw = cleaned_data.get('booking_date_times') or ''
-        parsed = []
-        if raw:
-            try:
-                parsed = json.loads(raw)
-            except Exception:
-                parsed = []
-        by_date = {}
-        for item in parsed:
-            if not isinstance(item, dict):
-                continue
-            d = str(item.get('date') or '').strip()
-            if d:
-                by_date[d] = (item.get('start_time') or main_start, item.get('end_time') or main_end)
-        result = []
-        for d in selected_dates:
-            key = d.isoformat()
-            start, end = by_date.get(key, (main_start, main_end))
-            result.append((d, start, end))
-        return result
-
-    def _hours_count(self, start_time, end_time):
-        try:
-            start_idx = TIME_INDEX.get(start_time, 0)
-            end_idx = TIME_INDEX.get(end_time, 0)
-            return max(0, end_idx - start_idx)
-        except Exception:
-            return 0
-
-    def clean(self):
         cleaned_data = super().clean()
         item = cleaned_data.get('item')
         quantity = cleaned_data.get('quantity') or 0
@@ -1133,6 +1082,8 @@ class CafeteriaSaleForm(forms.ModelForm):
             available = item.stock_quantity if item else 0
         if item and quantity > available:
             raise forms.ValidationError(f'الكمية المطلوبة للبيع أكبر من المخزون المتاح. المتاح حاليًا: {available}')
+        if item:
+            cleaned_data['unit_price'] = item.sale_price
         return cleaned_data
 
 
