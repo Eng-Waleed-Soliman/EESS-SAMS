@@ -261,7 +261,33 @@ def booking_list(request):
 
 @login_required
 def booking_create(request):
-    form = DailyBookingForm(request.POST or None)
+    initial = {}
+    requested_date = (request.GET.get('date') or '').strip()
+    requested_venue = (request.GET.get('venue') or '').strip()
+    requested_start = (request.GET.get('start_time') or '').strip()
+    requested_end = (request.GET.get('end_time') or '').strip()
+    try:
+        parsed_date = date.fromisoformat(requested_date)
+    except ValueError:
+        parsed_date = None
+    if parsed_date:
+        initial['booking_date'] = parsed_date
+        initial['booking_dates'] = parsed_date.isoformat()
+    if requested_venue in OPERATION_SCREEN_PLACES:
+        initial['venue'] = requested_venue
+    if (
+        requested_start in TIME_INDEX and requested_end in TIME_INDEX
+        and TIME_INDEX[requested_end] > TIME_INDEX[requested_start]
+    ):
+        initial['start_time'] = requested_start
+        initial['end_time'] = requested_end
+        if parsed_date:
+            initial['booking_date_times'] = json.dumps([{
+                'date': parsed_date.isoformat(),
+                'start_time': requested_start,
+                'end_time': requested_end,
+            }], ensure_ascii=False)
+    form = DailyBookingForm(request.POST or None, initial=initial)
     if form.is_valid():
         form.save_all()
         return redirect('booking_list')
@@ -611,6 +637,9 @@ def operation_screen(request):
                 card_class = ''
             cards.append({
                 'time': slot_label,
+                'slot_index': slot_index,
+                'start_time': TIME_CHOICES[slot_index][0],
+                'end_time': TIME_CHOICES[slot_index + 1][0],
                 'busy': bool(entries),
                 'card_class': card_class,
                 'entries': entries,

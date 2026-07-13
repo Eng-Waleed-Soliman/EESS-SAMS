@@ -65,7 +65,7 @@ def _arabic_time_label(hour, minute=0):
 
 
 _TRAINING_TIME_POINTS = (
-    [(hour, minute) for hour in range(16, 24) for minute in (0, 30)] +
+    [(hour, minute) for hour in range(8, 24) for minute in (0, 30)] +
     [(hour, minute) for hour in range(0, 3) for minute in (0, 30)] +
     [(3, 0)]
 )
@@ -80,12 +80,14 @@ TRAINING_SLOT_CHOICES = [(label, label) for label in SLOT_LABELS]
 
 PERIOD_CHOICES = [
     ('all', 'كل اليوم'),
+    ('morning', 'الفترة الصباحية 8:00 صباحًا - 4:00 مساءً'),
     ('evening', 'الفترة المسائية 4:00 مساءً - 3:00 صباحًا'),
 ]
 
 PERIOD_SLOT_RANGES = {
     'all': range(0, len(SLOT_LABELS)),
-    'evening': range(0, len(SLOT_LABELS)),
+    'morning': range(0, 16),
+    'evening': range(16, len(SLOT_LABELS)),
 }
 
 SUBSCRIPTION_TYPE_CHOICES = [

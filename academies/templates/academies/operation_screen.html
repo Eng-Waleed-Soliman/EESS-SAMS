@@ -13,7 +13,7 @@
       {% endfor %}
     </select>
     <button class="btn btn-primary">عرض</button>
-    <a class="btn btn-success" href="{% url 'booking_create' %}">حجز جديد</a>
+    <a class="btn btn-success" href="{% url 'booking_create' %}">إضافة حجز</a>
     <a class="btn btn-warning border border-dark" href="{% url 'daily_expense_create' %}?date={{ selected_date|date:'Y-m-d' }}">المصروفات اليومية</a>
     <button type="submit" form="cancelDayForm" class="btn btn-danger" onclick="return confirm('سيتم إلغاء كل حجوزات اليوم المختار، هل أنت متأكد؟')">إلغاء حجوزات اليوم</button>
   </form>
@@ -29,6 +29,10 @@
 <div class="alert alert-info">
   كل كارت يمثل فترة نصف ساعة. اللون الأخضر لحجوزات الأكاديميات، واللون الأزرق للحجز اليومي قبل Checkout، واللون الأحمر للحجز اليومي بعد Checkout، واللون الأبيض يعني أن الفترة متاحة.
 </div>
+<div id="selectedSlotsBar" class="alert alert-primary d-none align-items-center justify-content-between gap-2 flex-wrap">
+  <span>تم تحديد <strong id="selectedSlotsCount">0</strong> فترة. اترك زر Ctrl أو اضغط الزر لإضافة الحجز.</span>
+  <div><button type="button" class="btn btn-success" onclick="openSelectedAvailableSlots()">إضافة حجز للفترات المحددة</button> <button type="button" class="btn btn-outline-secondary" onclick="clearAvailableSelection()">إلغاء التحديد</button></div>
+</div>
 <div class="card p-3 overflow-auto">
   <table class="table table-bordered align-middle text-center operation-table">
     <tbody>
@@ -37,7 +41,13 @@
           <th style="width:190px" class="table-light fs-5 sticky-place">{{ row.place }}</th>
           {% for card in row.cards %}
             <td class="operation-slot-cell">
-              <div class="operation-card {{ card.card_class }}" {% if card.busy %}ondblclick="openCardModal(this)"{% endif %}>
+              <div class="operation-card {{ card.card_class }}"
+                   data-place="{{ row.place }}"
+                   data-slot-index="{{ card.slot_index }}"
+                   data-start-time="{{ card.start_time }}"
+                   data-end-time="{{ card.end_time }}"
+                   data-busy="{{ card.busy|yesno:'1,0' }}"
+                   {% if card.busy %}ondblclick="openCardModal(this)"{% else %}onclick="selectAvailableCard(event,this)" ondblclick="openSingleAvailableCard(event,this)"{% endif %}>
                 <small class="operation-time">{{ card.time }}</small>
                 {% if card.entries %}
                   <div class="operation-tooltip" role="tooltip">
@@ -157,6 +167,64 @@
 </div>
 
 <script>
+const selectedAvailableCards = [];
+function bookingUrlForRange(place, startTime, endTime){
+  const url = new URL("{% url 'booking_create' %}", window.location.origin);
+  url.searchParams.set('date', "{{ selected_date|date:'Y-m-d' }}");
+  url.searchParams.set('venue', place);
+  url.searchParams.set('start_time', startTime);
+  url.searchParams.set('end_time', endTime);
+  return url.toString();
+}
+function updateAvailableSelectionBar(){
+  const bar = document.getElementById('selectedSlotsBar');
+  document.getElementById('selectedSlotsCount').textContent = selectedAvailableCards.length;
+  bar.classList.toggle('d-none', selectedAvailableCards.length === 0);
+  bar.classList.toggle('d-flex', selectedAvailableCards.length > 0);
+}
+function clearAvailableSelection(){
+  selectedAvailableCards.forEach(card => card.classList.remove('slot-selected'));
+  selectedAvailableCards.length = 0;
+  updateAvailableSelectionBar();
+}
+function selectAvailableCard(event, card){
+  if(!event.ctrlKey || card.dataset.busy === '1') return;
+  event.preventDefault();
+  if(selectedAvailableCards.length && selectedAvailableCards[0].dataset.place !== card.dataset.place){
+    alert('اختر الفترات من نفس مكان الحجز.');
+    return;
+  }
+  const existingIndex = selectedAvailableCards.indexOf(card);
+  if(existingIndex >= 0){
+    selectedAvailableCards.splice(existingIndex, 1);
+    card.classList.remove('slot-selected');
+  } else {
+    selectedAvailableCards.push(card);
+    card.classList.add('slot-selected');
+  }
+  updateAvailableSelectionBar();
+}
+function openSingleAvailableCard(event, card){
+  event.preventDefault();
+  if(card.dataset.busy === '1') return;
+  window.location.href = bookingUrlForRange(card.dataset.place, card.dataset.startTime, card.dataset.endTime);
+}
+function openSelectedAvailableSlots(){
+  if(!selectedAvailableCards.length) return;
+  const cards = [...selectedAvailableCards].sort((a,b) => Number(a.dataset.slotIndex) - Number(b.dataset.slotIndex));
+  for(let i = 1; i < cards.length; i++){
+    if(Number(cards[i].dataset.slotIndex) !== Number(cards[i - 1].dataset.slotIndex) + 1){
+      alert('يجب أن تكون المربعات المختارة متتالية لنفس الحجز.');
+      return;
+    }
+  }
+  window.location.href = bookingUrlForRange(cards[0].dataset.place, cards[0].dataset.startTime, cards[cards.length - 1].dataset.endTime);
+}
+document.addEventListener('keyup', function(event){
+  if(event.key === 'Control' && selectedAvailableCards.length){
+    openSelectedAvailableSlots();
+  }
+});
 function selectedModalOption(){
   const select = document.getElementById('modal_entry_select');
   return select.options[select.selectedIndex];

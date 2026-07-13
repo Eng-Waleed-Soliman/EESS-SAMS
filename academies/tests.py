@@ -158,6 +158,34 @@ class ApplicationFlowsTests(TestCase):
             fetch_redirect_response=False,
         )
 
+    def test_morning_operation_period_and_booking_prefill_from_available_slot(self):
+        selected_date = date.today()
+        place = OPERATION_PLACE_CHOICES[0][0]
+        response = self.client.get(reverse('operation_screen'), {
+            'date': selected_date.isoformat(),
+            'period': 'morning',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['rows'][0]['cards']), 16)
+        self.assertEqual(response.context['rows'][0]['cards'][0]['start_time'], TIME_CHOICES[0][0])
+        self.assertEqual(response.context['rows'][0]['cards'][-1]['end_time'], TIME_CHOICES[16][0])
+        self.assertContains(response, 'الفترة الصباحية')
+        self.assertContains(response, 'إضافة حجز')
+        self.assertContains(response, 'openSingleAvailableCard')
+        self.assertContains(response, 'openSelectedAvailableSlots')
+
+        booking_response = self.client.get(reverse('booking_create'), {
+            'date': selected_date.isoformat(),
+            'venue': place,
+            'start_time': TIME_CHOICES[2][0],
+            'end_time': TIME_CHOICES[5][0],
+        })
+        form = booking_response.context['form']
+        self.assertEqual(form['booking_date'].value(), selected_date)
+        self.assertEqual(form['venue'].value(), place)
+        self.assertEqual(form['start_time'].value(), TIME_CHOICES[2][0])
+        self.assertEqual(form['end_time'].value(), TIME_CHOICES[5][0])
+
     def test_daily_booking_hourly_rate_counts_two_half_hour_slots_as_one_hour(self):
         booking_date = date.today()
         form = DailyBookingForm(data={
