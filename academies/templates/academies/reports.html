@@ -223,6 +223,22 @@
 </div>
 {% endif %}
 
+{% if report_type == 'daily_expenses' %}
+<div class="card p-3 mb-4">
+  <h4>تفاصيل المصروفات اليومية</h4>
+  <div class="table-responsive">
+    <table class="table table-striped text-center align-middle">
+      <thead><tr><th>م</th><th>التاريخ</th><th>بيان المصروف</th><th>القيمة</th><th>ملاحظات</th><th>اسم الموظف الذي أدخل المصروف</th></tr></thead>
+      <tbody>
+        {% for expense in daily_expense_rows %}
+        <tr><td>{{ forloop.counter }}</td><td>{{ expense.expense_date }}</td><td>{{ expense.title }}</td><td>{{ expense.amount }}</td><td>{{ expense.notes|default:'-' }}</td><td>{{ expense.created_by_display }}</td></tr>
+        {% empty %}<tr><td colspan="6">لا توجد مصروفات يومية خلال الشهر المختار</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% if report_type == 'cafeteria' or report_type == 'cafeteria_inventory' or report_type == 'cafeteria_sales' or report_type == 'cafeteria_purchases' %}
 <div class="card p-3 mb-4">
   <h4>تقرير الكافيتريا بالأرباح وحركات البيع والشراء</h4>

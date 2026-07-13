@@ -17,6 +17,7 @@ from .models import (
     CafeteriaSale,
     DailyBooking,
     DailyBookingCheckout,
+    DailyExpense,
     UserPermission,
 )
 
@@ -121,6 +122,41 @@ class ApplicationFlowsTests(TestCase):
         checkout = DailyBookingCheckout.objects.get(booking=booking)
         self.assertEqual(checkout.total_amount, 200)
         self.assertEqual(checkout.remaining_amount, 150)
+
+    def test_operation_daily_expense_records_user_and_is_in_reports(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_report_expenses = True
+        profile.save()
+        today = date.today()
+
+        operation_response = self.client.get(reverse('operation_screen'), {'date': today.isoformat()})
+        expected_create_url = reverse('daily_expense_create') + f'?date={today.isoformat()}'
+        self.assertContains(operation_response, expected_create_url)
+        self.assertNotContains(operation_response, reverse('daily_income') + f'?date={today.isoformat()}')
+
+        response = self.client.post(reverse('daily_expense_create') + f'?date={today.isoformat()}', {
+            'title': 'مصروف اختبار يومي',
+            'expense_date': today.isoformat(),
+            'amount': 125,
+            'notes': 'اختبار اسم المدخل',
+        })
+        self.assertRedirects(response, reverse('daily_expense_list'))
+        expense = DailyExpense.objects.get(title='مصروف اختبار يومي')
+        self.assertEqual(expense.created_by, self.user)
+
+        report_response = self.client.get(reverse('reports_home'), {
+            'report_type': 'daily_expenses',
+            'month': today.strftime('%Y-%m'),
+        })
+        self.assertContains(report_response, 'مصروف اختبار يومي')
+        self.assertContains(report_response, self.user.username)
+
+        old_module_response = self.client.get(reverse('daily_income'))
+        self.assertRedirects(
+            old_module_response,
+            '/reports/?report_type=daily_booking_monthly',
+            fetch_redirect_response=False,
+        )
 
     def test_daily_booking_hourly_rate_counts_two_half_hour_slots_as_one_hour(self):
         booking_date = date.today()

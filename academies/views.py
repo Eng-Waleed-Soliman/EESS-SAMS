@@ -51,7 +51,6 @@ REPORT_PERMISSION_FIELDS = {
 SIDEBAR_PERMISSION_MODULES = [
     {'key': 'academies', 'field': 'can_academies', 'label': 'الأكاديميات', 'buttons': ['إضافة أكاديمية', 'تعديل أكاديمية', 'حذف أكاديمية', 'المدربين', 'الإداريين', 'اللاعبين']},
     {'key': 'daily_booking', 'field': 'can_daily_booking', 'label': 'الحجز اليومي', 'buttons': ['إضافة حجز', 'تعديل حجز', 'حذف حجز', 'Checkout', 'إلغاء يوم تشغيل']},
-    {'key': 'daily_income', 'field': 'can_daily_income', 'label': 'الدخل اليومي / الشهري', 'buttons': ['عرض', 'المصروفات اليومية', 'مصروفات تشغيل', 'تصدير PDF', 'تعديل التوريد']},
     {'key': 'academy_rent', 'field': 'can_academy_rent', 'label': 'إيجارات الأكاديميات', 'buttons': ['عرض', 'تعديل المسدد', 'تعديل التوريد للشركة', 'تصدير PDF']},
     {'key': 'operation', 'field': 'can_operation', 'label': 'التشغيل', 'buttons': ['تعديل موعد', 'حذف من التشغيل', 'نقل مكان التدريب', 'إرجاع للحالة الأصلية']},
     {'key': 'shareholders', 'field': 'can_shareholders', 'label': 'المساهمين', 'buttons': ['إضافة مساهم', 'تعديل مساهم', 'حذف مساهم']},
@@ -632,6 +631,10 @@ def operation_screen(request):
 
 @login_required
 def daily_income(request):
+    return redirect('/reports/?report_type=daily_booking_monthly')
+
+
+def _legacy_daily_income(request):
     selected_date = request.GET.get('date')
     if selected_date:
         try:
@@ -884,7 +887,26 @@ def daily_expense_list(request):
 
 @login_required
 def daily_expense_create(request):
-    return _generic_form(request, DailyExpenseForm, 'إضافة مصروف يومي', 'daily_expense_list')
+    selected_date = request.GET.get('date', '').strip()
+    try:
+        initial_date = date.fromisoformat(selected_date) if selected_date else date.today()
+    except ValueError:
+        initial_date = date.today()
+    form = DailyExpenseForm(
+        request.POST or None,
+        initial={'expense_date': initial_date},
+    )
+    if form.is_valid():
+        expense = form.save(commit=False)
+        expense.created_by = request.user
+        expense.save()
+        messages.success(request, 'تم تسجيل المصروف اليومي بنجاح.')
+        return redirect('daily_expense_list')
+    return render(request, 'academies/simple_form.html', {
+        'form': form,
+        'title': 'إضافة مصروف يومي',
+        'back_url_path': f'/operation/?date={initial_date.isoformat()}',
+    })
 
 @login_required
 def daily_expense_update(request, pk):
@@ -1634,10 +1656,14 @@ def reports_home(request):
         })
 
     elif report_type in {'expenses', 'monthly_expenses', 'daily_expenses', 'operating_expenses'}:
+        daily_expense_rows = DailyExpense.objects.filter(
+            expense_date__range=(start, end)
+        ).select_related('created_by')
         context.update({
             'monthly_expenses': MonthlyExpense.objects.filter(expense_month__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0,
             'daily_expenses': DailyExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0,
             'operating_expenses': OperatingExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0,
+            'daily_expense_rows': daily_expense_rows,
         })
 
     elif report_type == 'employees':

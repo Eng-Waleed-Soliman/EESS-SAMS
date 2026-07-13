@@ -107,8 +107,8 @@ class MonthlyExpenseAdmin(admin.ModelAdmin):
 
 @admin.register(DailyExpense)
 class DailyExpenseAdmin(admin.ModelAdmin):
-    list_display = ('title', 'expense_date', 'amount')
-    search_fields = ('title', 'notes')
+    list_display = ('title', 'expense_date', 'amount', 'created_by')
+    search_fields = ('title', 'notes', 'created_by__username', 'created_by__first_name', 'created_by__last_name')
 
 
 @admin.register(CafeteriaCategory)

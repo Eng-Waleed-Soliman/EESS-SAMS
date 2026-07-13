@@ -567,6 +567,14 @@ class DailyExpense(models.Model):
     expense_date = models.DateField(verbose_name='تاريخ المصروف')
     amount = models.PositiveIntegerField(default=0, verbose_name='القيمة')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    created_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='daily_expenses_created',
+        verbose_name='أدخل بواسطة',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -576,6 +584,12 @@ class DailyExpense(models.Model):
 
     def __str__(self):
         return f'{self.title} - {self.amount}'
+
+    @property
+    def created_by_display(self):
+        if not self.created_by_id:
+            return '-'
+        return self.created_by.get_full_name().strip() or self.created_by.username
 
 
 class OperatingExpense(models.Model):
