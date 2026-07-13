@@ -26,6 +26,10 @@
         {% if app_settings and app_settings.company_logo %}<img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
         <h5 class="text-white p-3 border-bottom">{% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</h5>
       </div>
+      {% if is_cafeteria_specialist %}
+      <a href="{% url 'cafe_sale_list' %}">الكافيتريا - البيع</a>
+      <a href="{% url 'cafe_menu' %}">المنيو</a>
+      {% else %}
       <a href="{% url 'dashboard' %}">لوحة التحكم</a>
       {% with p=request.user.eess_permissions %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_academies %}<a href="{% url 'academy_list' %}">الأكاديميات</a>{% endif %}
@@ -40,6 +44,7 @@
       {% if request.user.is_superuser or request.user.is_staff or p.can_settings or p.can_users %}<a href="{% url 'settings_home' %}">الإعدادات</a>{% endif %}
       {% endwith %}
       {% if request.user.is_superuser or request.user.is_staff %}<a href="/admin/">لوحة الإدارة</a>{% endif %}
+      {% endif %}
       <a href="{% url 'logout' %}">خروج</a>
     </aside>
     <main class="col-md-10 p-4">

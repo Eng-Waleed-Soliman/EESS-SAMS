@@ -153,3 +153,30 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.get(reverse('accounts_home'))
         self.assertContains(response, 'المصروفات العامة')
         self.assertNotContains(response, 'إجمالي الدخل الشهري')
+
+    def test_cafeteria_specialist_is_limited_to_sales_menu_and_inventory(self):
+        specialist = User.objects.create_user(username='Cafeteria_Specialist', password='test-password')
+        profile = UserPermission.objects.create(user=specialist, can_cafeteria=True)
+        category = CafeteriaCategory.objects.create(code=55, name='اختبار المنيو')
+        CafeteriaItem.objects.create(
+            category=category, code=1, name='صنف منخفض', opening_quantity=4,
+            purchase_price=5, sale_price=10,
+        )
+        self.client.force_login(specialist)
+
+        response = self.client.get(reverse('dashboard'))
+        self.assertRedirects(response, reverse('cafe_sale_list'))
+        response = self.client.get(reverse('academy_list'))
+        self.assertRedirects(response, reverse('cafe_sale_list'))
+
+        response = self.client.get(reverse('cafe_sale_list'))
+        self.assertContains(response, reverse('cafe_menu'))
+        self.assertNotContains(response, reverse('cafe_category_list'))
+        self.assertNotContains(response, reverse('cafe_item_list'))
+        self.assertNotContains(response, reverse('cafe_purchase_list'))
+        self.assertNotContains(response, 'لوحة التحكم')
+
+        response = self.client.get(reverse('cafe_menu'))
+        self.assertContains(response, 'اختبار المنيو')
+        self.assertContains(response, 'صنف منخفض')
+        self.assertContains(response, 'menu-low-stock')

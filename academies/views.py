@@ -12,6 +12,7 @@ from datetime import date, timedelta
 from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
+from .middleware import is_cafeteria_specialist
 
 
 def _can_manage_users(user):
@@ -127,6 +128,8 @@ def login_view(request):
     users = User.objects.filter(is_active=True).order_by('username')
     next_url = request.GET.get('next') or request.POST.get('next') or 'dashboard'
     if request.user.is_authenticated:
+        if is_cafeteria_specialist(request.user):
+            return redirect('cafe_sale_list')
         return redirect(next_url if next_url != 'dashboard' else 'dashboard')
     error = None
     if request.method == 'POST':
@@ -135,6 +138,8 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
+            if is_cafeteria_specialist(user):
+                return redirect('cafe_sale_list')
             return redirect(next_url if next_url != 'dashboard' else 'dashboard')
         error = 'اسم المستخدم أو كلمة المرور غير صحيحة.'
     return render(request, 'academies/login.html', {'users': users, 'login_error': error, 'next': next_url})
@@ -1018,6 +1023,25 @@ def cafe_inventory(request):
         'date_to': date_to,
         'preset': preset,
     })
+
+
+@login_required
+def cafe_menu(request):
+    groups = []
+    for category in CafeteriaCategory.objects.prefetch_related('items').order_by('code', 'name'):
+        rows = [
+            {'item': item, 'available_quantity': item.stock_quantity, 'low_stock': item.stock_quantity < 5}
+            for item in category.items.all().order_by('code', 'name')
+        ]
+        if rows:
+            groups.append({'category': category, 'label': f'{category.code} - {category.name}', 'rows': rows})
+    orphan_rows = [
+        {'item': item, 'available_quantity': item.stock_quantity, 'low_stock': item.stock_quantity < 5}
+        for item in CafeteriaItem.objects.filter(category__isnull=True).order_by('code', 'name')
+    ]
+    if orphan_rows:
+        groups.append({'category': None, 'label': 'بدون فئة', 'rows': orphan_rows})
+    return render(request, 'academies/cafe_menu.html', {'groups': groups})
 
 @login_required
 def cafe_item_create(request):
