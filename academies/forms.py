@@ -515,8 +515,11 @@ class AcademyMemberForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, fixed_role=None, **kwargs):
+        self.fixed_role = fixed_role
         super().__init__(*args, **kwargs)
+        if self.fixed_role in dict(AcademyMember.ROLE_CHOICES):
+            self.fields.pop('role', None)
         for name, field in self.fields.items():
             if name == 'is_active':
                 continue
@@ -525,6 +528,14 @@ class AcademyMemberForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-select'
             elif 'form-control' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
+
+    def save(self, commit=True):
+        member = super().save(commit=False)
+        if self.fixed_role in dict(AcademyMember.ROLE_CHOICES):
+            member.role = self.fixed_role
+        if commit:
+            member.save()
+        return member
 
 
 class AppSettingForm(forms.ModelForm):

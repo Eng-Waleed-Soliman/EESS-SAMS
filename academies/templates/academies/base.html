@@ -33,10 +33,8 @@
       {% if request.user.is_superuser or request.user.is_staff or p.can_daily_income or p.can_daily_booking %}<a href="{% url 'daily_income' %}">الدخل اليومي / الشهري</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_academy_rent or p.can_report_income %}<a href="{% url 'academy_rent_payments' %}">إيجارات الأكاديميات</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_operation %}<a href="{% url 'operation_screen' %}">التشغيل</a>{% endif %}
-      {% if request.user.is_superuser or request.user.is_staff or p.can_shareholders %}<a href="{% url 'shareholder_list' %}">المساهمين</a>{% endif %}
-      {% if request.user.is_superuser or request.user.is_staff or p.can_employees %}<a href="{% url 'employee_list' %}">الموظفين</a>{% endif %}
-      {% if request.user.is_superuser or request.user.is_staff or p.can_general_expenses %}<a href="{% url 'general_expenses_home' %}">المصروفات العامة</a>{% endif %}
-      {% if request.user.is_superuser or request.user.is_staff or p.can_accounts or p.can_access_any_report %}<a href="{% url 'accounts_home' %}">الحسابات</a>{% endif %}
+      {% if request.user.is_superuser or request.user.is_staff or p.can_shareholders or p.can_employees %}<a href="{% url 'company_management_home' %}">إدارة الشركة</a>{% endif %}
+      {% if request.user.is_superuser or request.user.is_staff or p.can_accounts or p.can_general_expenses or p.can_access_any_report %}<a href="{% url 'accounts_home' %}">الحسابات</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_cafeteria %}<a href="{% url 'cafe_item_list' %}">الكافيتريا</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_access_any_report %}<a href="{% url 'reports_home' %}">التقارير</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_settings or p.can_users %}<a href="{% url 'settings_home' %}">الإعدادات</a>{% endif %}

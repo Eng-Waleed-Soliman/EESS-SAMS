@@ -2,8 +2,14 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h3>الحسابات</h3>
-  <button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button>
+  <div class="btn-row">
+    {% if can_view_expenses %}<a class="btn btn-primary" href="{% url 'general_expenses_home' %}">المصروفات العامة</a>{% endif %}
+    {% if can_view_financial_summary %}
+    <button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button>
+    {% endif %}
+  </div>
 </div>
+{% if can_view_financial_summary %}
 <div class="card p-3 mb-4">
   <form class="row g-3 align-items-end" method="get">
     <div class="col-md-4">
@@ -31,4 +37,5 @@
   <h4>توزيع الأرباح على المساهمين</h4>
   <table class="table table-striped text-center"><thead><tr><th>المساهم</th><th>النسبة</th><th>النصيب من صافي الربح</th></tr></thead><tbody>{% for row in shareholder_rows %}<tr><td>{{ row.shareholder.name }}</td><td>{{ row.shareholder.share_percentage }}%</td><td>{{ row.profit_share }}</td></tr>{% empty %}<tr><td colspan="3">لا توجد بيانات مساهمين</td></tr>{% endfor %}</tbody></table>
 </div>
+{% endif %}
 {% endblock %}

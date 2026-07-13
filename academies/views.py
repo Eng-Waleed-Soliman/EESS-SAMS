@@ -1688,21 +1688,46 @@ def settings_home(request):
 
 
 @login_required
+def company_management_home(request):
+    if not (request.user.is_superuser or request.user.is_staff):
+        profile = _ensure_user_profile(request.user)
+        if not (profile.can_shareholders or profile.can_employees):
+            messages.error(request, 'ليس لديك صلاحية إدارة الشركة.')
+            return redirect('dashboard')
+    return render(request, 'academies/company_management_home.html', {
+        'shareholders_count': Shareholder.objects.count(),
+        'employees_count': Employee.objects.count(),
+    })
+
+
+@login_required
 def accounts_home(request):
-    if not _can_access_reports(request.user):
+    profile = _ensure_user_profile(request.user)
+    can_view_financial_summary = bool(
+        request.user.is_superuser or request.user.is_staff or
+        profile.can_accounts or profile.can_access_any_report()
+    )
+    can_view_expenses = bool(
+        request.user.is_superuser or request.user.is_staff or profile.can_general_expenses
+    )
+    if not (can_view_financial_summary or can_view_expenses):
         messages.error(request, 'ليس لديك صلاحية الحسابات.')
         return redirect('dashboard')
     year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
-    summary = _month_financial_summary(year, month, start, end)
-    shareholder_rows = [
-        {'shareholder': sh, 'profit_share': int(summary['net_profit'] * sh.share_percentage / 100)}
-        for sh in Shareholder.objects.all()
-    ]
+    summary = _month_financial_summary(year, month, start, end) if can_view_financial_summary else None
+    shareholder_rows = []
+    if summary:
+        shareholder_rows = [
+            {'shareholder': sh, 'profit_share': int(summary['net_profit'] * sh.share_percentage / 100)}
+            for sh in Shareholder.objects.all()
+        ]
     return render(request, 'academies/accounts_home.html', {
         'month_value': month_value,
         'summary': summary,
         'shareholders': Shareholder.objects.all(),
         'shareholder_rows': shareholder_rows,
+        'can_view_financial_summary': can_view_financial_summary,
+        'can_view_expenses': can_view_expenses,
     })
 
 
@@ -1869,30 +1894,37 @@ def academy_member_list(request, academy_id):
     academy = get_object_or_404(Academy, pk=academy_id)
     role = request.GET.get('role', '').strip()
     members = academy.members.all()
-    if role:
+    role_labels = dict(AcademyMember.ROLE_CHOICES)
+    if role in role_labels:
         members = members.filter(role=role)
+    else:
+        role = ''
     return render(request, 'academies/academy_member_list.html', {
         'academy': academy,
         'members': members,
         'role': role,
         'role_choices': AcademyMember.ROLE_CHOICES,
+        'role_label': {'coach': 'مدربو', 'admin': 'إداريو', 'player': 'لاعبو'}.get(role, 'أعضاء'),
+        'role_singular': {'coach': 'مدرب', 'admin': 'إداري', 'player': 'لاعب'}.get(role, 'عضو'),
     })
 
 
 @login_required
 def academy_member_create(request, academy_id):
     academy = get_object_or_404(Academy, pk=academy_id)
-    initial = {}
     role = request.GET.get('role', '').strip()
-    if role:
-        initial['role'] = role
-    form = AcademyMemberForm(request.POST or None, initial=initial)
+    role_labels = dict(AcademyMember.ROLE_CHOICES)
+    if role not in role_labels:
+        messages.error(request, 'اختر نوع العضو من شاشة الأكاديمية.')
+        return redirect(f'/academies/{academy.id}/members/')
+    form = AcademyMemberForm(request.POST or None, fixed_role=role)
     if form.is_valid():
         member = form.save(commit=False)
         member.academy = academy
         member.save()
-        return redirect('academy_member_list', academy_id=academy.id)
-    return render(request, 'academies/simple_form.html', {'form': form, 'title': f'إضافة عضو - {academy.name}', 'back_url_path': f'/academies/{academy.id}/members/'})
+        return redirect(f'/academies/{academy.id}/members/?role={role}')
+    role_singular = {'coach': 'مدرب', 'admin': 'إداري', 'player': 'لاعب'}[role]
+    return render(request, 'academies/simple_form.html', {'form': form, 'title': f'إضافة {role_singular} - {academy.name}', 'back_url_path': f'/academies/{academy.id}/members/?role={role}'})
 
 
 @login_required

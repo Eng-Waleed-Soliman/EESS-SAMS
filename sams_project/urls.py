@@ -26,6 +26,7 @@ urlpatterns = [
     path('operation/card-action/', views.operation_card_action, name='operation_card_action'),
     path('daily-income/', views.daily_income, name='daily_income'),
     path('accounts/', views.accounts_home, name='accounts_home'),
+    path('company-management/', views.company_management_home, name='company_management_home'),
     path('shareholders/', views.shareholder_list, name='shareholder_list'),
     path('shareholders/add/', views.shareholder_create, name='shareholder_create'),
     path('shareholders/<int:pk>/edit/', views.shareholder_update, name='shareholder_update'),

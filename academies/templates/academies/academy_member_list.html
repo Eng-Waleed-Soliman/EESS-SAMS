@@ -1,30 +1,33 @@
 {% extends 'academies/base.html' %}
 {% block content %}
 <div class="d-flex justify-content-between mb-3 flex-wrap gap-2">
-  <h3>أعضاء أكاديمية {{ academy.name }}</h3>
+  <h3>{{ role_label }} أكاديمية {{ academy.name }}</h3>
   <div class="btn-row">
+    {% if role == 'coach' %}
     <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=coach">إضافة مدرب</a>
+    {% elif role == 'admin' %}
     <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=admin">إضافة إداري</a>
+    {% elif role == 'player' %}
     <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=player">إضافة لاعب</a>
+    {% endif %}
     <a class="btn btn-secondary" href="{% url 'academy_list' %}">رجوع</a>
   </div>
 </div>
 <div class="card p-3">
   <div class="table-responsive">
     <table class="table table-striped align-middle">
-      <thead><tr><th>النوع</th><th>الاسم</th><th>الهاتف</th><th>الرقم القومي</th><th>اشتراك اللاعب</th><th>الحالة</th><th></th></tr></thead>
+      <thead><tr><th>الاسم</th><th>الهاتف</th><th>الرقم القومي</th>{% if role == 'player' %}<th>اشتراك اللاعب</th>{% endif %}<th>الحالة</th><th></th></tr></thead>
       <tbody>
         {% for member in members %}
         <tr>
-          <td>{{ member.get_role_display }}</td>
           <td>{{ member.name }}</td>
           <td>{{ member.phone|default:'-' }}</td>
           <td>{{ member.national_id|default:'-' }}</td>
-          <td>{{ member.monthly_subscription }}</td>
+          {% if role == 'player' %}<td>{{ member.monthly_subscription }}</td>{% endif %}
           <td>{% if member.is_active %}نشط{% else %}غير نشط{% endif %}</td>
           <td><a class="btn btn-sm btn-primary" href="{% url 'academy_member_update' academy.id member.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'academy_member_delete' academy.id member.pk %}">حذف</a></td>
         </tr>
-        {% empty %}<tr><td colspan="7">لا توجد بيانات بعد</td></tr>{% endfor %}
+        {% empty %}<tr><td colspan="{% if role == 'player' %}6{% else %}5{% endif %}">لا توجد بيانات بعد</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>

@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', function(){
     collectSchedule();
   }
   const sub = document.getElementById('id_subscription_type');
-  if(sub){ sub.addEventListener('change', updateSubscriptionFields); updateSubscriptionFields(); }
+  if(sub){ sub.addEventListener('change', updateSubscriptionFields); }
 
   const checkbox = document.getElementById('id_has_extra_hours');
   const openBtn = document.getElementById('open-extra-modal');
@@ -272,6 +272,7 @@ document.addEventListener('DOMContentLoaded', function(){
   if(checkbox){ checkbox.addEventListener('change', function(){ if(this.checked) openExtra(); }); }
   if(openBtn){ openBtn.addEventListener('click', openExtra); }
   buildScheduleGrid();
+  updateSubscriptionFields();
   scheduleGrid.addEventListener('change', collectSchedule);
   scheduleGrid.addEventListener('click', function(event){
     const addButton = event.target.closest('.add-interval');

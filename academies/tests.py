@@ -10,12 +10,14 @@ from .forms import AcademyForm
 from .views import _academy_schedule_occurrences_for_date, _calculate_variable_income_by_facility
 from .models import (
     Academy,
+    AcademyMember,
     CafeteriaCategory,
     CafeteriaItem,
     CafeteriaPurchase,
     CafeteriaSale,
     DailyBooking,
     DailyBookingCheckout,
+    UserPermission,
 )
 
 
@@ -115,3 +117,39 @@ class ApplicationFlowsTests(TestCase):
         checkout = DailyBookingCheckout.objects.get(booking=booking)
         self.assertEqual(checkout.total_amount, 200)
         self.assertEqual(checkout.remaining_amount, 150)
+
+    def test_member_role_screen_has_only_matching_add_button_and_hidden_role(self):
+        academy = Academy.objects.create(
+            name='أكاديمية الأعضاء', sport_activity='كرة قدم', company_name='شركة',
+            manager_name='مدير', manager_phone='01000000002',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=30),
+        )
+        list_url = reverse('academy_member_list', args=[academy.pk]) + '?role=coach'
+        response = self.client.get(list_url)
+        self.assertContains(response, 'إضافة مدرب')
+        self.assertNotContains(response, 'إضافة إداري')
+        self.assertNotContains(response, 'إضافة لاعب')
+
+        create_url = reverse('academy_member_create', args=[academy.pk]) + '?role=coach'
+        response = self.client.get(create_url)
+        self.assertNotContains(response, 'id_role')
+        response = self.client.post(create_url, {
+            'name': 'مدرب اختبار', 'phone': '', 'national_id': '',
+            'monthly_subscription': 0, 'is_active': 'on', 'notes': '',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(AcademyMember.objects.get(name='مدرب اختبار').role, AcademyMember.ROLE_COACH)
+
+    def test_company_management_and_expenses_are_nested_in_parent_modules(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_shareholders = True
+        profile.can_employees = True
+        profile.can_general_expenses = True
+        profile.save()
+        response = self.client.get(reverse('company_management_home'))
+        self.assertContains(response, 'فتح المساهمين')
+        self.assertContains(response, 'فتح الموظفين')
+        response = self.client.get(reverse('accounts_home'))
+        self.assertContains(response, 'المصروفات العامة')
+        self.assertNotContains(response, 'إجمالي الدخل الشهري')
