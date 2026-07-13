@@ -122,7 +122,7 @@ function timeIndex(value){
 function hoursBetween(st, et){
   const s = timeIndex(st), e = timeIndex(et);
   if(s < 0 || e < 0 || e <= s) return 0;
-  return e - s;
+  return (e - s) / 2;
 }
 function getDateTimes(){
   if(selectedDates.length <= 1){

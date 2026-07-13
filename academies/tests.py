@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
-from .forms import AcademyForm
+from .forms import AcademyForm, DailyBookingForm
 from .views import _academy_schedule_occurrences_for_date, _calculate_variable_income_by_facility
 from .models import (
     Academy,
@@ -109,6 +109,10 @@ class ApplicationFlowsTests(TestCase):
             players_count=1, amount=200, advance_payment=50,
             total_amount=200, remaining_amount=150,
         )
+        operation_response = self.client.get(reverse('operation_screen'), {'date': date.today().isoformat(), 'period': 'all'})
+        self.assertContains(operation_response, 'operation-tooltip')
+        self.assertContains(operation_response, 'operation-entry-data')
+        self.assertContains(operation_response, 'عميل اختبار')
         response = self.client.post(reverse('operation_card_action'), {
             'action': 'checkout', 'item_type': 'daily', 'item_id': booking.pk,
             'date': date.today().isoformat(), 'period': 'all',
@@ -117,6 +121,28 @@ class ApplicationFlowsTests(TestCase):
         checkout = DailyBookingCheckout.objects.get(booking=booking)
         self.assertEqual(checkout.total_amount, 200)
         self.assertEqual(checkout.remaining_amount, 150)
+
+    def test_daily_booking_hourly_rate_counts_two_half_hour_slots_as_one_hour(self):
+        booking_date = date.today()
+        form = DailyBookingForm(data={
+            'customer_code': '', 'customer_name': 'عميل حساب الساعة',
+            'customer_phone': '01111111112', 'national_id': '', 'players_count': 10,
+            'amount': 500, 'advance_payment': 0, 'total_amount': 0, 'remaining_amount': 0,
+            'venue': OPERATION_PLACE_CHOICES[0][0],
+            'booking_date': booking_date.isoformat(),
+            'booking_dates': booking_date.isoformat(),
+            'booking_date_times': json.dumps([{
+                'date': booking_date.isoformat(),
+                'start_time': TIME_CHOICES[0][0],
+                'end_time': TIME_CHOICES[2][0],
+            }]),
+            'start_time': TIME_CHOICES[0][0], 'end_time': TIME_CHOICES[2][0],
+            'notes': '',
+        })
+        self.assertTrue(form.is_valid(), form.errors.as_json())
+        self.assertEqual(form.cleaned_data['total_amount'], 500)
+        booking = form.save_all()[0]
+        self.assertEqual(booking.total_amount, 500)
 
     def test_member_role_screen_has_only_matching_add_button_and_hidden_role(self):
         academy = Academy.objects.create(

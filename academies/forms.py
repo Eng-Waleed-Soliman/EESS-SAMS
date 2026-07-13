@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from django import forms
 from django.db.models import Q
 from django.contrib.auth.models import User
@@ -731,9 +732,9 @@ class DailyBookingForm(forms.ModelForm):
         try:
             start_idx = TIME_INDEX.get(start_time, 0)
             end_idx = TIME_INDEX.get(end_time, 0)
-            return max(0, end_idx - start_idx)
+            return Decimal(max(0, end_idx - start_idx)) / Decimal(2)
         except Exception:
-            return 0
+            return Decimal(0)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -753,7 +754,7 @@ class DailyBookingForm(forms.ModelForm):
         hourly_rate = cleaned_data.get('amount') or 0
         advance = cleaned_data.get('advance_payment') or 0
         total_hours = sum(self._hours_count(st, et) for _, st, et in selected_date_times)
-        cleaned_data['total_amount'] = int(hourly_rate) * int(total_hours)
+        cleaned_data['total_amount'] = int(Decimal(hourly_rate) * total_hours)
         cleaned_data['remaining_amount'] = max(0, cleaned_data['total_amount'] - int(advance))
 
         if venue and selected_date_times:
@@ -818,7 +819,7 @@ class DailyBookingForm(forms.ModelForm):
             first_booking.booking_date = first_date
             first_booking.start_time = first_start
             first_booking.end_time = first_end
-            first_booking.total_amount = int(first_booking.amount or 0) * int(first_hours)
+            first_booking.total_amount = int(Decimal(first_booking.amount or 0) * first_hours)
             first_booking.remaining_amount = max(0, int(first_booking.total_amount or 0) - int(first_booking.advance_payment or 0))
             first_booking.save()
         if is_update:
@@ -826,7 +827,7 @@ class DailyBookingForm(forms.ModelForm):
         created = [first_booking]
         for booking_date, start_time, end_time in selected_date_times[1:]:
             hours_count = self._hours_count(start_time, end_time)
-            total_amount = int(first_booking.amount or 0) * int(hours_count)
+            total_amount = int(Decimal(first_booking.amount or 0) * hours_count)
             clone = DailyBooking.objects.create(
                 customer_code=first_booking.customer_code,
                 customer_name=first_booking.customer_name,

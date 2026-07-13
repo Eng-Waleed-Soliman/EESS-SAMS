@@ -36,12 +36,26 @@
         <tr>
           <th style="width:190px" class="table-light fs-5 sticky-place">{{ row.place }}</th>
           {% for card in row.cards %}
-            <td style="width:145px">
+            <td class="operation-slot-cell">
               <div class="operation-card {{ card.card_class }}" {% if card.busy %}ondblclick="openCardModal(this)"{% endif %}>
-                <small>{{ card.time }}</small>
+                <small class="operation-time">{{ card.time }}</small>
                 {% if card.entries %}
+                  <div class="operation-tooltip" role="tooltip">
+                    {% for entry in card.entries %}
+                    <div class="operation-tooltip-entry">
+                      <strong>{{ entry.label }}</strong>
+                      {% if entry.item_type == 'daily' %}
+                      <span>العميل: {{ entry.customer_name }}</span>
+                      <span>الموبايل: {{ entry.customer_phone }}</span>
+                      <span>التاريخ: {{ entry.booking_day }} - {{ entry.booking_date }}</span>
+                      <span>الوقت: {{ entry.start_time }} إلى {{ entry.end_time }}</span>
+                      <span>الإجمالي: {{ entry.total_amount }} | المقدم: {{ entry.advance_payment }} | المتبقي: {{ entry.remaining_amount }}</span>
+                      {% endif %}
+                    </div>
+                    {% endfor %}
+                  </div>
                   {% for entry in card.entries %}
-                    <div class="operation-name"
+                    <div class="operation-name operation-entry-data"
                          data-label="{{ entry.label }}"
                          data-item-type="{{ entry.item_type }}"
                          data-item-id="{{ entry.item_id }}"
@@ -58,8 +72,6 @@
                          data-remaining-amount="{{ entry.remaining_amount|default:'' }}"
                          data-checked-out="{{ entry.checked_out|yesno:'1,0' }}">{{ entry.label }}</div>
                   {% endfor %}
-                {% else %}
-                  <div class="operation-name text-muted">متاح</div>
                 {% endif %}
               </div>
             </td>
