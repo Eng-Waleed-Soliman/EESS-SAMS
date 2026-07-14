@@ -4,11 +4,23 @@
 <form method="post" class="card p-4">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+  {% if form.new_password %}
+  <div class="alert alert-warning">
+    لا يمكن عرض كلمة المرور الحالية لأنها محفوظة بصورة مشفّرة. إذا نسي المستخدم كلمة المرور، عيّن له كلمة مرور جديدة من الخانة أدناه.
+  </div>
+  {% endif %}
   <div class="row g-3">
     {% for field in form %}
       <div class="col-md-6">
         <label class="form-label fw-bold">{{ field.label }}</label>
+        {% if field.name == 'new_password' %}
+        <div class="input-group">
+          {{ field }}
+          <button class="btn btn-outline-secondary" type="button" id="toggleNewPassword">إظهار</button>
+        </div>
+        {% else %}
         {{ field }}
+        {% endif %}
         {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
         {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
       </div>
@@ -104,6 +116,15 @@
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
+  const passwordInput = document.getElementById('id_new_password');
+  const passwordToggle = document.getElementById('toggleNewPassword');
+  if(passwordInput && passwordToggle){
+    passwordToggle.addEventListener('click', function(){
+      const show = passwordInput.type === 'password';
+      passwordInput.type = show ? 'text' : 'password';
+      passwordToggle.textContent = show ? 'إخفاء' : 'إظهار';
+    });
+  }
   const cards = Array.from(document.querySelectorAll('[data-module-card]'));
   const panels = Array.from(document.querySelectorAll('[data-module-panel]'));
   const empty = document.getElementById('moduleDetailsEmpty');

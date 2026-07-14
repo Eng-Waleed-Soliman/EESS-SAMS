@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
-from .forms import AcademyForm, DailyBookingForm
+from .forms import AcademyForm, DailyBookingForm, EESSUserUpdateForm
 from .views import _academy_schedule_occurrences_for_date, _calculate_variable_income_by_facility
 from .models import (
     Academy,
@@ -27,6 +27,36 @@ class ApplicationFlowsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='tester', password='test-password')
         self.client.force_login(self.user)
+
+    def test_login_uses_typed_username_without_exposing_user_list(self):
+        hidden_user = User.objects.create_user(username='private_operator', password='operator-password')
+        self.client.logout()
+        response = self.client.get(reverse('login'))
+        self.assertContains(response, 'name="username"')
+        self.assertContains(response, 'placeholder="اكتب اسم المستخدم"')
+        self.assertNotContains(response, '<select name="username"')
+        self.assertNotContains(response, hidden_user.username)
+
+        response = self.client.post(reverse('login'), {
+            'username': hidden_user.username,
+            'password': 'operator-password',
+        })
+        self.assertRedirects(response, reverse('dashboard'))
+
+    def test_admin_can_set_replacement_password_but_hash_is_never_displayed(self):
+        target = User.objects.create_user(username='password_reset_user', password='old-secret-password')
+        original_hash = target.password
+        form = EESSUserUpdateForm(data={
+            'username': target.username,
+            'first_name': target.first_name,
+            'email': target.email,
+            'is_active': 'on',
+            'new_password': 'replacement-password-123',
+        }, instance=target)
+        self.assertTrue(form.is_valid(), form.errors.as_json())
+        updated = form.save()
+        self.assertNotEqual(updated.password, original_hash)
+        self.assertTrue(updated.check_password('replacement-password-123'))
 
     def test_academy_create_and_edit_keep_browser_date_format(self):
         place = OPERATION_PLACE_CHOICES[0][0]

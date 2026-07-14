@@ -123,8 +123,7 @@ def _can_access_reports(user):
 
 
 def login_view(request):
-    """Custom login screen with username selected from registered users."""
-    users = User.objects.filter(is_active=True).order_by('username')
+    """Custom login screen where users enter their username and password."""
     next_url = request.GET.get('next') or request.POST.get('next') or 'dashboard'
     if request.user.is_authenticated:
         if is_cafeteria_specialist(request.user):
@@ -141,7 +140,11 @@ def login_view(request):
                 return redirect('cafe_sale_list')
             return redirect(next_url if next_url != 'dashboard' else 'dashboard')
         error = 'اسم المستخدم أو كلمة المرور غير صحيحة.'
-    return render(request, 'academies/login.html', {'users': users, 'login_error': error, 'next': next_url})
+    return render(request, 'academies/login.html', {
+        'login_error': error,
+        'login_username': request.POST.get('username', '').strip(),
+        'next': next_url,
+    })
 
 
 def logout_view(request):

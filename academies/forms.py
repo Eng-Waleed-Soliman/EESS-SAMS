@@ -1153,10 +1153,10 @@ class EESSUserUpdateForm(forms.ModelForm):
         help_text='اختر اسم المستخدم من الوظائف المسجلة في الإعدادات.'
     )
     new_password = forms.CharField(
-        label='كلمة مرور جديدة',
+        label='تعيين كلمة مرور جديدة',
         required=False,
         widget=forms.PasswordInput(attrs={'class':'form-control', 'placeholder':'اتركها فارغة للاحتفاظ بكلمة المرور الحالية'}),
-        help_text='لا يمكن عرض كلمة المرور الحالية لأنها محفوظة بشكل مشفر. اكتب كلمة جديدة فقط إذا أردت تغييرها.'
+        help_text='كلمة المرور الحالية مشفّرة ولا يمكن استرجاعها. اكتب كلمة جديدة هنا عند نسيانها، أو اترك الخانة فارغة دون تغيير.'
     )
 
     class Meta:

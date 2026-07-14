@@ -28,17 +28,12 @@
             {% csrf_token %}
             <div class="mb-3">
               <label class="form-label">اسم المستخدم</label>
-              <select name="username" class="form-select" required autofocus>
-                <option value="">اختر اسم المستخدم</option>
-                {% for u in users %}
-                  <option value="{{ u.username }}">{{ u.username }}{% if u.get_full_name %} - {{ u.get_full_name }}{% endif %}</option>
-                {% endfor %}
-              </select>
+              <input type="text" name="username" value="{{ login_username }}" class="form-control" placeholder="اكتب اسم المستخدم" autocomplete="username" required autofocus>
             </div>
             <input type="hidden" name="next" value="{{ next }}">
             <div class="mb-3">
               <label class="form-label">كلمة المرور</label>
-              <input type="password" name="password" class="form-control" required>
+              <input type="password" name="password" class="form-control" autocomplete="current-password" required>
             </div>
             <button class="btn btn-primary w-100 py-2">دخول</button>
           </form>
