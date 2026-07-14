@@ -23,6 +23,7 @@ from .models import (
     DailyIncomeSupply,
     Employee,
     MonthlyExpense,
+    OperatingExpense,
     Shareholder,
     UserPermission,
 )
@@ -215,6 +216,19 @@ class ApplicationFlowsTests(TestCase):
         )
         MonthlyExpense.objects.create(title='مصروف شهري تقرير', expense_month=date(today.year, today.month, 1), amount=200)
         DailyExpense.objects.create(title='مصروف يومي تقرير', expense_date=today, amount=100, created_by=self.user)
+        OperatingExpense.objects.create(title='مصروف تشغيل تقرير', expense_date=today, amount=50, notes='ملاحظة تشغيل')
+        booking = DailyBooking.objects.create(
+            venue=OPERATION_PLACE_CHOICES[0][0], booking_date=today,
+            start_time=TIME_CHOICES[0][0], end_time=TIME_CHOICES[2][0],
+            customer_name='عميل تقرير الدخل', customer_phone='01100000123',
+            total_amount=300, advance_payment=300, remaining_amount=0,
+        )
+        DailyBookingCheckout.objects.create(
+            booking=booking, income_date=today, customer_name=booking.customer_name,
+            customer_phone=booking.customer_phone, venue=booking.venue,
+            booking_date=today, start_time=booking.start_time, end_time=booking.end_time,
+            total_amount=300, advance_payment=300, remaining_amount=0,
+        )
         category = CafeteriaCategory.objects.create(code=901, name='فئة تقرير')
         item = CafeteriaItem.objects.create(
             category=category, code=1, name='صنف إحصائيات', opening_quantity=0,
@@ -244,11 +258,20 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.get(reverse('reports_home'), {
             'report_type': 'monthly_income', 'month': today.strftime('%Y-%m'), 'section': 'expected',
         })
-        self.assertContains(response, 'المبالغ المستحقة')
+        self.assertContains(response, 'الجزء الأول: الأكاديميات')
+        self.assertContains(response, 'الجزء الثاني: الحجز اليومي')
+        self.assertContains(response, 'الجزء الثالث: المصروفات')
+        self.assertContains(response, 'الجزء الرابع: صافي الدخل')
         self.assertContains(response, 'أكاديمية تقرير')
+        self.assertContains(response, 'مصروف تشغيل تقرير')
+        self.assertContains(response, 'ملاحظة تشغيل')
         self.assertEqual(response.context['income_expected_total'], 1000)
         self.assertEqual(response.context['income_paid_total'], 700)
         self.assertEqual(response.context['income_supplied_total'], 500)
+        self.assertEqual(response.context['income_daily_booking_total'], 300)
+        self.assertEqual(response.context['income_expenses_total'], 350)
+        self.assertEqual(response.context['income_total'], 1000)
+        self.assertEqual(response.context['income_net_total'], 650)
 
         response = self.client.get(reverse('reports_home'), {
             'report_type': 'expenses', 'month': today.strftime('%Y-%m'), 'section': 'daily',

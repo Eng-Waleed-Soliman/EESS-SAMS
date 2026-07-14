@@ -1843,6 +1843,33 @@ def reports_home_v2(request):
 
     elif report_type == 'monthly_income':
         rows = _academy_rent_rows(year, month, start, end)
+        daily_booking_rows = list(
+            DailyBookingCheckout.objects.filter(income_date__range=(start, end))
+            .values('income_date')
+            .annotate(total_amount=Sum('total_amount'))
+            .order_by('income_date')
+        )
+        expense_rows = []
+        for expense in MonthlyExpense.objects.filter(expense_month__range=(start, end)):
+            expense_rows.append({
+                'type': 'مصروف شهري', 'date': expense.expense_month,
+                'title': expense.title, 'amount': expense.amount, 'notes': expense.notes,
+            })
+        for expense in DailyExpense.objects.filter(expense_date__range=(start, end)):
+            expense_rows.append({
+                'type': 'مصروف يومي', 'date': expense.expense_date,
+                'title': expense.title, 'amount': expense.amount, 'notes': expense.notes,
+            })
+        for expense in OperatingExpense.objects.filter(expense_date__range=(start, end)):
+            expense_rows.append({
+                'type': 'مصروف تشغيل', 'date': expense.expense_date,
+                'title': expense.title, 'amount': expense.amount, 'notes': expense.notes,
+            })
+        expense_rows.sort(key=lambda item: (item['date'], item['title']))
+        academy_income_total = sum(row['paid'] for row in rows)
+        daily_booking_total = sum(row['total_amount'] or 0 for row in daily_booking_rows)
+        expenses_total = sum(row['amount'] or 0 for row in expense_rows)
+        total_income = academy_income_total + daily_booking_total
         context.update({
             'income_rows': rows,
             'income_expected_total': sum(row['expected'] for row in rows),
@@ -1850,6 +1877,13 @@ def reports_home_v2(request):
             'income_remaining_total': sum(row['remaining'] for row in rows),
             'income_supplied_total': sum(row['supplied'] for row in rows),
             'income_unsupplied_total': sum(row['unsupplied'] for row in rows),
+            'income_daily_booking_rows': daily_booking_rows,
+            'income_daily_booking_total': daily_booking_total,
+            'income_expense_rows': expense_rows,
+            'income_expenses_total': expenses_total,
+            'income_academy_total': academy_income_total,
+            'income_total': total_income,
+            'income_net_total': total_income - expenses_total,
         })
 
     elif report_type == 'expenses':
