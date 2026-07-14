@@ -258,19 +258,34 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.get(reverse('reports_home'), {
             'report_type': 'monthly_income', 'month': today.strftime('%Y-%m'), 'section': 'expected',
         })
-        for heading in ('الأكاديميات', 'الحجز اليومي', 'المصروفات', 'صافي الدخل'):
+        for heading in ('الأكاديميات', 'الحجز اليومي', 'دخل الكافيتريا', 'المصروفات', 'صافي الدخل'):
             self.assertContains(response, f'class="fs-5">{heading}</th>')
         self.assertNotContains(response, 'الجزء الأول:')
+        self.assertNotContains(response, 'عرض التقرير')
+        self.assertContains(response, 'name="range_mode"')
+        self.assertContains(response, 'onchange="this.form.submit()"')
         self.assertContains(response, 'أكاديمية تقرير')
-        self.assertContains(response, 'مصروف تشغيل تقرير')
-        self.assertContains(response, 'ملاحظة تشغيل')
+        self.assertNotContains(response, 'مصروف تشغيل تقرير')
+        self.assertContains(response, 'مشتروات الكافيتريا')
+        self.assertContains(response, 'صنف إحصائيات - كمية 5')
+        self.assertContains(response, WEEKDAY_AR[today.weekday()])
         self.assertEqual(response.context['income_expected_total'], 1000)
         self.assertEqual(response.context['income_paid_total'], 700)
         self.assertEqual(response.context['income_supplied_total'], 500)
         self.assertEqual(response.context['income_daily_booking_total'], 300)
+        self.assertEqual(response.context['income_cafeteria_total'], 60)
         self.assertEqual(response.context['income_expenses_total'], 350)
-        self.assertEqual(response.context['income_total'], 1000)
-        self.assertEqual(response.context['income_net_total'], 650)
+        self.assertEqual(response.context['income_total'], 1060)
+        self.assertEqual(response.context['income_net_total'], 710)
+
+        response = self.client.get(reverse('reports_home'), {
+            'report_type': 'monthly_income', 'range_mode': 'custom',
+            'date_from': today.isoformat(), 'date_to': today.isoformat(),
+        })
+        self.assertEqual(response.context['range_mode'], 'custom')
+        self.assertEqual(response.context['income_daily_booking_total'], 300)
+        self.assertEqual(response.context['income_cafeteria_total'], 60)
+        self.assertContains(response, f'من {today.strftime("%d/%m/%Y")} إلى {today.strftime("%d/%m/%Y")}')
 
         response = self.client.get(reverse('reports_home'), {
             'report_type': 'expenses', 'month': today.strftime('%Y-%m'), 'section': 'daily',
@@ -288,6 +303,12 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.context['cafeteria_net_profit'], 10)
         self.assertEqual(response.context['cafeteria_statistics'][0]['sold'], 3)
         self.assertEqual(response.context['cafeteria_statistics'][0]['profit_percentage'], 50.0)
+
+        response = self.client.get(reverse('cafe_purchase_list'))
+        self.assertNotContains(response, reverse('operating_expense_list'))
+        response = self.client.get(reverse('cafe_item_list'))
+        self.assertContains(response, 'مشتروات الكافيتريا')
+        self.assertNotContains(response, reverse('operating_expense_list'))
 
     def test_dashboard_shows_six_current_month_linked_cards(self):
         today = date.today()

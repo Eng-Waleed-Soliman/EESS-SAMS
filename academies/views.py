@@ -1776,7 +1776,23 @@ def reports_home_v2(request):
         messages.error(request, 'ليس لديك صلاحية عرض التقارير.')
         return redirect('dashboard')
 
-    year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
+    year, month, month_start, month_end, month_value = _month_bounds(request.GET.get('month'))
+    range_mode = request.GET.get('range_mode', 'month')
+    start, end = month_start, month_end
+    if range_mode == 'custom':
+        try:
+            custom_start = date.fromisoformat(request.GET.get('date_from', ''))
+            custom_end = date.fromisoformat(request.GET.get('date_to', ''))
+            if custom_start <= custom_end:
+                start, end = custom_start, custom_end
+            else:
+                range_mode = 'month'
+        except (TypeError, ValueError):
+            range_mode = 'month'
+    period_label = (
+        f'من {start.strftime("%d/%m/%Y")} إلى {end.strftime("%d/%m/%Y")}'
+        if range_mode == 'custom' else f'عن شهر {month_value}'
+    )
     requested_type = request.GET.get('report_type', '').strip()
     requested_section = request.GET.get('section', '').strip()
     legacy_aliases = {
@@ -1806,6 +1822,10 @@ def reports_home_v2(request):
     section = requested_section if requested_section in section_choices.get(report_type, {'summary'}) else 'summary'
     context = {
         'month_value': month_value,
+        'range_mode': range_mode,
+        'date_from': start.isoformat(),
+        'date_to': end.isoformat(),
+        'period_label': period_label,
         'report_type': report_type,
         'report_title': report_titles[report_type],
         'allowed_report_options': [(key, report_titles[key]) for key in allowed_report_types],
@@ -1842,13 +1862,43 @@ def reports_home_v2(request):
         ]
 
     elif report_type == 'monthly_income':
-        rows = _academy_rent_rows(year, month, start, end)
+        monthly_rent_rows = []
+        cursor = date(start.year, start.month, 1)
+        last_month = date(end.year, end.month, 1)
+        while cursor <= last_month:
+            cursor_end = date(cursor.year, cursor.month, monthrange(cursor.year, cursor.month)[1])
+            monthly_rent_rows.extend(_academy_rent_rows(cursor.year, cursor.month, cursor, cursor_end))
+            cursor = date(cursor.year + (1 if cursor.month == 12 else 0), 1 if cursor.month == 12 else cursor.month + 1, 1)
+        rows_by_academy = {}
+        for monthly_row in monthly_rent_rows:
+            academy_id = monthly_row['academy'].id
+            if academy_id not in rows_by_academy:
+                rows_by_academy[academy_id] = {
+                    'academy': monthly_row['academy'], 'expected': 0, 'paid': 0,
+                    'remaining': 0, 'supplied': 0, 'unsupplied': 0, 'supplied_date': None,
+                }
+            row = rows_by_academy[academy_id]
+            for field in ('expected', 'paid', 'remaining', 'supplied', 'unsupplied'):
+                row[field] += int(monthly_row[field] or 0)
+            supplied_date = monthly_row['payment'].supplied_date
+            if supplied_date and (not row['supplied_date'] or supplied_date > row['supplied_date']):
+                row['supplied_date'] = supplied_date
+        rows = sorted(rows_by_academy.values(), key=lambda row: row['academy'].name)
         daily_booking_rows = list(
             DailyBookingCheckout.objects.filter(income_date__range=(start, end))
             .values('income_date')
             .annotate(total_amount=Sum('total_amount'))
             .order_by('income_date')
         )
+        for booking_row in daily_booking_rows:
+            booking_row['day_name'] = WEEKDAY_AR[booking_row['income_date'].weekday()]
+        cafeteria_income_by_date = {}
+        for sale in CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item'):
+            cafeteria_income_by_date[sale.sale_date] = cafeteria_income_by_date.get(sale.sale_date, 0) + sale.total_amount
+        cafeteria_income_rows = [
+            {'date': sale_date, 'day_name': WEEKDAY_AR[sale_date.weekday()], 'amount': amount}
+            for sale_date, amount in sorted(cafeteria_income_by_date.items())
+        ]
         expense_rows = []
         for expense in MonthlyExpense.objects.filter(expense_month__range=(start, end)):
             expense_rows.append({
@@ -1860,16 +1910,19 @@ def reports_home_v2(request):
                 'type': 'مصروف يومي', 'date': expense.expense_date,
                 'title': expense.title, 'amount': expense.amount, 'notes': expense.notes,
             })
-        for expense in OperatingExpense.objects.filter(expense_date__range=(start, end)):
+        for purchase in CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)).select_related('item'):
             expense_rows.append({
-                'type': 'مصروف تشغيل', 'date': expense.expense_date,
-                'title': expense.title, 'amount': expense.amount, 'notes': expense.notes,
+                'type': 'مشتروات الكافيتريا', 'date': purchase.purchase_date,
+                'title': f'{purchase.item.name} - كمية {purchase.quantity}',
+                'amount': purchase.total_amount,
+                'notes': purchase.notes or (f'المورد: {purchase.supplier}' if purchase.supplier else ''),
             })
         expense_rows.sort(key=lambda item: (item['date'], item['title']))
         academy_income_total = sum(row['paid'] for row in rows)
         daily_booking_total = sum(row['total_amount'] or 0 for row in daily_booking_rows)
+        cafeteria_income_total = sum(row['amount'] or 0 for row in cafeteria_income_rows)
         expenses_total = sum(row['amount'] or 0 for row in expense_rows)
-        total_income = academy_income_total + daily_booking_total
+        total_income = academy_income_total + daily_booking_total + cafeteria_income_total
         context.update({
             'income_rows': rows,
             'income_expected_total': sum(row['expected'] for row in rows),
@@ -1879,6 +1932,8 @@ def reports_home_v2(request):
             'income_unsupplied_total': sum(row['unsupplied'] for row in rows),
             'income_daily_booking_rows': daily_booking_rows,
             'income_daily_booking_total': daily_booking_total,
+            'income_cafeteria_rows': cafeteria_income_rows,
+            'income_cafeteria_total': cafeteria_income_total,
             'income_expense_rows': expense_rows,
             'income_expenses_total': expenses_total,
             'income_academy_total': academy_income_total,
