@@ -1,4 +1,5 @@
-{% extends 'academies/base.html' %}{% block content %}
+{% extends 'academies/base.html' %}
+{% block content %}
 <div class="card p-4 mb-4">
   <div class="d-flex align-items-center gap-3 flex-wrap">
     {% if app_settings and app_settings.company_logo %}<img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
@@ -8,14 +9,41 @@
     </div>
   </div>
 </div>
-<h3 class="page-title">لوحة التحكم</h3>
-<div class="row g-3 mb-4">
- <div class="col-md-3"><a class="stat-link" href="{% url 'academy_list' %}"><div class="card stat-card p-3"><b>عدد الأكاديميات</b><h2>{{ total_academies }}</h2></div></a></div>
- <div class="col-md-3"><a class="stat-link" href="{% url 'academy_list' %}"><div class="card stat-card p-3"><b>العقود السارية</b><h2>{{ active_contracts }}</h2></div></a></div>
- <div class="col-md-3"><a class="stat-link" href="{% url 'academy_list' %}"><div class="card stat-card p-3"><b>تنتهي خلال 30 يوم</b><h2>{{ ending_soon }}</h2></div></a></div>
- <div class="col-md-3"><a class="stat-link" href="{% url 'reports_home' %}"><div class="card stat-card p-3"><b>إجمالي شهري</b><h2>{{ monthly_total }}</h2></div></a></div>
- <div class="col-md-3"><a class="stat-link" href="{% url 'booking_list' %}"><div class="card stat-card p-3"><b>الحجز اليومي اليوم</b><h2>{{ daily_bookings_today }}</h2></div></a></div>
- <div class="col-md-3"><a class="stat-link" href="{% url 'employee_list' %}"><div class="card stat-card p-3"><b>الموظفين</b><h2>{{ employees_count }}</h2></div></a></div>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h3 class="page-title mb-0">لوحة التحكم</h3>
+  <span class="badge bg-primary fs-6">بيانات الشهر الحالي: {{ month_value }}</span>
 </div>
-<div class="card p-3"><h5>آخر الأكاديميات</h5><table class="table"><tr><th>الاسم</th><th>النشاط</th><th>المدير</th><th>نهاية العقد</th></tr>{% for a in latest_academies %}<tr><td>{{ a.name }}</td><td>{{ a.sport_activity }}</td><td>{{ a.manager_name }}</td><td>{{ a.contract_end_date }}</td></tr>{% empty %}<tr><td colspan="4">لا توجد بيانات بعد</td></tr>{% endfor %}</table></div>
+
+<div class="row g-3 dashboard-cards mb-4">
+  <div class="dashboard-card-col">
+    <a class="stat-link" href="{% url 'academy_list' %}"><div class="card stat-card dashboard-stat-card p-3"><b>الأكاديميات المتعاقد معها</b><h2>{{ contracted_academies }}</h2><small>فتح الأكاديميات</small></div></a>
+  </div>
+  <div class="dashboard-card-col">
+    <a class="stat-link" href="{% url 'academy_rent_payments' %}?month={{ month_value }}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي المبالغ المستحقة</b><h2>{{ expected_total }}</h2><small>عن الشهر الحالي</small></div></a>
+  </div>
+  <div class="dashboard-card-col">
+    <a class="stat-link" href="{% url 'academy_rent_payments' %}?month={{ month_value }}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي المبالغ المسددة</b><h2>{{ paid_total }}</h2><small>فتح بيانات السداد</small></div></a>
+  </div>
+  <div class="dashboard-card-col">
+    <a class="stat-link" href="{% url 'booking_list' %}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي مبالغ الحجز اليومي</b><h2>{{ daily_booking_income }}</h2><small>عن الشهر الحالي</small></div></a>
+  </div>
+  <div class="dashboard-card-col">
+    <a class="stat-link" href="{% url 'cafe_sale_list' %}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي دخل الكافيتريا</b><h2>{{ cafeteria_income }}</h2><small>عن الشهر الحالي</small></div></a>
+  </div>
+  <div class="dashboard-card-col">
+    <a class="stat-link" href="{% url 'academy_rent_payments' %}?month={{ month_value }}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي المبالغ الموردة</b><h2>{{ supplied_total }}</h2><small>فتح بيانات التوريد</small></div></a>
+  </div>
+</div>
+
+<style>
+  .dashboard-card-col{flex:0 0 20%;max-width:20%}
+  .dashboard-stat-card{height:100%;min-height:150px;justify-content:space-between;border-top:5px solid #2563eb}
+  .dashboard-stat-card b{font-size:18px;line-height:1.5}
+  .dashboard-stat-card h2{margin:12px 0;color:#0f172a}
+  .dashboard-stat-card small{color:#64748b}
+  @media(max-width:1199px){.dashboard-card-col{flex:0 0 33.333%;max-width:33.333%}}
+  @media(max-width:767px){.dashboard-card-col{flex:0 0 50%;max-width:50%}}
+  @media(max-width:480px){.dashboard-card-col{flex:0 0 100%;max-width:100%}}
+</style>
 {% endblock %}

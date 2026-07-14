@@ -143,16 +143,26 @@ def logout_view(request):
 @login_required
 def dashboard(request):
     today = date.today()
-    soon = today + timedelta(days=30)
+    year, month, start, end, month_value = _month_bounds(today.strftime('%Y-%m'))
+    rent_rows = _academy_rent_rows(year, month, start, end)
+    daily_booking_income = DailyBookingCheckout.objects.filter(
+        income_date__range=(start, end)
+    ).aggregate(total=Sum('total_amount'))['total'] or 0
+    cafeteria_income = sum(
+        sale.total_amount
+        for sale in CafeteriaSale.objects.filter(sale_date__range=(start, end))
+    )
     context = {
-        'total_academies': Academy.objects.count(),
-        'active_contracts': Academy.objects.filter(contract_end_date__gte=today).count(),
-        'ending_soon': Academy.objects.filter(contract_end_date__range=(today, soon)).count(),
-        'monthly_total': Academy.objects.aggregate(total=Sum('monthly_subscription'))['total'] or 0,
-        'latest_academies': Academy.objects.all()[:5],
-        'daily_bookings_today': DailyBooking.objects.filter(booking_date=today).count(),
-        'shareholders_count': Shareholder.objects.count(),
-        'employees_count': Employee.objects.count(),
+        'month_value': month_value,
+        'contracted_academies': Academy.objects.filter(
+            contract_start_date__lte=today,
+            contract_end_date__gte=today,
+        ).count(),
+        'expected_total': sum(row['expected'] for row in rent_rows),
+        'paid_total': sum(row['paid'] for row in rent_rows),
+        'daily_booking_income': daily_booking_income,
+        'cafeteria_income': cafeteria_income,
+        'supplied_total': sum(row['supplied'] for row in rent_rows),
     }
     return render(request, 'academies/dashboard.html', context)
 

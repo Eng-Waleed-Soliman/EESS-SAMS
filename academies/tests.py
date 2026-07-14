@@ -261,6 +261,44 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.context['cafeteria_statistics'][0]['sold'], 3)
         self.assertEqual(response.context['cafeteria_statistics'][0]['profit_percentage'], 50.0)
 
+    def test_dashboard_shows_six_current_month_linked_cards(self):
+        today = date.today()
+        academy = Academy.objects.create(
+            name='أكاديمية لوحة التحكم', sport_activity='كرة قدم', company_name='شركة',
+            manager_name='مدير', manager_phone='01000000456',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(today.year, 1, 1), contract_end_date=date(today.year, 12, 31),
+            subscription_type='fixed', monthly_subscription=1000,
+        )
+        AcademyMonthlyRentPayment.objects.create(
+            academy=academy, month=date(today.year, today.month, 1),
+            expected_amount=1000, paid_amount=800, supplied_amount=600,
+        )
+        booking = DailyBooking.objects.create(
+            venue=OPERATION_PLACE_CHOICES[0][0], booking_date=today,
+            start_time=TIME_CHOICES[0][0], end_time=TIME_CHOICES[2][0],
+            customer_name='عميل لوحة', customer_phone='01100000456',
+            total_amount=500, advance_payment=500, remaining_amount=0,
+        )
+        DailyBookingCheckout.objects.create(
+            booking=booking, income_date=today, customer_name=booking.customer_name,
+            customer_phone=booking.customer_phone, venue=booking.venue,
+            booking_date=today, start_time=booking.start_time, end_time=booking.end_time,
+            total_amount=500, advance_payment=500, remaining_amount=0,
+        )
+        category = CafeteriaCategory.objects.create(code=902, name='فئة لوحة')
+        item = CafeteriaItem.objects.create(category=category, code=1, name='صنف لوحة', sale_price=20)
+        CafeteriaSale.objects.create(item=item, sale_date=today, quantity=3, unit_price=20)
+
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.context['contracted_academies'], 1)
+        self.assertEqual(response.context['expected_total'], 1000)
+        self.assertEqual(response.context['paid_total'], 800)
+        self.assertEqual(response.context['daily_booking_income'], 500)
+        self.assertEqual(response.context['cafeteria_income'], 60)
+        self.assertEqual(response.context['supplied_total'], 600)
+        self.assertEqual(response.content.decode().count('<div class="dashboard-card-col">'), 6)
+
     def test_morning_operation_period_and_booking_prefill_from_available_slot(self):
         selected_date = date.today()
         place = OPERATION_PLACE_CHOICES[0][0]
