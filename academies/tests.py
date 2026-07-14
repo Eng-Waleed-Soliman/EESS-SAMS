@@ -246,7 +246,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertNotContains(response, 'تقرير مبالغ التأمين')
         self.assertContains(response, 'تصدير PDF')
         self.assertContains(response, 'طباعة')
-        self.assertContains(response, 'مدير التشغيل')
+        self.assertContains(response, 'name="signature_title"')
         self.assertContains(response, 'print-report-header')
 
         response = self.client.get(reverse('reports_home'), {'report_type': 'academies'})
@@ -256,13 +256,18 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, '?role=player')
 
         response = self.client.get(reverse('reports_home'), {
-            'report_type': 'monthly_income', 'month': today.strftime('%Y-%m'), 'section': 'expected',
+            'report_type': 'monthly_income', 'month': today.strftime('%Y-%m'),
+            'section': 'expected', 'signature_title': 'مشغل',
         })
         for heading in ('الأكاديميات', 'الحجز اليومي', 'دخل الكافيتريا', 'المصروفات', 'صافي الدخل'):
             self.assertContains(response, f'class="fs-5">{heading}</th>')
         self.assertNotContains(response, 'الجزء الأول:')
         self.assertNotContains(response, 'عرض التقرير')
         self.assertContains(response, 'name="range_mode"')
+        self.assertContains(response, 'name="signature_title"')
+        self.assertContains(response, '<option value="مشغل" selected>مشغل</option>', html=True)
+        self.assertEqual(response.context['signature_title'], 'مشغل')
+        self.assertContains(response, 'id="printSignatureTitle" class="fw-bold">مشغل</div>')
         self.assertContains(response, 'onchange="this.form.submit()"')
         self.assertContains(response, 'أكاديمية تقرير')
         self.assertNotContains(response, 'مصروف تشغيل تقرير')

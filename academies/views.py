@@ -1820,6 +1820,17 @@ def reports_home_v2(request):
         'cafeteria': {'summary', 'inventory', 'statistics'},
     }
     section = requested_section if requested_section in section_choices.get(report_type, {'summary'}) else 'summary'
+    signature_titles = list(
+        Employee.objects.exclude(job_title='')
+        .values_list('job_title', flat=True)
+        .distinct()
+        .order_by('job_title')
+    )
+    requested_signature = request.GET.get('signature_title', '').strip()
+    signature_title = requested_signature if requested_signature in signature_titles else (
+        'مدير التشغيل' if 'مدير التشغيل' in signature_titles
+        else (signature_titles[0] if signature_titles else 'التوقيع')
+    )
     context = {
         'month_value': month_value,
         'range_mode': range_mode,
@@ -1829,6 +1840,8 @@ def reports_home_v2(request):
         'report_type': report_type,
         'report_title': report_titles[report_type],
         'allowed_report_options': [(key, report_titles[key]) for key in allowed_report_types],
+        'signature_titles': signature_titles,
+        'signature_title': signature_title,
         'section': section,
         'print_date': date.today(),
         'board_members': [],

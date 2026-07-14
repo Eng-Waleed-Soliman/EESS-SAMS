@@ -10,7 +10,7 @@
 
 <div class="card p-2 mb-4 mx-auto no-print report-filter-card">
   <form id="reportFilterForm" class="row g-2 align-items-end toolbar" method="get">
-    <div class="col-md-4">
+    <div class="col-md-3">
       <label class="form-label">اسم التقرير</label>
       <select name="report_type" class="form-select" onchange="this.form.submit()">
         {% for value, label in allowed_report_options %}<option value="{{ value }}" {% if report_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
@@ -23,12 +23,18 @@
         <option value="custom" {% if range_mode == 'custom' %}selected{% endif %}>من وإلى</option>
       </select>
     </div>
-    <div id="monthRangeField" class="col-md-3" {% if range_mode == 'custom' %}style="display:none"{% endif %}>
+    <div id="monthRangeField" class="col-md-2" {% if range_mode == 'custom' %}style="display:none"{% endif %}>
       <label class="form-label">الشهر</label>
       <input type="month" name="month" value="{{ month_value }}" class="form-control" onchange="this.form.submit()">
     </div>
-    <div id="dateFromField" class="col-md-3" {% if range_mode != 'custom' %}style="display:none"{% endif %}><label class="form-label">من تاريخ</label><input type="date" name="date_from" value="{{ date_from }}" class="form-control" onchange="this.form.submit()"></div>
-    <div id="dateToField" class="col-md-3" {% if range_mode != 'custom' %}style="display:none"{% endif %}><label class="form-label">إلى تاريخ</label><input type="date" name="date_to" value="{{ date_to }}" class="form-control" onchange="this.form.submit()"></div>
+    <div id="dateFromField" class="col-md-2" {% if range_mode != 'custom' %}style="display:none"{% endif %}><label class="form-label">من تاريخ</label><input type="date" name="date_from" value="{{ date_from }}" class="form-control" onchange="this.form.submit()"></div>
+    <div id="dateToField" class="col-md-2" {% if range_mode != 'custom' %}style="display:none"{% endif %}><label class="form-label">إلى تاريخ</label><input type="date" name="date_to" value="{{ date_to }}" class="form-control" onchange="this.form.submit()"></div>
+    <div class="col-md-3">
+      <label class="form-label">التوقيع</label>
+      <select id="signatureTitle" name="signature_title" class="form-select" onchange="updateReportSignature()">
+        {% for title in signature_titles %}<option value="{{ title }}" {% if signature_title == title %}selected{% endif %}>{{ title }}</option>{% empty %}<option value="التوقيع">لا توجد وظائف مسجلة</option>{% endfor %}
+      </select>
+    </div>
   </form>
 </div>
 
@@ -114,7 +120,7 @@
 </main>
 
 <footer class="print-report-signature">
-  <div class="fw-bold">مدير التشغيل</div>
+  <div id="printSignatureTitle" class="fw-bold">{{ signature_title }}</div>
   <div class="signature-line">التوقيع: ....................................</div>
   <div>تاريخ الطباعة: {{ print_date|date:'d/m/Y' }}</div>
 </footer>
@@ -153,7 +159,12 @@ function toggleReportRange(){
   document.getElementById('dateFromField').style.display = custom ? '' : 'none';
   document.getElementById('dateToField').style.display = custom ? '' : 'none';
 }
+function updateReportSignature(){
+  const selector = document.getElementById('signatureTitle');
+  document.getElementById('printSignatureTitle').textContent = selector.options[selector.selectedIndex].text;
+}
 function printReport(asPdf){
+  updateReportSignature();
   const oldTitle = document.title;
   if(asPdf){ document.title = '{{ report_title|escapejs }} - {{ period_label|escapejs }}'; }
   window.print();
