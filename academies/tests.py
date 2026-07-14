@@ -258,10 +258,9 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.get(reverse('reports_home'), {
             'report_type': 'monthly_income', 'month': today.strftime('%Y-%m'), 'section': 'expected',
         })
-        self.assertContains(response, 'الجزء الأول: الأكاديميات')
-        self.assertContains(response, 'الجزء الثاني: الحجز اليومي')
-        self.assertContains(response, 'الجزء الثالث: المصروفات')
-        self.assertContains(response, 'الجزء الرابع: صافي الدخل')
+        for heading in ('الأكاديميات', 'الحجز اليومي', 'المصروفات', 'صافي الدخل'):
+            self.assertContains(response, f'class="fs-5">{heading}</th>')
+        self.assertNotContains(response, 'الجزء الأول:')
         self.assertContains(response, 'أكاديمية تقرير')
         self.assertContains(response, 'مصروف تشغيل تقرير')
         self.assertContains(response, 'ملاحظة تشغيل')

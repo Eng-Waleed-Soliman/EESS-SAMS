@@ -1,6 +1,6 @@
 {% extends 'academies/base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
   <h3>{{ report_title }}</h3>
   <div class="d-flex gap-2 no-print">
     <button type="button" class="btn btn-danger" onclick="printReport(true)">تصدير PDF</button>
@@ -59,25 +59,25 @@
 {% if report_type == 'monthly_income' %}
 <div class="table-responsive monthly-income-report"><table class="table table-bordered table-striped text-center align-middle">
   <tbody class="report-part">
-    <tr class="table-primary"><th colspan="7" class="fs-5">الجزء الأول: الأكاديميات</th></tr>
+    <tr class="table-primary"><th colspan="7" class="fs-5">الأكاديميات</th></tr>
     <tr><th>الأكاديمية</th><th>النشاط</th><th>المبلغ المستحق</th><th>المبلغ المسدد</th><th>المتبقي</th><th>المبلغ المورد</th><th>تاريخ التوريد</th></tr>
     {% for row in income_rows %}<tr><td>{{ row.academy.name }}</td><td>{{ row.academy.sport_activity }}</td><td>{{ row.expected }}</td><td>{{ row.paid }}</td><td>{{ row.remaining }}</td><td>{{ row.supplied }}</td><td>{{ row.payment.supplied_date|date:'d/m/Y'|default:'-' }}</td></tr>{% empty %}<tr><td colspan="7">لا توجد أكاديميات سارية في الشهر المختار</td></tr>{% endfor %}
     <tr class="fw-bold table-light"><td colspan="2">إجماليات الأكاديميات</td><td>{{ income_expected_total }}</td><td>{{ income_paid_total }}</td><td>{{ income_remaining_total }}</td><td>{{ income_supplied_total }}</td><td>-</td></tr>
   </tbody>
   <tbody class="report-part">
-    <tr class="table-primary"><th colspan="7" class="fs-5">الجزء الثاني: الحجز اليومي</th></tr>
+    <tr class="table-primary"><th colspan="7" class="fs-5">الحجز اليومي</th></tr>
     <tr><th colspan="3">التاريخ</th><th colspan="4">إجمالي مبالغ الحجز اليومي</th></tr>
     {% for row in income_daily_booking_rows %}<tr><td colspan="3">{{ row.income_date|date:'d/m/Y' }}</td><td colspan="4">{{ row.total_amount }}</td></tr>{% empty %}<tr><td colspan="7">لا توجد مبالغ حجز يومي خلال الشهر المختار</td></tr>{% endfor %}
     <tr class="fw-bold table-light"><td colspan="3">إجمالي الحجز اليومي خلال الشهر</td><td colspan="4">{{ income_daily_booking_total }}</td></tr>
   </tbody>
   <tbody class="report-part">
-    <tr class="table-primary"><th colspan="7" class="fs-5">الجزء الثالث: المصروفات</th></tr>
+    <tr class="table-primary"><th colspan="7" class="fs-5">المصروفات</th></tr>
     <tr><th>نوع المصروف</th><th>تاريخ الصرف</th><th colspan="2">بيان المصروف</th><th>القيمة</th><th colspan="2">الملاحظات</th></tr>
     {% for row in income_expense_rows %}<tr><td>{{ row.type }}</td><td>{{ row.date|date:'d/m/Y' }}</td><td colspan="2">{{ row.title }}</td><td>{{ row.amount }}</td><td colspan="2">{{ row.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="7">لا توجد مصروفات خلال الشهر المختار</td></tr>{% endfor %}
     <tr class="fw-bold table-light"><td colspan="4">إجمالي المصروفات</td><td>{{ income_expenses_total }}</td><td colspan="2">-</td></tr>
   </tbody>
   <tbody class="report-part">
-    <tr class="table-primary"><th colspan="7" class="fs-5">الجزء الرابع: صافي الدخل</th></tr>
+    <tr class="table-primary"><th colspan="7" class="fs-5">صافي الدخل</th></tr>
     <tr><th colspan="2">دخل الأكاديميات المسدد</th><th>دخل الحجز اليومي</th><th>إجمالي الدخل</th><th>إجمالي المصروفات</th><th colspan="2">صافي الدخل</th></tr>
     <tr class="fw-bold"><td colspan="2">{{ income_academy_total }}</td><td>{{ income_daily_booking_total }}</td><td>{{ income_total }}</td><td>{{ income_expenses_total }}</td><td colspan="2" class="fs-5">{{ income_net_total }}</td></tr>
   </tbody>
@@ -108,16 +108,16 @@
 <style>
   .print-report-header,.print-report-signature{display:none}
   @media print{
-    @page{size:A4 portrait;margin:14mm 10mm}
+    @page{size:A4 portrait;margin:5mm 10mm 10mm}
     body{background:#fff!important;color:#111!important}
     .sidebar,.no-print,body>nav,.btn{display:none!important}
     main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
-    .print-report-header{display:block!important;position:relative;min-height:115px;border-bottom:2px solid #1d4ed8;margin-bottom:18px;padding-bottom:12px}
+    .print-report-header{display:block!important;position:relative;min-height:92px;border-bottom:2px solid #1d4ed8;margin:0 0 10px;padding:0 0 6px}
     .print-company-brand{position:absolute;left:0;top:0;width:235px;text-align:center;direction:ltr;font-size:12px;line-height:1.45}
     .print-company-brand img{display:block;max-width:72px;max-height:64px;object-fit:contain;margin:0 auto 4px}
     .print-company-en{font-weight:700}
     .print-company-ar{direction:rtl;font-weight:700}
-    .print-report-heading{padding:24px 260px 0;text-align:center;direction:rtl}
+    .print-report-heading{padding:10px 260px 0;text-align:center;direction:rtl}
     .print-report-heading h1{font-size:25px;margin:0 0 8px;font-weight:800}
     .report-print-content{display:block!important;margin:0!important;padding:0!important}
     .report-print-content .card{box-shadow:none!important;border:1px solid #94a3b8!important;border-radius:6px!important;break-inside:avoid}
