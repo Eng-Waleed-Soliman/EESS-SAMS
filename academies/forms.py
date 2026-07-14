@@ -4,7 +4,7 @@ from django import forms
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, DailyIncomeSupply
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -542,10 +542,11 @@ class AcademyMemberForm(forms.ModelForm):
 class AppSettingForm(forms.ModelForm):
     class Meta:
         model = AppSetting
-        fields = ['program_name', 'company_name', 'company_logo', 'main_screen_image']
+        fields = ['program_name', 'company_name', 'company_name_ar', 'company_logo', 'main_screen_image']
         widgets = {
             'program_name': forms.TextInput(attrs={'class': 'form-control'}),
             'company_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'company_name_ar': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -554,6 +555,22 @@ class AppSettingForm(forms.ModelForm):
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
+
+
+class DailyIncomeSupplyForm(forms.ModelForm):
+    class Meta:
+        model = DailyIncomeSupply
+        fields = ['supply_date', 'amount', 'notes']
+        labels = {
+            'supply_date': 'تاريخ التوريد',
+            'amount': 'المبلغ المورد',
+            'notes': 'ملاحظات',
+        }
+        widgets = {
+            'supply_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'amount': forms.NumberInput(attrs={'min': 1, 'step': 1, 'class': 'form-control'}),
+            'notes': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+        }
 
 
 class BranchForm(forms.ModelForm):

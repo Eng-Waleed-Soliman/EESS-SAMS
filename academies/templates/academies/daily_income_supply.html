@@ -1,0 +1,39 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <h3 class="mb-1">توريد مبالغ نقدية</h3>
+    <div class="text-muted">تسجيل المبالغ الموردة من إيرادات الحجز اليومي</div>
+  </div>
+  <a class="btn btn-outline-secondary" href="{% url 'booking_list' %}">رجوع إلى الحجز اليومي</a>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card p-4">
+      <h5 class="mb-4">إضافة عملية توريد</h5>
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3"><label class="form-label fw-bold">{{ form.supply_date.label }}</label>{{ form.supply_date }}<div class="text-danger small">{{ form.supply_date.errors }}</div></div>
+        <div class="mb-3"><label class="form-label fw-bold">{{ form.amount.label }}</label>{{ form.amount }}<div class="text-danger small">{{ form.amount.errors }}</div></div>
+        <div class="mb-3"><label class="form-label fw-bold">{{ form.notes.label }}</label>{{ form.notes }}<div class="text-danger small">{{ form.notes.errors }}</div></div>
+        <button class="btn btn-primary w-100">حفظ التوريد</button>
+      </form>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-3"><h5 class="mb-0">سجل التوريدات</h5><span class="badge bg-primary fs-6">الإجمالي: {{ supplied_total }}</span></div>
+      <div class="table-responsive">
+        <table class="table table-striped text-center align-middle">
+          <thead><tr><th>التاريخ</th><th>المبلغ المورد</th><th>الملاحظات</th></tr></thead>
+          <tbody>
+          {% for supply in supplies %}<tr><td>{{ supply.supply_date|date:'d/m/Y' }}</td><td class="fw-bold">{{ supply.amount }}</td><td>{{ supply.notes|default:'-' }}</td></tr>
+          {% empty %}<tr><td colspan="3" class="text-muted">لا توجد عمليات توريد مسجلة.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

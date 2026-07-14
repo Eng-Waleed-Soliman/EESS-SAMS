@@ -14,7 +14,8 @@ def split_values(value):
 
 class AppSetting(models.Model):
     program_name = models.CharField(max_length=200, default='EESS Management System', verbose_name='اسم البرنامج')
-    company_name = models.CharField(max_length=250, default='Egyptian English Sports Services', verbose_name='اسم الشركة')
+    company_name = models.CharField(max_length=250, default='Egyptian English Sports Services', verbose_name='اسم الشركة باللغة الإنجليزية')
+    company_name_ar = models.CharField(max_length=250, blank=True, default='', verbose_name='اسم الشركة باللغة العربية')
     company_logo = models.FileField(upload_to='branding/', blank=True, verbose_name='لوجو الشركة')
     main_screen_image = models.FileField(upload_to='branding/', blank=True, verbose_name='صورة الشاشة الرئيسية')
     updated_at = models.DateTimeField(auto_now=True)
@@ -320,7 +321,7 @@ class DailyBookingCheckout(models.Model):
 
 
 class DailyIncomeSupply(models.Model):
-    supply_date = models.DateField(unique=True, verbose_name='تاريخ التوريد')
+    supply_date = models.DateField(verbose_name='تاريخ التوريد')
     amount = models.PositiveIntegerField(default=0, verbose_name='مبلغ التوريد')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)

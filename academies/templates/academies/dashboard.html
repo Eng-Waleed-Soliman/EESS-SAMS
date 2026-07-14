@@ -26,13 +26,13 @@
     <a class="stat-link" href="{% url 'academy_rent_payments' %}?month={{ month_value }}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي المبالغ المسددة</b><h2>{{ paid_total }}</h2><small>فتح بيانات السداد</small></div></a>
   </div>
   <div class="dashboard-card-col">
-    <a class="stat-link" href="{% url 'booking_list' %}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي مبالغ الحجز اليومي</b><h2>{{ daily_booking_income }}</h2><small>عن الشهر الحالي</small></div></a>
+    <a class="stat-link" href="{% url 'daily_income_supply' %}"><div class="card stat-card dashboard-stat-card p-3"><b>الحجز اليومي</b><h2>{{ daily_booking_supplied }}</h2><small>إجمالي المبالغ الموردة عن الشهر الحالي</small></div></a>
   </div>
   <div class="dashboard-card-col">
     <a class="stat-link" href="{% url 'cafe_sale_list' %}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي دخل الكافيتريا</b><h2>{{ cafeteria_income }}</h2><small>عن الشهر الحالي</small></div></a>
   </div>
   <div class="dashboard-card-col">
-    <a class="stat-link" href="{% url 'academy_rent_payments' %}?month={{ month_value }}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي المبالغ الموردة</b><h2>{{ supplied_total }}</h2><small>فتح بيانات التوريد</small></div></a>
+    <a class="stat-link" href="{% url 'reports_home' %}?report_type=monthly_income&month={{ month_value }}&section=supplied"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي المبالغ الموردة</b><h2>{{ supplied_total }}</h2><small>الحجز اليومي والأكاديميات</small></div></a>
   </div>
 </div>
 

@@ -2,6 +2,7 @@ import json
 from datetime import date, timedelta
 
 from django.contrib.auth.models import User
+from django.db.models import Sum
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -19,6 +20,7 @@ from .models import (
     DailyBooking,
     DailyBookingCheckout,
     DailyExpense,
+    DailyIncomeSupply,
     Employee,
     MonthlyExpense,
     Shareholder,
@@ -228,6 +230,10 @@ class ApplicationFlowsTests(TestCase):
             self.assertContains(response, label)
         self.assertNotContains(response, 'تقرير المرتبات الشهرية والبونص')
         self.assertNotContains(response, 'تقرير مبالغ التأمين')
+        self.assertContains(response, 'تصدير PDF')
+        self.assertContains(response, 'طباعة')
+        self.assertContains(response, 'مدير التشغيل')
+        self.assertContains(response, 'print-report-header')
 
         response = self.client.get(reverse('reports_home'), {'report_type': 'academies'})
         self.assertContains(response, 'أكاديمية تقرير')
@@ -286,6 +292,7 @@ class ApplicationFlowsTests(TestCase):
             booking_date=today, start_time=booking.start_time, end_time=booking.end_time,
             total_amount=500, advance_payment=500, remaining_amount=0,
         )
+        DailyIncomeSupply.objects.create(supply_date=today, amount=450, notes='توريد حجز يومي')
         category = CafeteriaCategory.objects.create(code=902, name='فئة لوحة')
         item = CafeteriaItem.objects.create(category=category, code=1, name='صنف لوحة', sale_price=20)
         CafeteriaSale.objects.create(item=item, sale_date=today, quantity=3, unit_price=20)
@@ -294,10 +301,31 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.context['contracted_academies'], 1)
         self.assertEqual(response.context['expected_total'], 1000)
         self.assertEqual(response.context['paid_total'], 800)
-        self.assertEqual(response.context['daily_booking_income'], 500)
+        self.assertEqual(response.context['daily_booking_supplied'], 450)
         self.assertEqual(response.context['cafeteria_income'], 60)
-        self.assertEqual(response.context['supplied_total'], 600)
+        self.assertEqual(response.context['supplied_total'], 1050)
         self.assertEqual(response.content.decode().count('<div class="dashboard-card-col">'), 6)
+
+    def test_daily_booking_cash_supply_screen_records_multiple_entries(self):
+        today = date.today()
+        response = self.client.get(reverse('booking_list'))
+        self.assertContains(response, reverse('daily_income_supply'))
+        response = self.client.get(reverse('daily_income_supply'))
+        self.assertContains(response, f'value="{today.isoformat()}"')
+        self.assertContains(response, 'المبلغ المورد')
+
+        for amount in (300, 200):
+            response = self.client.post(reverse('daily_income_supply'), {
+                'supply_date': today.isoformat(),
+                'amount': amount,
+                'notes': 'توريد نقدي للاختبار',
+            })
+            self.assertRedirects(response, reverse('daily_income_supply'))
+        self.assertEqual(DailyIncomeSupply.objects.filter(supply_date=today).count(), 2)
+        self.assertEqual(
+            DailyIncomeSupply.objects.filter(supply_date=today).aggregate(total=Sum('amount'))['total'],
+            500,
+        )
 
     def test_morning_operation_period_and_booking_prefill_from_available_slot(self):
         selected_date = date.today()

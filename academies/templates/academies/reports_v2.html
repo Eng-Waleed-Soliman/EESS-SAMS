@@ -2,10 +2,13 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h3>{{ report_title }}</h3>
-  <button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button>
+  <div class="d-flex gap-2 no-print">
+    <button type="button" class="btn btn-danger" onclick="printReport(true)">تصدير PDF</button>
+    <button type="button" class="btn btn-outline-primary" onclick="printReport(false)">طباعة</button>
+  </div>
 </div>
 
-<div class="card p-3 mb-4">
+<div class="card p-3 mb-4 no-print">
   <form class="row g-3 align-items-end toolbar" method="get">
     <div class="col-md-6">
       <label class="form-label">اسم التقرير</label>
@@ -20,6 +23,17 @@
     <div class="col-md-3"><button class="btn btn-primary w-100">عرض التقرير</button></div>
   </form>
 </div>
+
+<header class="print-report-header">
+  <div class="print-company-brand">
+    {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
+    <div class="print-company-en">{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
+    <div class="print-company-ar">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</div>
+  </div>
+  <div class="print-report-heading"><h1>{{ report_title }}</h1><div>عن شهر {{ month_value }}</div></div>
+</header>
+
+<main class="report-print-content">
 
 {% if report_type == 'board_members' %}
 <div class="card p-3"><h4>أعضاء مجلس الإدارة وبيانات الأسهم</h4><div class="table-responsive"><table class="table table-striped text-center align-middle">
@@ -68,4 +82,44 @@
 {% if section == 'inventory' %}<div class="card p-3"><h4>جرد كميات الأصناف خلال الشهر</h4><table class="table table-striped text-center"><thead><tr><th>كود الصنف</th><th>الفئة</th><th>الصنف</th><th>كمية الشراء</th><th>كمية البيع</th><th>الكمية الحالية بالمخزون</th></tr></thead><tbody>{% for row in cafeteria_rows %}<tr><td>{{ row.item.code }}</td><td>{{ row.item.category.name|default:'-' }}</td><td>{{ row.item.name }}</td><td>{{ row.purchased }}</td><td>{{ row.sold }}</td><td>{{ row.remaining }}</td></tr>{% empty %}<tr><td colspan="6">لا توجد أصناف</td></tr>{% endfor %}</tbody></table></div>{% endif %}
 {% if section == 'statistics' %}<div class="card p-3"><h4>إحصائيات الأصناف مرتبة حسب الأكثر مبيعًا</h4><table class="table table-striped text-center"><thead><tr><th>الترتيب</th><th>الصنف</th><th>الكمية المباعة</th><th>إيراد المبيعات</th><th>ربح الصنف</th><th>نسبة الربح</th></tr></thead><tbody>{% for row in cafeteria_statistics %}<tr><td>{{ forloop.counter }}</td><td>{{ row.item.name }}</td><td>{{ row.sold }}</td><td>{{ row.revenue }}</td><td>{{ row.profit }}</td><td>{{ row.profit_percentage }}%</td></tr>{% empty %}<tr><td colspan="6">لا توجد أصناف</td></tr>{% endfor %}</tbody></table></div>{% endif %}
 {% endif %}
+</main>
+
+<footer class="print-report-signature">
+  <div class="fw-bold">مدير التشغيل</div>
+  <div class="signature-line">التوقيع: ....................................</div>
+  <div>تاريخ الطباعة: {{ print_date|date:'d/m/Y' }}</div>
+</footer>
+
+<style>
+  .print-report-header,.print-report-signature{display:none}
+  @media print{
+    @page{size:A4 landscape;margin:15mm 12mm}
+    body{background:#fff!important;color:#111!important}
+    .sidebar,.no-print,body>nav,.btn{display:none!important}
+    main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
+    .print-report-header{display:block!important;position:relative;min-height:115px;border-bottom:2px solid #1d4ed8;margin-bottom:18px;padding-bottom:12px}
+    .print-company-brand{position:absolute;left:0;top:0;width:235px;text-align:center;direction:ltr;font-size:12px;line-height:1.45}
+    .print-company-brand img{display:block;max-width:72px;max-height:64px;object-fit:contain;margin:0 auto 4px}
+    .print-company-en{font-weight:700}
+    .print-company-ar{direction:rtl;font-weight:700}
+    .print-report-heading{padding:24px 260px 0;text-align:center;direction:rtl}
+    .print-report-heading h1{font-size:25px;margin:0 0 8px;font-weight:800}
+    .report-print-content{display:block!important;margin:0!important;padding:0!important}
+    .report-print-content .card{box-shadow:none!important;border:1px solid #94a3b8!important;border-radius:6px!important;break-inside:avoid}
+    .report-print-content .table-responsive{overflow:visible!important}
+    .report-print-content table{width:100%!important;min-width:0!important;font-size:10px!important}
+    .report-print-content th,.report-print-content td{padding:5px 4px!important;border:1px solid #cbd5e1!important}
+    .report-print-content a.btn{display:none!important}
+    .print-report-signature{display:block!important;width:245px;margin:28px auto 0 0;text-align:center;direction:rtl;line-height:2}
+    .signature-line{margin-top:10px}
+  }
+</style>
+<script>
+function printReport(asPdf){
+  const oldTitle = document.title;
+  if(asPdf){ document.title = '{{ report_title|escapejs }} - {{ month_value }}'; }
+  window.print();
+  window.setTimeout(function(){ document.title = oldTitle; }, 500);
+}
+</script>
 {% endblock %}

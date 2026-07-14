@@ -18,6 +18,7 @@ urlpatterns = [
     path('academies/<int:academy_id>/members/<int:pk>/edit/', views.academy_member_update, name='academy_member_update'),
     path('academies/<int:academy_id>/members/<int:pk>/delete/', views.academy_member_delete, name='academy_member_delete'),
     path('daily-bookings/', views.booking_list, name='booking_list'),
+    path('daily-bookings/cash-supplies/', views.daily_income_supply, name='daily_income_supply'),
     path('daily-bookings/add/', views.booking_create, name='booking_create'),
     path('daily-bookings/<int:pk>/edit/', views.booking_update, name='booking_update'),
     path('daily-bookings/<int:pk>/delete/', views.booking_delete, name='booking_delete'),

@@ -2,7 +2,7 @@
 {% block content %}
 <div class="d-flex justify-content-between mb-3">
   <h3>الحجز اليومي</h3>
-  <div class="d-flex gap-2"><button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button><a class="btn btn-primary" href="{% url 'booking_create' %}">إضافة حجز يومي</a></div>
+  <div class="d-flex gap-2 flex-wrap"><button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button><a class="btn btn-success" href="{% url 'daily_income_supply' %}">توريد مبالغ نقدية</a><a class="btn btn-primary" href="{% url 'booking_create' %}">إضافة حجز يومي</a></div>
 </div>
 <form class="mb-3"><input class="form-control search-box w-half" name="q" value="{{ q }}" placeholder="بحث باسم العميل أو رقم الموبايل أو المكان"></form>
 <div class="card p-3">

@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models import Sum, Q, Count
 from datetime import date, timedelta
 from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, split_values
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
 
@@ -145,9 +145,10 @@ def dashboard(request):
     today = date.today()
     year, month, start, end, month_value = _month_bounds(today.strftime('%Y-%m'))
     rent_rows = _academy_rent_rows(year, month, start, end)
-    daily_booking_income = DailyBookingCheckout.objects.filter(
-        income_date__range=(start, end)
-    ).aggregate(total=Sum('total_amount'))['total'] or 0
+    daily_booking_supplied = DailyIncomeSupply.objects.filter(
+        supply_date__range=(start, end)
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    academy_supplied = sum(row['supplied'] for row in rent_rows)
     cafeteria_income = sum(
         sale.total_amount
         for sale in CafeteriaSale.objects.filter(sale_date__range=(start, end))
@@ -160,9 +161,9 @@ def dashboard(request):
         ).count(),
         'expected_total': sum(row['expected'] for row in rent_rows),
         'paid_total': sum(row['paid'] for row in rent_rows),
-        'daily_booking_income': daily_booking_income,
+        'daily_booking_supplied': daily_booking_supplied,
         'cafeteria_income': cafeteria_income,
-        'supplied_total': sum(row['supplied'] for row in rent_rows),
+        'supplied_total': academy_supplied + int(daily_booking_supplied),
     }
     return render(request, 'academies/dashboard.html', context)
 
@@ -258,6 +259,22 @@ def booking_list(request):
                     DailyBooking.objects.filter(customer_phone__icontains=q) |
                     DailyBooking.objects.filter(venue__icontains=q))
     return render(request, 'academies/booking_list.html', {'bookings': bookings, 'q': q})
+
+
+@login_required
+def daily_income_supply(request):
+    """Record cash supplied from daily bookings and show the recent supply history."""
+    form = DailyIncomeSupplyForm(request.POST or None, initial={'supply_date': date.today()})
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'تم تسجيل توريد المبلغ النقدي بنجاح.')
+        return redirect('daily_income_supply')
+    supplies = DailyIncomeSupply.objects.all().order_by('-supply_date', '-created_at')
+    return render(request, 'academies/daily_income_supply.html', {
+        'form': form,
+        'supplies': supplies,
+        'supplied_total': supplies.aggregate(total=Sum('amount'))['total'] or 0,
+    })
 
 
 @login_required
@@ -1793,6 +1810,7 @@ def reports_home_v2(request):
         'report_title': report_titles[report_type],
         'allowed_report_options': [(key, report_titles[key]) for key in allowed_report_types],
         'section': section,
+        'print_date': date.today(),
         'board_members': [],
         'employees': [],
         'academies': [],
