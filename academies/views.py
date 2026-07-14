@@ -1846,6 +1846,14 @@ def reports_home_v2(request):
         sold_quantities = {}
         revenue_by_item = {}
         profit_by_item = {}
+        all_purchased_quantities = {
+            row['item_id']: row['total'] or 0
+            for row in CafeteriaPurchase.objects.values('item_id').annotate(total=Sum('quantity'))
+        }
+        all_sold_quantities = {
+            row['item_id']: row['total'] or 0
+            for row in CafeteriaSale.objects.values('item_id').annotate(total=Sum('quantity'))
+        }
         for purchase in purchases:
             purchased_quantities[purchase.item_id] = purchased_quantities.get(purchase.item_id, 0) + purchase.quantity
         for sale in sales:
@@ -1860,7 +1868,7 @@ def reports_home_v2(request):
                 'item': item,
                 'purchased': purchased_quantities.get(item.id, 0),
                 'sold': sold_quantities.get(item.id, 0),
-                'remaining': item.stock_quantity,
+                'remaining': int(item.opening_quantity or 0) + int(all_purchased_quantities.get(item.id, 0)) - int(all_sold_quantities.get(item.id, 0)),
                 'revenue': revenue,
                 'profit': profit,
                 'profit_percentage': round((profit / revenue) * 100, 1) if revenue else 0,
