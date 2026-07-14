@@ -11,6 +11,7 @@ from .views import _academy_schedule_occurrences_for_date, _calculate_variable_i
 from .models import (
     Academy,
     AcademyMember,
+    AcademyMonthlyRentPayment,
     CafeteriaCategory,
     CafeteriaItem,
     CafeteriaPurchase,
@@ -18,6 +19,9 @@ from .models import (
     DailyBooking,
     DailyBookingCheckout,
     DailyExpense,
+    Employee,
+    MonthlyExpense,
+    Shareholder,
     UserPermission,
 )
 
@@ -184,9 +188,78 @@ class ApplicationFlowsTests(TestCase):
         old_module_response = self.client.get(reverse('daily_income'))
         self.assertRedirects(
             old_module_response,
-            '/reports/?report_type=daily_booking_monthly',
+            '/reports/?report_type=monthly_income',
             fetch_redirect_response=False,
         )
+
+    def test_reports_hub_contains_only_requested_management_reports(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_reports = True
+        profile.save()
+        today = date.today()
+        Shareholder.objects.create(name='عضو مجلس اختبار', share_percentage=25)
+        Employee.objects.create(name='موظف تقرير', job_title='مشغل', salary=5000)
+        academy = Academy.objects.create(
+            name='أكاديمية تقرير', sport_activity='كرة قدم', company_name='شركة تقرير',
+            manager_name='مدير تقرير', manager_phone='01000000123',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(today.year, 1, 1), contract_end_date=date(today.year, 12, 31),
+            subscription_type='fixed', monthly_subscription=1000,
+        )
+        AcademyMember.objects.create(academy=academy, role=AcademyMember.ROLE_COACH, name='مدرب تقرير')
+        AcademyMonthlyRentPayment.objects.create(
+            academy=academy, month=date(today.year, today.month, 1),
+            expected_amount=1000, paid_amount=700, supplied_amount=500,
+        )
+        MonthlyExpense.objects.create(title='مصروف شهري تقرير', expense_month=date(today.year, today.month, 1), amount=200)
+        DailyExpense.objects.create(title='مصروف يومي تقرير', expense_date=today, amount=100, created_by=self.user)
+        category = CafeteriaCategory.objects.create(code=901, name='فئة تقرير')
+        item = CafeteriaItem.objects.create(
+            category=category, code=1, name='صنف إحصائيات', opening_quantity=0,
+            purchase_price=10, sale_price=20,
+        )
+        CafeteriaPurchase.objects.create(item=item, purchase_date=today, quantity=5, unit_price=10)
+        CafeteriaSale.objects.create(item=item, sale_date=today, quantity=3, unit_price=20)
+
+        response = self.client.get(reverse('reports_home'), {'report_type': 'board_members'})
+        self.assertContains(response, 'عضو مجلس اختبار')
+        self.assertEqual(len(response.context['allowed_report_options']), 6)
+        for label in ['أعضاء مجلس الإدارة', 'بيانات الموظفين', 'الأكاديميات الرياضية', 'الدخل الشهري', 'المصروفات', 'الكافيتريا']:
+            self.assertContains(response, label)
+        self.assertNotContains(response, 'تقرير المرتبات الشهرية والبونص')
+        self.assertNotContains(response, 'تقرير مبالغ التأمين')
+
+        response = self.client.get(reverse('reports_home'), {'report_type': 'academies'})
+        self.assertContains(response, 'أكاديمية تقرير')
+        self.assertContains(response, '?role=coach')
+        self.assertContains(response, '?role=admin')
+        self.assertContains(response, '?role=player')
+
+        response = self.client.get(reverse('reports_home'), {
+            'report_type': 'monthly_income', 'month': today.strftime('%Y-%m'), 'section': 'expected',
+        })
+        self.assertContains(response, 'المبالغ المستحقة')
+        self.assertContains(response, 'أكاديمية تقرير')
+        self.assertEqual(response.context['income_expected_total'], 1000)
+        self.assertEqual(response.context['income_paid_total'], 700)
+        self.assertEqual(response.context['income_supplied_total'], 500)
+
+        response = self.client.get(reverse('reports_home'), {
+            'report_type': 'expenses', 'month': today.strftime('%Y-%m'), 'section': 'daily',
+        })
+        self.assertEqual(response.context['monthly_expenses_total'], 200)
+        self.assertEqual(response.context['daily_expenses_total'], 100)
+        self.assertEqual(response.context['all_expenses_total'], 300)
+        self.assertContains(response, 'مصروف يومي تقرير')
+
+        response = self.client.get(reverse('reports_home'), {
+            'report_type': 'cafeteria', 'month': today.strftime('%Y-%m'), 'section': 'statistics',
+        })
+        self.assertEqual(response.context['cafeteria_purchase_total'], 50)
+        self.assertEqual(response.context['cafeteria_sales_total'], 60)
+        self.assertEqual(response.context['cafeteria_net_profit'], 10)
+        self.assertEqual(response.context['cafeteria_statistics'][0]['sold'], 3)
+        self.assertEqual(response.context['cafeteria_statistics'][0]['profit_percentage'], 50.0)
 
     def test_morning_operation_period_and_booking_prefill_from_available_slot(self):
         selected_date = date.today()

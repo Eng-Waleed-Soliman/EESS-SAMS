@@ -29,23 +29,12 @@ def _ensure_user_profile(user):
 
 
 REPORT_PERMISSION_FIELDS = {
-    'company_income': 'can_report_income',
-    'income': 'can_report_income',
-    'daily_booking_monthly': 'can_report_income',
-    'academy_rent_payments': 'can_report_income',
-    'training_place_income': 'can_report_income',
-    'shareholders': 'can_report_shareholders',
+    'board_members': 'can_report_shareholders',
     'employees': 'can_report_employees',
-    'payroll': 'can_report_payroll',
+    'academies': 'can_report_income',
+    'monthly_income': 'can_report_income',
     'expenses': 'can_report_expenses',
-    'monthly_expenses': 'can_report_expenses',
-    'daily_expenses': 'can_report_expenses',
-    'operating_expenses': 'can_report_expenses',
     'cafeteria': 'can_report_cafeteria',
-    'cafeteria_inventory': 'can_report_cafeteria',
-    'cafeteria_sales': 'can_report_cafeteria',
-    'cafeteria_purchases': 'can_report_cafeteria',
-    'deposits': 'can_report_deposits',
 }
 
 SIDEBAR_PERMISSION_MODULES = [
@@ -63,23 +52,12 @@ SIDEBAR_PERMISSION_MODULES = [
 ]
 
 REPORT_TYPE_OPTIONS = [
-    ('company_income', 'إجمالي دخل الشركة'),
-    ('income', 'تقرير الدخل من الأكاديميات والحجز اليومي'),
-    ('daily_booking_monthly', 'تقرير الدخل الشهري من الحجز اليومي'),
-    ('academy_rent_payments', 'تقرير سداد إيجارات الأكاديميات الشهرية'),
-    ('training_place_income', 'تقرير دخل أماكن التدريب'),
-    ('shareholders', 'تقرير المساهمين والنسب والأرباح'),
-    ('employees', 'تقرير الموظفين'),
-    ('payroll', 'تقرير المرتبات الشهرية والبونص'),
-    ('expenses', 'تقرير المصروفات'),
-    ('monthly_expenses', 'تقرير المصروفات الشهرية'),
-    ('daily_expenses', 'تقرير المصروفات اليومية'),
-    ('operating_expenses', 'تقرير مصروفات التشغيل'),
-    ('cafeteria', 'تقرير الكافيتريا والأرباح والمخزون'),
-    ('cafeteria_inventory', 'تقرير مخزون الكافيتريا'),
-    ('cafeteria_sales', 'تقرير مبيعات الكافيتريا'),
-    ('cafeteria_purchases', 'تقرير مشتريات الكافيتريا'),
-    ('deposits', 'تقرير مبالغ التأمين للأكاديميات'),
+    ('board_members', 'أعضاء مجلس الإدارة'),
+    ('employees', 'بيانات الموظفين'),
+    ('academies', 'الأكاديميات الرياضية'),
+    ('monthly_income', 'الدخل الشهري'),
+    ('expenses', 'المصروفات'),
+    ('cafeteria', 'الكافيتريا'),
 ]
 
 ARABIC_MONTH_NAMES = {
@@ -107,9 +85,19 @@ def _user_allowed_report_types(user):
         return []
     report_permissions = getattr(profile, 'report_permissions', {}) or {}
     if report_permissions:
+        legacy_permissions = {
+            'board_members': ('shareholders',),
+            'employees': ('employees',),
+            'academies': ('income', 'academy_rent_payments', 'deposits'),
+            'monthly_income': ('company_income', 'income', 'academy_rent_payments', 'daily_booking_monthly'),
+            'expenses': ('expenses', 'monthly_expenses', 'daily_expenses', 'operating_expenses'),
+            'cafeteria': ('cafeteria', 'cafeteria_inventory', 'cafeteria_sales', 'cafeteria_purchases'),
+        }
         return [
             key for key, field in REPORT_PERMISSION_FIELDS.items()
-            if report_permissions.get(key) or getattr(profile, field, False)
+            if report_permissions.get(key)
+            or any(report_permissions.get(old_key) for old_key in legacy_permissions[key])
+            or getattr(profile, field, False)
         ]
     if getattr(profile, 'can_reports', False):
         return all_report_types
@@ -663,7 +651,7 @@ def operation_screen(request):
 
 @login_required
 def daily_income(request):
-    return redirect('/reports/?report_type=daily_booking_monthly')
+    return redirect('/reports/?report_type=monthly_income')
 
 
 def _legacy_daily_income(request):
@@ -1751,6 +1739,141 @@ def reports_home(request):
             ],
         })
     return render(request, 'academies/reports.html', context)
+
+
+@login_required
+def reports_home_v2(request):
+    """Focused reports hub containing only the reports used by management."""
+    allowed_report_types = _user_allowed_report_types(request.user)
+    if not allowed_report_types:
+        messages.error(request, 'ليس لديك صلاحية عرض التقارير.')
+        return redirect('dashboard')
+
+    year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
+    requested_type = request.GET.get('report_type', '').strip()
+    requested_section = request.GET.get('section', '').strip()
+    legacy_aliases = {
+        'shareholders': ('board_members', 'summary'),
+        'income': ('monthly_income', 'summary'),
+        'company_income': ('monthly_income', 'summary'),
+        'academy_rent_payments': ('monthly_income', 'summary'),
+        'daily_booking_monthly': ('monthly_income', 'summary'),
+        'monthly_expenses': ('expenses', 'monthly'),
+        'daily_expenses': ('expenses', 'daily'),
+        'operating_expenses': ('expenses', 'summary'),
+        'cafeteria_inventory': ('cafeteria', 'inventory'),
+        'cafeteria_sales': ('cafeteria', 'statistics'),
+        'cafeteria_purchases': ('cafeteria', 'inventory'),
+    }
+    if requested_type in legacy_aliases:
+        requested_type, alias_section = legacy_aliases[requested_type]
+        requested_section = requested_section or alias_section
+    report_type = requested_type if requested_type in allowed_report_types else allowed_report_types[0]
+
+    report_titles = dict(REPORT_TYPE_OPTIONS)
+    section_choices = {
+        'monthly_income': {'summary', 'expected', 'paid', 'supplied'},
+        'expenses': {'summary', 'monthly', 'daily'},
+        'cafeteria': {'summary', 'inventory', 'statistics'},
+    }
+    section = requested_section if requested_section in section_choices.get(report_type, {'summary'}) else 'summary'
+    context = {
+        'month_value': month_value,
+        'report_type': report_type,
+        'report_title': report_titles[report_type],
+        'allowed_report_options': [(key, report_titles[key]) for key in allowed_report_types],
+        'section': section,
+        'board_members': [],
+        'employees': [],
+        'academies': [],
+        'income_rows': [],
+        'monthly_expense_rows': [],
+        'daily_expense_rows': [],
+        'cafeteria_rows': [],
+        'cafeteria_statistics': [],
+    }
+
+    if report_type == 'board_members':
+        context['board_members'] = Shareholder.objects.all()
+
+    elif report_type == 'employees':
+        context['employees'] = Employee.objects.all()
+
+    elif report_type == 'academies':
+        subscription_labels = {
+            'fixed': 'قيمة ثابتة',
+            'variable': 'قيمة متغيرة',
+            'revenue_share': 'نسبة مشاركة',
+        }
+        context['academies'] = [
+            {
+                'academy': academy,
+                'subscription_label': subscription_labels.get(academy.subscription_type, academy.subscription_type),
+            }
+            for academy in Academy.objects.select_related('branch').all()
+        ]
+
+    elif report_type == 'monthly_income':
+        rows = _academy_rent_rows(year, month, start, end)
+        context.update({
+            'income_rows': rows,
+            'income_expected_total': sum(row['expected'] for row in rows),
+            'income_paid_total': sum(row['paid'] for row in rows),
+            'income_remaining_total': sum(row['remaining'] for row in rows),
+            'income_supplied_total': sum(row['supplied'] for row in rows),
+            'income_unsupplied_total': sum(row['unsupplied'] for row in rows),
+        })
+
+    elif report_type == 'expenses':
+        monthly_rows = MonthlyExpense.objects.filter(expense_month__range=(start, end))
+        daily_rows = DailyExpense.objects.filter(expense_date__range=(start, end)).select_related('created_by')
+        monthly_total = monthly_rows.aggregate(total=Sum('amount'))['total'] or 0
+        daily_total = daily_rows.aggregate(total=Sum('amount'))['total'] or 0
+        context.update({
+            'monthly_expense_rows': monthly_rows,
+            'daily_expense_rows': daily_rows,
+            'monthly_expenses_total': monthly_total,
+            'daily_expenses_total': daily_total,
+            'all_expenses_total': int(monthly_total) + int(daily_total),
+        })
+
+    elif report_type == 'cafeteria':
+        purchases = list(CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)).select_related('item'))
+        sales = list(CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item'))
+        purchase_total = sum(row.total_amount for row in purchases)
+        sales_total = sum(row.total_amount for row in sales)
+        purchased_quantities = {}
+        sold_quantities = {}
+        revenue_by_item = {}
+        profit_by_item = {}
+        for purchase in purchases:
+            purchased_quantities[purchase.item_id] = purchased_quantities.get(purchase.item_id, 0) + purchase.quantity
+        for sale in sales:
+            sold_quantities[sale.item_id] = sold_quantities.get(sale.item_id, 0) + sale.quantity
+            revenue_by_item[sale.item_id] = revenue_by_item.get(sale.item_id, 0) + sale.total_amount
+            profit_by_item[sale.item_id] = profit_by_item.get(sale.item_id, 0) + sale.estimated_profit
+        cafeteria_rows = []
+        for item in CafeteriaItem.objects.select_related('category').all():
+            revenue = revenue_by_item.get(item.id, 0)
+            profit = profit_by_item.get(item.id, 0)
+            cafeteria_rows.append({
+                'item': item,
+                'purchased': purchased_quantities.get(item.id, 0),
+                'sold': sold_quantities.get(item.id, 0),
+                'remaining': item.stock_quantity,
+                'revenue': revenue,
+                'profit': profit,
+                'profit_percentage': round((profit / revenue) * 100, 1) if revenue else 0,
+            })
+        context.update({
+            'cafeteria_purchase_total': purchase_total,
+            'cafeteria_sales_total': sales_total,
+            'cafeteria_net_profit': sales_total - purchase_total,
+            'cafeteria_rows': cafeteria_rows,
+            'cafeteria_statistics': sorted(cafeteria_rows, key=lambda row: (-row['sold'], row['item'].name)),
+        })
+
+    return render(request, 'academies/reports_v2.html', context)
 
 
 @login_required

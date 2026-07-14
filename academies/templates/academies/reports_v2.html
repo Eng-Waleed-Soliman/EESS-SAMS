@@ -1,0 +1,71 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3>{{ report_title }}</h3>
+  <button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button>
+</div>
+
+<div class="card p-3 mb-4">
+  <form class="row g-3 align-items-end toolbar" method="get">
+    <div class="col-md-6">
+      <label class="form-label">اسم التقرير</label>
+      <select name="report_type" class="form-select">
+        {% for value, label in allowed_report_options %}<option value="{{ value }}" {% if report_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">الشهر</label>
+      <input type="month" name="month" value="{{ month_value }}" class="form-control">
+    </div>
+    <div class="col-md-3"><button class="btn btn-primary w-100">عرض التقرير</button></div>
+  </form>
+</div>
+
+{% if report_type == 'board_members' %}
+<div class="card p-3"><h4>أعضاء مجلس الإدارة وبيانات الأسهم</h4><div class="table-responsive"><table class="table table-striped text-center align-middle">
+  <thead><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الهاتف</th><th>البريد الإلكتروني</th><th>نسبة الأسهم</th><th>العنوان</th><th>ملاحظات</th></tr></thead>
+  <tbody>{% for member in board_members %}<tr><td>{{ forloop.counter }}</td><td>{{ member.name }}</td><td>{{ member.national_id|default:'-' }}</td><td>{{ member.phone|default:'-' }}</td><td>{{ member.email|default:'-' }}</td><td>{{ member.share_percentage }}%</td><td>{{ member.address|default:'-' }}</td><td>{{ member.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="8">لا توجد بيانات</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+
+{% if report_type == 'employees' %}
+<div class="card p-3"><h4>بيانات الموظفين</h4><div class="table-responsive"><table class="table table-striped text-center align-middle">
+  <thead><tr><th>م</th><th>الاسم</th><th>الوظيفة</th><th>الرقم القومي</th><th>الهاتف</th><th>البريد الإلكتروني</th><th>الراتب</th><th>تاريخ التعيين</th><th>العنوان</th><th>ملاحظات</th></tr></thead>
+  <tbody>{% for employee in employees %}<tr><td>{{ forloop.counter }}</td><td>{{ employee.name }}</td><td>{{ employee.job_title|default:'-' }}</td><td>{{ employee.national_id|default:'-' }}</td><td>{{ employee.phone|default:'-' }}</td><td>{{ employee.email|default:'-' }}</td><td>{{ employee.salary }}</td><td>{{ employee.hire_date|date:'d/m/Y'|default:'-' }}</td><td>{{ employee.address|default:'-' }}</td><td>{{ employee.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="10">لا توجد بيانات</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+
+{% if report_type == 'academies' %}
+<div class="card p-3"><h4>بيانات الأكاديميات الرياضية</h4><div class="table-responsive"><table class="table table-striped text-center align-middle" style="min-width:2200px">
+  <thead><tr><th>الأكاديمية</th><th>الفرع</th><th>النشاط</th><th>الشركة</th><th>مدير الأكاديمية</th><th>الرقم القومي للمدير</th><th>الهاتف</th><th>بداية التعاقد</th><th>نهاية التعاقد</th><th>نوع الاشتراك</th><th>القيمة الثابتة</th><th>القيمة المتغيرة</th><th>نسبة المشاركة</th><th>مبلغ التأمين</th><th>أماكن التدريب</th><th>الأيام</th><th>ملاحظات</th><th>الأعضاء</th></tr></thead>
+  <tbody>{% for row in academies %}{% with academy=row.academy %}<tr><td>{{ academy.name }}</td><td>{{ academy.branch.name|default:'-' }}</td><td>{{ academy.sport_activity }}</td><td>{{ academy.company_name }}</td><td>{{ academy.manager_name }}</td><td>{{ academy.manager_national_id|default:'-' }}</td><td>{{ academy.manager_phone }}</td><td>{{ academy.contract_start_date|date:'d/m/Y' }}</td><td>{{ academy.contract_end_date|date:'d/m/Y' }}</td><td>{{ row.subscription_label }}</td><td>{{ academy.monthly_subscription }}</td><td>{{ academy.variable_rent_value }}</td><td>{{ academy.eess_share_percentage }}%</td><td>{{ academy.security_deposit }}</td><td>{{ academy.operation_place }}</td><td>{{ academy.training_days|default:'-' }}</td><td>{{ academy.notes|default:'-' }}</td><td class="text-nowrap"><a class="btn btn-sm btn-primary" href="{% url 'academy_member_list' academy.pk %}?role=coach">المدربين</a> <a class="btn btn-sm btn-info" href="{% url 'academy_member_list' academy.pk %}?role=admin">الإداريين</a> <a class="btn btn-sm btn-success" href="{% url 'academy_member_list' academy.pk %}?role=player">اللاعبين</a></td></tr>{% endwith %}{% empty %}<tr><td colspan="18">لا توجد أكاديميات</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endif %}
+
+{% if report_type == 'monthly_income' %}
+<div class="d-flex gap-2 flex-wrap mb-3">
+  <a class="btn {% if section == 'summary' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=monthly_income&month={{ month_value }}&section=summary">الملخص</a>
+  <a class="btn {% if section == 'expected' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=monthly_income&month={{ month_value }}&section=expected">المبالغ المستحقة</a>
+  <a class="btn {% if section == 'paid' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=monthly_income&month={{ month_value }}&section=paid">المبالغ المسددة</a>
+  <a class="btn {% if section == 'supplied' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=monthly_income&month={{ month_value }}&section=supplied">المبالغ الموردة</a>
+</div>
+<div class="row g-3 mb-4"><div class="col-md"><div class="card p-3"><b>إجمالي المستحق</b><h3>{{ income_expected_total }}</h3></div></div><div class="col-md"><div class="card p-3"><b>إجمالي المسدد</b><h3>{{ income_paid_total }}</h3></div></div><div class="col-md"><div class="card p-3"><b>إجمالي المتبقي</b><h3>{{ income_remaining_total }}</h3></div></div><div class="col-md"><div class="card p-3"><b>إجمالي المورد</b><h3>{{ income_supplied_total }}</h3></div></div></div>
+<div class="card p-3"><div class="table-responsive"><table class="table table-striped text-center align-middle"><thead><tr><th>الأكاديمية</th><th>النشاط</th>{% if section == 'summary' or section == 'expected' %}<th>المستحق</th>{% endif %}{% if section == 'summary' or section == 'paid' %}<th>المسدد</th><th>المتبقي</th><th>تاريخ السداد</th>{% endif %}{% if section == 'summary' or section == 'supplied' %}<th>المورد</th><th>غير المورد</th><th>تاريخ التوريد</th>{% endif %}</tr></thead><tbody>
+  {% for row in income_rows %}<tr><td>{{ row.academy.name }}</td><td>{{ row.academy.sport_activity }}</td>{% if section == 'summary' or section == 'expected' %}<td>{{ row.expected }}</td>{% endif %}{% if section == 'summary' or section == 'paid' %}<td>{{ row.paid }}</td><td>{{ row.remaining }}</td><td>{{ row.payment.payment_date|date:'d/m/Y'|default:'-' }}</td>{% endif %}{% if section == 'summary' or section == 'supplied' %}<td>{{ row.supplied }}</td><td>{{ row.unsupplied }}</td><td>{{ row.payment.supplied_date|date:'d/m/Y'|default:'-' }}</td>{% endif %}</tr>{% empty %}<tr><td colspan="9">لا توجد أكاديميات سارية في الشهر المختار</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endif %}
+
+{% if report_type == 'expenses' %}
+<div class="d-flex gap-2 flex-wrap mb-3"><a class="btn {% if section == 'summary' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=expenses&month={{ month_value }}&section=summary">إجمالي المصروفات</a><a class="btn {% if section == 'monthly' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=expenses&month={{ month_value }}&section=monthly">المصروفات الشهرية</a><a class="btn {% if section == 'daily' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=expenses&month={{ month_value }}&section=daily">المصروفات اليومية</a></div>
+<div class="row g-3 mb-4"><div class="col-md-4"><div class="card p-3"><b>المصروفات الشهرية</b><h3>{{ monthly_expenses_total }}</h3></div></div><div class="col-md-4"><div class="card p-3"><b>المصروفات اليومية</b><h3>{{ daily_expenses_total }}</h3></div></div><div class="col-md-4"><div class="card p-3"><b>إجمالي المصروفات</b><h3>{{ all_expenses_total }}</h3></div></div></div>
+{% if section == 'monthly' %}<div class="card p-3"><table class="table table-striped text-center"><thead><tr><th>التاريخ</th><th>البيان</th><th>القيمة</th><th>ملاحظات</th></tr></thead><tbody>{% for expense in monthly_expense_rows %}<tr><td>{{ expense.expense_month|date:'m/Y' }}</td><td>{{ expense.title }}</td><td>{{ expense.amount }}</td><td>{{ expense.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="4">لا توجد مصروفات شهرية</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if section == 'daily' %}<div class="card p-3"><table class="table table-striped text-center"><thead><tr><th>التاريخ</th><th>البيان</th><th>القيمة</th><th>أدخل بواسطة</th><th>ملاحظات</th></tr></thead><tbody>{% for expense in daily_expense_rows %}<tr><td>{{ expense.expense_date|date:'d/m/Y' }}</td><td>{{ expense.title }}</td><td>{{ expense.amount }}</td><td>{{ expense.created_by_display }}</td><td>{{ expense.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="5">لا توجد مصروفات يومية</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% endif %}
+
+{% if report_type == 'cafeteria' %}
+<div class="d-flex gap-2 flex-wrap mb-3"><a class="btn {% if section == 'summary' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&month={{ month_value }}&section=summary">ملخص الكافيتريا</a><a class="btn {% if section == 'inventory' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&month={{ month_value }}&section=inventory">الجرد</a><a class="btn {% if section == 'statistics' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&month={{ month_value }}&section=statistics">الإحصائيات</a></div>
+<div class="row g-3 mb-4"><div class="col-md-4"><div class="card p-3"><b>إجمالي المشتريات</b><h3>{{ cafeteria_purchase_total }}</h3></div></div><div class="col-md-4"><div class="card p-3"><b>إجمالي المبيعات</b><h3>{{ cafeteria_sales_total }}</h3></div></div><div class="col-md-4"><div class="card p-3"><b>صافي الربح</b><h3>{{ cafeteria_net_profit }}</h3></div></div></div>
+{% if section == 'inventory' %}<div class="card p-3"><h4>جرد كميات الأصناف خلال الشهر</h4><table class="table table-striped text-center"><thead><tr><th>كود الصنف</th><th>الفئة</th><th>الصنف</th><th>كمية الشراء</th><th>كمية البيع</th><th>الكمية الحالية بالمخزون</th></tr></thead><tbody>{% for row in cafeteria_rows %}<tr><td>{{ row.item.code }}</td><td>{{ row.item.category.name|default:'-' }}</td><td>{{ row.item.name }}</td><td>{{ row.purchased }}</td><td>{{ row.sold }}</td><td>{{ row.remaining }}</td></tr>{% empty %}<tr><td colspan="6">لا توجد أصناف</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if section == 'statistics' %}<div class="card p-3"><h4>إحصائيات الأصناف مرتبة حسب الأكثر مبيعًا</h4><table class="table table-striped text-center"><thead><tr><th>الترتيب</th><th>الصنف</th><th>الكمية المباعة</th><th>إيراد المبيعات</th><th>ربح الصنف</th><th>نسبة الربح</th></tr></thead><tbody>{% for row in cafeteria_statistics %}<tr><td>{{ forloop.counter }}</td><td>{{ row.item.name }}</td><td>{{ row.sold }}</td><td>{{ row.revenue }}</td><td>{{ row.profit }}</td><td>{{ row.profit_percentage }}%</td></tr>{% empty %}<tr><td colspan="6">لا توجد أصناف</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% endif %}
+{% endblock %}

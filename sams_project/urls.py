@@ -105,6 +105,6 @@ urlpatterns = [
     path('settings/bonus/add/', views.bonus_tier_create, name='bonus_tier_create'),
     path('settings/bonus/<int:pk>/edit/', views.bonus_tier_update, name='bonus_tier_update'),
     path('settings/bonus/<int:pk>/delete/', views.bonus_tier_delete, name='bonus_tier_delete'),
-    path('reports/', views.reports_home, name='reports_home'),
+    path('reports/', views.reports_home_v2, name='reports_home'),
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
