@@ -264,6 +264,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertNotContains(response, 'الجزء الأول:')
         self.assertNotContains(response, 'عرض التقرير')
         self.assertContains(response, 'name="range_mode"')
+        self.assertContains(response, 'عن فترة محددة')
+        self.assertContains(response, 'report-filter-grid')
         self.assertContains(response, 'name="signature_title"')
         self.assertContains(response, '<option value="مشغل" selected>مشغل</option>', html=True)
         self.assertEqual(response.context['signature_title'], 'مشغل')

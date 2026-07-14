@@ -9,27 +9,27 @@
 </div>
 
 <div class="card p-2 mb-4 mx-auto no-print report-filter-card">
-  <form id="reportFilterForm" class="row g-2 align-items-end toolbar" method="get">
-    <div class="col-md-3">
+  <form id="reportFilterForm" class="report-filter-grid align-items-end toolbar" method="get">
+    <div class="report-name-field">
       <label class="form-label">اسم التقرير</label>
       <select name="report_type" class="form-select" onchange="this.form.submit()">
         {% for value, label in allowed_report_options %}<option value="{{ value }}" {% if report_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
       </select>
     </div>
-    <div class="col-md-2">
+    <div class="report-range-field">
       <label class="form-label">نوع الفترة</label>
       <select id="rangeMode" name="range_mode" class="form-select" onchange="toggleReportRange();this.form.submit()">
         <option value="month" {% if range_mode == 'month' %}selected{% endif %}>تقرير شهري</option>
-        <option value="custom" {% if range_mode == 'custom' %}selected{% endif %}>من وإلى</option>
+        <option value="custom" {% if range_mode == 'custom' %}selected{% endif %}>عن فترة محددة</option>
       </select>
     </div>
-    <div id="monthRangeField" class="col-md-2" {% if range_mode == 'custom' %}style="display:none"{% endif %}>
+    <div id="monthRangeField" class="report-date-field" {% if range_mode == 'custom' %}style="display:none"{% endif %}>
       <label class="form-label">الشهر</label>
       <input type="month" name="month" value="{{ month_value }}" class="form-control" onchange="this.form.submit()">
     </div>
-    <div id="dateFromField" class="col-md-2" {% if range_mode != 'custom' %}style="display:none"{% endif %}><label class="form-label">من تاريخ</label><input type="date" name="date_from" value="{{ date_from }}" class="form-control" onchange="this.form.submit()"></div>
-    <div id="dateToField" class="col-md-2" {% if range_mode != 'custom' %}style="display:none"{% endif %}><label class="form-label">إلى تاريخ</label><input type="date" name="date_to" value="{{ date_to }}" class="form-control" onchange="this.form.submit()"></div>
-    <div class="col-md-3">
+    <div id="dateFromField" class="report-date-field" {% if range_mode != 'custom' %}style="display:none"{% endif %}><label class="form-label">من تاريخ</label><input type="date" name="date_from" value="{{ date_from }}" class="form-control" onchange="this.form.submit()"></div>
+    <div id="dateToField" class="report-date-field" {% if range_mode != 'custom' %}style="display:none"{% endif %}><label class="form-label">إلى تاريخ</label><input type="date" name="date_to" value="{{ date_to }}" class="form-control" onchange="this.form.submit()"></div>
+    <div class="report-signature-field">
       <label class="form-label">التوقيع</label>
       <select id="signatureTitle" name="signature_title" class="form-select" onchange="updateReportSignature()">
         {% for title in signature_titles %}<option value="{{ title }}" {% if signature_title == title %}selected{% endif %}>{{ title }}</option>{% empty %}<option value="التوقيع">لا توجد وظائف مسجلة</option>{% endfor %}
@@ -127,7 +127,14 @@
 
 <style>
   .print-report-header,.print-report-signature{display:none}
-  .report-filter-card{max-width:880px}
+  .report-filter-card{width:100%;max-width:none;overflow-x:auto}
+  .report-filter-grid{display:flex!important;flex-wrap:nowrap!important;gap:12px!important;min-width:990px;width:100%;margin:0!important}
+  .report-filter-grid>div{width:auto!important;max-width:none!important;flex-shrink:0}
+  .report-filter-grid .report-name-field{flex:1.45 1 240px}
+  .report-filter-grid .report-range-field{flex:1.2 1 190px}
+  .report-filter-grid .report-date-field{flex:1 1 170px}
+  .report-filter-grid .report-signature-field{flex:1.25 1 210px}
+  .report-filter-grid .form-select,.report-filter-grid .form-control{width:100%!important;max-width:none!important;min-width:0!important}
   @media print{
     @page{size:A4 portrait;margin:5mm 10mm 10mm}
     body{background:#fff!important;color:#111!important}
