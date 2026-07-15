@@ -54,6 +54,17 @@ def _range_indexes(start_time, end_time):
     return list(range(start, end))
 
 
+def _time_ranges_overlap(first_start, first_end, second_start, second_end):
+    """Use half-open ranges so touching bookings are not treated as overlapping."""
+    first_start_idx = TIME_INDEX.get(first_start)
+    first_end_idx = TIME_INDEX.get(first_end)
+    second_start_idx = TIME_INDEX.get(second_start)
+    second_end_idx = TIME_INDEX.get(second_end)
+    if None in (first_start_idx, first_end_idx, second_start_idx, second_end_idx):
+        return False
+    return first_start_idx < second_end_idx and second_start_idx < first_end_idx
+
+
 def _slot_labels_from_range(start_time, end_time):
     return [
         f'{TIME_CHOICES[idx][0]} - {TIME_CHOICES[idx + 1][0]}'
@@ -188,7 +199,7 @@ def _academy_schedule_conflict_messages(cleaned_data, instance=None):
 
 
 
-def _academy_slot_conflicts(academy, booking_date, venue, wanted_slots, selected_day_ar):
+def _academy_slot_conflicts(academy, booking_date, venue, wanted_start, wanted_end, selected_day_ar):
     """Return True when the academy still occupies any wanted slot after operation-screen overrides.
 
     This respects one-day deletions/edits made from شاشة التشغيل. If an academy hour was
@@ -214,18 +225,21 @@ def _academy_slot_conflicts(academy, booking_date, venue, wanted_slots, selected
                     continue
                 final_place = override.new_place if override and override.new_place else place
                 final_idx = override.new_slot_index if override and override.new_slot_index is not None else idx
+                wanted_slots = set(_range_indexes(wanted_start, wanted_end))
                 if _norm(final_place) == _norm(venue) and final_idx in wanted_slots:
                     return True
         return False
 
-    detailed_entries = _entries_from_detailed_schedule(
-        academy.training_schedule,
-        academy.name,
-        academy.subscription_type,
-        academy.operation_places_list,
-    )
-    for entry in detailed_entries:
-        if entry['day'] == selected_day_ar and _norm(entry['place']) == _norm(venue) and set(wanted_slots) & entry['slots']:
+    if academy.subscription_type == 'fixed' and any(
+        _norm(place) == _norm(venue) for place in academy.operation_places_list
+    ):
+        return 'base'
+    for row in academy.training_schedule or []:
+        if (
+            row.get('day') == selected_day_ar
+            and _norm(row.get('place')) == _norm(venue)
+            and _time_ranges_overlap(wanted_start, wanted_end, row.get('start_time'), row.get('end_time'))
+        ):
             return 'base'
 
     if effective_conflict(academy.training_days, academy.operation_place, academy.training_hours):
@@ -790,7 +804,7 @@ class DailyBookingForm(forms.ModelForm):
                 selected_day_ar = WEEKDAY_AR[booking_date.weekday()]
                 academies = Academy.objects.filter(contract_start_date__lte=booking_date, contract_end_date__gte=booking_date)
                 for academy in academies:
-                    conflict_type = _academy_slot_conflicts(academy, booking_date, venue, wanted_slots, selected_day_ar)
+                    conflict_type = _academy_slot_conflicts(academy, booking_date, venue, st, et, selected_day_ar)
                     if conflict_type == 'base':
                         conflict_messages.append(f'{booking_date}: التوقيت محجوز لأكاديمية: {academy.name}.')
                     elif conflict_type == 'extra':

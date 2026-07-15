@@ -268,7 +268,11 @@ class Customer(models.Model):
     def next_code():
         last = Customer.objects.order_by('-id').first()
         next_id = (last.id + 1) if last else 1
-        return f'C{next_id:05d}'
+        code = f'C{next_id:05d}'
+        while Customer.objects.filter(customer_code=code).exists():
+            next_id += 1
+            code = f'C{next_id:05d}'
+        return code
 
 
 class DailyBooking(models.Model):

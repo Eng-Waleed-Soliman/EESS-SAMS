@@ -279,7 +279,7 @@ def daily_income_supply(request):
 
 @login_required
 def booking_create(request):
-    initial = {}
+    initial = {'customer_code': Customer.next_code()}
     requested_date = (request.GET.get('date') or '').strip()
     requested_venue = (request.GET.get('venue') or '').strip()
     requested_start = (request.GET.get('start_time') or '').strip()

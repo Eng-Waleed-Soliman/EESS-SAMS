@@ -17,6 +17,7 @@ from .models import (
     CafeteriaItem,
     CafeteriaPurchase,
     CafeteriaSale,
+    Customer,
     DailyBooking,
     DailyBookingCheckout,
     DailyExpense,
@@ -426,6 +427,63 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(form.cleaned_data['total_amount'], 500)
         booking = form.save_all()[0]
         self.assertEqual(booking.total_amount, 500)
+
+    def test_daily_booking_accepts_times_touching_academy_boundaries(self):
+        booking_date = date.today()
+        place = OPERATION_PLACE_CHOICES[0][0]
+        day_name = WEEKDAY_AR[booking_date.weekday()]
+        academy_start = TIME_CHOICES[22][0]  # 7:00 PM
+        academy_end = TIME_CHOICES[24][0]    # 8:00 PM
+        Academy.objects.create(
+            name='Boundary Academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000999', operation_place=place,
+            contract_start_date=booking_date, contract_end_date=booking_date + timedelta(days=1),
+            subscription_type='variable', variable_rent_type='hour', variable_rent_value=500,
+            training_schedule=[{
+                'place': place, 'day': day_name, 'start_time': academy_start,
+                'end_time': academy_end, 'hourly_rent': 500,
+            }],
+        )
+
+        def booking_form(start_time, end_time, phone):
+            return DailyBookingForm(data={
+                'customer_code': '', 'customer_name': 'Boundary Customer',
+                'customer_phone': phone, 'national_id': '', 'players_count': 1,
+                'amount': 500, 'advance_payment': 0, 'total_amount': 0, 'remaining_amount': 0,
+                'venue': place, 'booking_date': booking_date.isoformat(),
+                'booking_dates': booking_date.isoformat(),
+                'booking_date_times': json.dumps([{
+                    'date': booking_date.isoformat(), 'start_time': start_time, 'end_time': end_time,
+                }]),
+                'start_time': start_time, 'end_time': end_time, 'notes': '',
+            })
+
+        before = booking_form(TIME_CHOICES[20][0], academy_start, '01010000001')
+        after = booking_form(academy_end, TIME_CHOICES[26][0], '01010000002')
+        self.assertTrue(before.is_valid(), before.errors.as_json())
+        self.assertTrue(after.is_valid(), after.errors.as_json())
+
+    def test_booking_create_prefills_new_code_and_phone_lookup_data(self):
+        response = self.client.get(reverse('booking_create'))
+        self.assertEqual(response.context['form']['customer_code'].value(), 'C00001')
+
+        customer = Customer.objects.create(
+            customer_code='C00420', customer_name='Existing Customer',
+            customer_phone='01012345678', national_id='29001011234567',
+        )
+        response = self.client.get(reverse('booking_create'))
+        self.assertEqual(response.context['form']['customer_code'].value(), Customer.next_code())
+        customers = json.loads(response.context['customers_json'])
+        self.assertIn({
+            'code': customer.customer_code,
+            'name': customer.customer_name,
+            'phone': customer.customer_phone,
+            'national_id': customer.national_id,
+            'visits_count': 0,
+            'last_visit_date': '',
+            'last_visit_display': '',
+        }, customers)
+        self.assertContains(response, "addEventListener('input', lookupByPhone)")
 
     def test_member_role_screen_has_only_matching_add_button_and_hidden_role(self):
         academy = Academy.objects.create(

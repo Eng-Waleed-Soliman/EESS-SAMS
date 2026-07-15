@@ -85,9 +85,12 @@
 const customers = {{ customers_json|default:'[]'|safe }};
 const byPhone = new Map(customers.map(c => [String(c.phone || '').trim(), c]));
 const byCode = new Map(customers.map(c => [String(c.code || '').trim(), c]));
+const generatedCustomerCode = document.getElementById('id_customer_code').value.trim();
+let appliedCustomerPhone = '';
 function setValue(id, value){ const el = document.getElementById(id); if(el) el.value = value || ''; }
 function applyCustomer(c){
   if(!c) return;
+  appliedCustomerPhone = String(c.phone || '').trim();
   setValue('id_customer_code', c.code);
   setValue('id_customer_name', c.name);
   setValue('id_customer_phone', c.phone);
@@ -95,10 +98,24 @@ function applyCustomer(c){
   document.getElementById('visitsCount').textContent = c.visits_count || 0;
   document.getElementById('lastVisit').textContent = c.last_visit_display || 'لا يوجد';
 }
-function lookupByPhone(){ const p = document.getElementById('id_customer_phone').value.trim(); if(byPhone.has(p)) applyCustomer(byPhone.get(p)); }
+function resetExistingCustomer(){
+  if(!appliedCustomerPhone) return;
+  appliedCustomerPhone = '';
+  setValue('id_customer_code', generatedCustomerCode);
+  setValue('id_customer_name', '');
+  setValue('id_national_id', '');
+  document.getElementById('visitsCount').textContent = '0';
+  document.getElementById('lastVisit').textContent = 'لا يوجد';
+}
+function lookupByPhone(){
+  const p = document.getElementById('id_customer_phone').value.trim();
+  if(byPhone.has(p)) applyCustomer(byPhone.get(p));
+  else if(appliedCustomerPhone && p !== appliedCustomerPhone) resetExistingCustomer();
+}
 function lookupByCode(){ const code = document.getElementById('id_customer_code').value.trim(); if(byCode.has(code)) applyCustomer(byCode.get(code)); }
 document.getElementById('id_customer_phone').addEventListener('change', lookupByPhone);
 document.getElementById('id_customer_phone').addEventListener('blur', lookupByPhone);
+document.getElementById('id_customer_phone').addEventListener('input', lookupByPhone);
 document.getElementById('id_customer_code').addEventListener('change', lookupByCode);
 document.getElementById('id_customer_code').addEventListener('blur', lookupByCode);
 
