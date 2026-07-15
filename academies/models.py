@@ -633,6 +633,7 @@ class CafeteriaItem(models.Model):
     code = models.PositiveIntegerField(default=0, verbose_name='كود الصنف')
     name = models.CharField(max_length=200, verbose_name='اسم الصنف')
     opening_quantity = models.PositiveIntegerField(default=0, verbose_name='رصيد افتتاحي')
+    stock_adjustment = models.IntegerField(default=0, verbose_name='تسوية المخزون')
     purchase_price = models.PositiveIntegerField(default=0, verbose_name='سعر الشراء')
     sale_price = models.PositiveIntegerField(default=0, verbose_name='سعر البيع')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
@@ -657,7 +658,7 @@ class CafeteriaItem(models.Model):
 
     @property
     def stock_quantity(self):
-        return int(self.opening_quantity + self.purchased_quantity - self.sold_quantity)
+        return int(self.opening_quantity + self.purchased_quantity - self.sold_quantity + self.stock_adjustment)
 
     @property
     def alert_limit(self):

@@ -15,7 +15,7 @@
         <td>{{ item.purchase_price }}</td>
         <td>{{ item.sale_price }}</td>
         <td>{{ item.stock_quantity }}</td>
-        <td><input type="number" min="0" step="1" class="form-control text-center" name="quantity_{{ item.id }}" value="{{ item.opening_quantity }}"></td>
+        <td><input type="number" min="0" step="1" class="form-control text-center" name="quantity_{{ item.id }}" value="{{ item.stock_quantity }}"></td>
       </tr>
     {% empty %}<tr><td colspan="5">لا توجد أصناف مسجلة</td></tr>{% endfor %}
     </tbody>

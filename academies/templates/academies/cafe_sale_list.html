@@ -28,10 +28,14 @@
       <h5 class="fw-bold mb-3">إضافة حركة بيع</h5>
       <div class="row g-3">
         <input type="hidden" id="categoryFilter" value="{{ selected_category }}">
-        <div class="col-12">
+        <div class="col-md-8">
           <label class="form-label fw-bold">{{ form.item.label }}</label>
           {{ form.item }}
           <div class="text-danger small">{{ form.item.errors }}</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-bold">المخزون المتاح</label>
+          <input class="form-control fw-bold text-center" id="stock_quantity_display" value="0" readonly>
         </div>
         <div class="col-md-5">
           <label class="form-label fw-bold">{{ form.sale_date.label }}</label>
@@ -155,6 +159,7 @@ const priceInput = document.getElementById('id_unit_price');
 const displayPriceInput = document.getElementById('display_unit_price');
 const totalInput = document.getElementById('sale_total');
 const stockInfo = document.getElementById('stockInfo');
+const stockQuantityDisplay = document.getElementById('stock_quantity_display');
 const saleDate = document.getElementById('id_sale_date');
 const orderItemsInput = document.getElementById('order_items');
 const orderRows = document.getElementById('orderRows');
@@ -182,8 +187,10 @@ function refreshSale(){
   totalInput.value = Math.max(0, qty * price);
   if(displayPriceInput){ displayPriceInput.value = item ? (item.sale_price || 0) : 0; }
   if(item){
+    if(stockQuantityDisplay){ stockQuantityDisplay.value = item.stock_quantity; }
     stockInfo.textContent = 'المخزون المتاح: ' + item.stock_quantity;
   }else{
+    if(stockQuantityDisplay){ stockQuantityDisplay.value = 0; }
     stockInfo.textContent = 'اختر الصنف لعرض المخزون المتاح.';
   }
 }

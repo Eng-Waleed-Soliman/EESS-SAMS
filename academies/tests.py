@@ -117,6 +117,37 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, '<td>3</td>', html=True)
         self.assertContains(response, '<td class="fw-bold">7</td>', html=True)
 
+    def test_cafeteria_stock_adjustment_replaces_old_balance_and_appears_in_sales(self):
+        today = date.today()
+        category = CafeteriaCategory.objects.create(code=77, name='Stock adjustment')
+        item = CafeteriaItem.objects.create(
+            category=category, code=1, name='Adjusted item', opening_quantity=10,
+            purchase_price=5, sale_price=10,
+        )
+        CafeteriaPurchase.objects.create(item=item, purchase_date=today, quantity=5, unit_price=5)
+        CafeteriaSale.objects.create(item=item, sale_date=today, quantity=3, unit_price=10)
+        self.assertEqual(item.stock_quantity, 12)
+
+        response = self.client.post(reverse('cafe_stock_adjust'), {
+            f'quantity_{item.id}': 40,
+        })
+        self.assertRedirects(response, reverse('cafe_item_list'))
+        item.refresh_from_db()
+        self.assertEqual(item.stock_quantity, 40)
+
+        CafeteriaPurchase.objects.create(item=item, purchase_date=today, quantity=2, unit_price=5)
+        CafeteriaSale.objects.create(item=item, sale_date=today, quantity=1, unit_price=10)
+        item.refresh_from_db()
+        self.assertEqual(item.stock_quantity, 41)
+
+        response = self.client.get(reverse('cafe_item_list'))
+        self.assertContains(response, '<td>41</td>', html=True)
+        response = self.client.get(reverse('cafe_stock_adjust'))
+        self.assertContains(response, f'name="quantity_{item.id}" value="41"')
+        response = self.client.get(reverse('cafe_sale_list'))
+        self.assertContains(response, 'id="stock_quantity_display"')
+        self.assertContains(response, '"stock_quantity": 41')
+
     def test_variable_academy_accepts_multiple_intervals_in_same_day(self):
         place = OPERATION_PLACE_CHOICES[0][0]
         selected_date = date.today()

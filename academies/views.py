@@ -1024,8 +1024,12 @@ def cafe_stock_adjust(request):
             value = request.POST.get(f'quantity_{item.id}', '').strip()
             if value != '':
                 try:
-                    item.opening_quantity = max(0, int(value))
-                    item.save(update_fields=['opening_quantity'])
+                    desired_quantity = max(0, int(value))
+                    quantity_before_adjustment = (
+                        item.opening_quantity + item.purchased_quantity - item.sold_quantity
+                    )
+                    item.stock_adjustment = desired_quantity - quantity_before_adjustment
+                    item.save(update_fields=['stock_adjustment'])
                 except ValueError:
                     messages.error(request, f'قيمة المخزون للصنف {item.name} غير صحيحة.')
                     return redirect('cafe_stock_adjust')
