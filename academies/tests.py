@@ -148,6 +148,29 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'id="stock_quantity_display"')
         self.assertContains(response, '"stock_quantity": 41')
 
+    def test_cafeteria_item_edit_includes_and_saves_sale_price(self):
+        category = CafeteriaCategory.objects.create(code=78, name='Prices')
+        item = CafeteriaItem.objects.create(
+            category=category, code=2, name='Priced item', opening_quantity=5,
+            purchase_price=6, sale_price=10,
+        )
+        response = self.client.get(reverse('cafe_item_update', args=[item.pk]))
+        self.assertContains(response, 'id="id_sale_price"')
+        self.assertContains(response, 'value="10"')
+
+        response = self.client.post(reverse('cafe_item_update', args=[item.pk]), {
+            'category': category.pk,
+            'code': item.code,
+            'name': item.name,
+            'opening_quantity': item.opening_quantity,
+            'purchase_price': item.purchase_price,
+            'sale_price': 15,
+            'notes': '',
+        })
+        self.assertRedirects(response, reverse('cafe_item_list'))
+        item.refresh_from_db()
+        self.assertEqual(item.sale_price, 15)
+
     def test_variable_academy_accepts_multiple_intervals_in_same_day(self):
         place = OPERATION_PLACE_CHOICES[0][0]
         selected_date = date.today()

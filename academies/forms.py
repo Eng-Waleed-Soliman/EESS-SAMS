@@ -1055,12 +1055,13 @@ class CafeteriaCategoryForm(forms.ModelForm):
 class CafeteriaItemForm(forms.ModelForm):
     class Meta:
         model = CafeteriaItem
-        fields = ['category', 'code', 'name', 'opening_quantity', 'purchase_price', 'notes']
+        fields = ['category', 'code', 'name', 'opening_quantity', 'purchase_price', 'sale_price', 'notes']
         widgets = {
             'category': forms.Select(attrs={'class': 'form-select'}),
             'code': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '1'}),
             'opening_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+            'sale_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
     def __init__(self, *args, **kwargs):
