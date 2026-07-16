@@ -1,12 +1,31 @@
 import logging
 import time
+import traceback
 
 from django.db import connections
 from django.db.utils import InterfaceError, OperationalError
+from django.http import JsonResponse
 from django.shortcuts import redirect
+from django.utils.deprecation import MiddlewareMixin
 
 
 logger = logging.getLogger(__name__)
+
+
+class AdminDiagnosticMiddleware(MiddlewareMixin):
+    """Temporarily expose a traceback only to the short-lived diagnostic account."""
+
+    diagnostic_username = '__codex_admin_diag__'
+
+    def process_exception(self, request, exception):
+        user = getattr(request, 'user', None)
+        if getattr(user, 'is_authenticated', False) and user.username == self.diagnostic_username:
+            return JsonResponse({
+                'exception_type': type(exception).__name__,
+                'message': str(exception),
+                'traceback': traceback.format_exc(),
+            }, status=500)
+        return None
 
 
 CAFETERIA_SPECIALIST_USERNAME = 'cafeteria_specialist'
