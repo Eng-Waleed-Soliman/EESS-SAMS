@@ -67,4 +67,62 @@
     <button class="btn btn-primary mt-3">حفظ</button>
   </div>
 </form>
+
+<div class="d-flex justify-content-between align-items-center mt-5 mb-3 flex-wrap gap-2">
+  <div>
+    <h3 class="mb-1">تأمينات الأكاديميات</h3>
+    <div class="text-muted">التأمين منفصل عن دخل الإيجار، ويمكن سداده على قسط واحد أو قسطين أو 3 أقساط بحد أقصى.</div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4 deposit-summary-cards">
+  <div class="col-md"><div class="card p-3 h-100"><b>إجمالي التأمين المطلوب</b><h3>{{ deposit_totals.expected }}</h3></div></div>
+  <div class="col-md"><div class="card p-3 h-100"><b>مستحق هذا الشهر</b><h3>{{ deposit_totals.due_this_month }}</h3></div></div>
+  <div class="col-md"><div class="card p-3 h-100"><b>إجمالي المسدد</b><h3>{{ deposit_totals.paid }}</h3></div></div>
+  <div class="col-md"><div class="card p-3 h-100"><b>إجمالي المتبقي</b><h3>{{ deposit_totals.remaining }}</h3></div></div>
+  <div class="col-md"><div class="card p-3 h-100"><b>إجمالي المورد</b><h3>{{ deposit_totals.supplied }}</h3></div></div>
+  <div class="col-md"><div class="card p-3 h-100"><b>غير مورد</b><h3>{{ deposit_totals.unsupplied }}</h3></div></div>
+  <div class="col-md"><div class="card p-3 h-100"><b>أكاديميات متأخرة</b><h3>{{ deposit_totals.overdue_academies }}</h3></div></div>
+</div>
+
+<div class="card p-3">
+  <div class="table-responsive">
+    <table class="table table-striped align-middle text-center deposit-payments-table">
+      <thead>
+        <tr>
+          <th>الأكاديمية</th>
+          <th>الفرع</th>
+          <th>إجمالي التأمين</th>
+          <th>عدد الأقساط</th>
+          <th>مستحق هذا الشهر</th>
+          <th>المسدد</th>
+          <th>المتبقي</th>
+          <th>المورد</th>
+          <th>غير المورد</th>
+          <th>الحالة</th>
+          <th>الإجراء</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in deposit_rows %}
+        <tr class="{% if row.status_class == 'danger' %}table-danger{% elif row.status_class == 'warning' %}table-warning{% elif row.status_class == 'success' %}table-success{% elif row.status_class == 'info' %}table-info{% endif %}">
+          <td>{{ row.academy.name }}</td>
+          <td>{{ row.academy.branch.name|default:'-' }}</td>
+          <td>{{ row.total }}</td>
+          <td>{% if row.plan %}{{ row.installments_count }}{% else %}-{% endif %}</td>
+          <td>{{ row.due_this_month }}</td>
+          <td>{{ row.paid }}</td>
+          <td>{{ row.remaining }}</td>
+          <td>{{ row.supplied }}</td>
+          <td>{{ row.unsupplied }}</td>
+          <td><span class="badge bg-{{ row.status_class }}{% if row.status_class == 'warning' or row.status_class == 'info' %} text-dark{% endif %}">{{ row.status_label }}</span></td>
+          <td><a class="btn btn-sm btn-primary" href="{% url 'academy_deposit_plan' row.academy.id %}?month={{ month_value }}">{% if row.plan %}السداد والتوريد{% else %}إعداد الخطة{% endif %}</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="11">لا توجد أكاديميات مطالبة بمبلغ تأمين في هذا الشهر.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

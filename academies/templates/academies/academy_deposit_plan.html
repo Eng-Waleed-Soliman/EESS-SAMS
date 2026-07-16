@@ -1,0 +1,67 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h3 class="mb-1">تأمين أكاديمية {{ academy.name }}</h3>
+    <div class="text-muted">{{ academy.branch.name|default:'بدون فرع' }} — بداية التعاقد {{ academy.contract_start_date|date:'d/m/Y' }}</div>
+  </div>
+  <a class="btn btn-secondary" href="{% url 'academy_rent_payments' %}{% if back_month %}?month={{ back_month }}{% endif %}">رجوع لإيجارات الأكاديميات</a>
+</div>
+
+<form method="post" class="card p-4 mb-4">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="save_plan">
+  <h5 class="fw-bold mb-3">خطة التأمين</h5>
+  {% if has_movements %}
+  <div class="alert alert-info">تم تسجيل حركة سداد أو توريد؛ لذلك تم تثبيت مبلغ الخطة وعدد الأقساط لحماية البيانات المالية.</div>
+  {% endif %}
+  {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="row g-3">
+    <div class="col-md-3"><label class="form-label fw-bold">{{ form.total_amount.label }}</label>{{ form.total_amount }}<div class="text-danger small">{{ form.total_amount.errors }}</div></div>
+    <div class="col-md-3"><label class="form-label fw-bold">{{ form.installments_count.label }}</label>{{ form.installments_count }}<div class="form-text">من قسط واحد إلى 3 أقساط.</div><div class="text-danger small">{{ form.installments_count.errors }}</div></div>
+    <div class="col-md-3"><label class="form-label fw-bold">{{ form.first_due_month.label }}</label>{{ form.first_due_month }}<div class="text-danger small">{{ form.first_due_month.errors }}</div></div>
+    <div class="col-md-3"><label class="form-label fw-bold">{{ form.notes.label }}</label>{{ form.notes }}<div class="text-danger small">{{ form.notes.errors }}</div></div>
+  </div>
+  {% if not has_movements %}<button class="btn btn-primary mt-3 align-self-start">{% if plan %}تحديث الخطة وإعادة توزيع الأقساط{% else %}إنشاء خطة التأمين{% endif %}</button>{% endif %}
+</form>
+
+{% if plan %}
+<div class="row g-3 mb-4">
+  <div class="col-md"><div class="card p-3 h-100"><b>إجمالي التأمين</b><h3>{{ plan.total_amount }}</h3></div></div>
+  <div class="col-md"><div class="card p-3 h-100"><b>المسدد</b><h3>{{ plan.paid_total }}</h3></div></div>
+  <div class="col-md"><div class="card p-3 h-100"><b>المتبقي</b><h3>{{ plan.remaining_amount }}</h3></div></div>
+  <div class="col-md"><div class="card p-3 h-100"><b>المورد</b><h3>{{ plan.supplied_total }}</h3></div></div>
+  <div class="col-md"><div class="card p-3 h-100"><b>غير المورد</b><h3>{{ plan.unsupplied_amount }}</h3></div></div>
+</div>
+
+<form method="post" class="card p-3">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="save_installments">
+  <h5 class="fw-bold mb-3">سداد وتوريد أقساط التأمين</h5>
+  <div class="alert alert-warning">القيم المسجلة تراكمية لكل قسط. لا يمكن أن يزيد المسدد عن قيمة القسط، ولا المورد عن المسدد.</div>
+  <div class="table-responsive">
+    <table class="table table-striped align-middle text-center">
+      <thead><tr><th>القسط</th><th>شهر الاستحقاق</th><th>المستحق</th><th>المسدد</th><th>تاريخ السداد</th><th>المتبقي</th><th>المورد</th><th>تاريخ التوريد</th><th>غير المورد</th><th>مسجل الحركة</th><th>ملاحظات</th></tr></thead>
+      <tbody>
+        {% for installment in installments %}
+        <tr class="{% if installment.remaining_amount == 0 and installment.unsupplied_amount == 0 %}table-success{% elif installment.paid_amount > 0 %}table-warning{% endif %}">
+          <td>{{ installment.installment_number }}</td>
+          <td>{{ installment.due_month|date:'m/Y' }}</td>
+          <td>{{ installment.due_amount }}</td>
+          <td><input class="form-control money-input" type="number" min="0" max="{{ installment.due_amount }}" name="installment_{{ installment.id }}_paid_amount" value="{{ installment.paid_amount }}"></td>
+          <td><input class="form-control" type="date" name="installment_{{ installment.id }}_payment_date" value="{{ installment.payment_date|date:'Y-m-d' }}"></td>
+          <td>{{ installment.remaining_amount }}</td>
+          <td><input class="form-control money-input" type="number" min="0" max="{{ installment.paid_amount }}" name="installment_{{ installment.id }}_supplied_amount" value="{{ installment.supplied_amount }}"></td>
+          <td><input class="form-control" type="date" name="installment_{{ installment.id }}_supplied_date" value="{{ installment.supplied_date|date:'Y-m-d' }}"></td>
+          <td>{{ installment.unsupplied_amount }}</td>
+          <td class="small">{% if installment.supplied_recorded_by %}{{ installment.supplied_recorded_by.first_name|default:installment.supplied_recorded_by.username }}{% elif installment.paid_recorded_by %}{{ installment.paid_recorded_by.first_name|default:installment.paid_recorded_by.username }}{% else %}-{% endif %}</td>
+          <td><input class="form-control" name="installment_{{ installment.id }}_notes" value="{{ installment.notes }}"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button class="btn btn-success mt-3">حفظ السداد والتوريد</button>
+</form>
+{% endif %}
+{% endblock %}

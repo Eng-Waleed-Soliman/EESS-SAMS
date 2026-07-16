@@ -377,6 +377,85 @@ class AcademyMonthlyRentPayment(models.Model):
         return f'{self.academy} - {self.month:%Y-%m}'
 
 
+class AcademyDepositPlan(models.Model):
+    academy = models.OneToOneField(
+        Academy, on_delete=models.CASCADE, related_name='deposit_plan', verbose_name='الأكاديمية'
+    )
+    total_amount = models.PositiveIntegerField(default=0, verbose_name='إجمالي مبلغ التأمين')
+    installments_count = models.PositiveSmallIntegerField(default=1, verbose_name='عدد الأقساط')
+    first_due_month = models.DateField(verbose_name='شهر استحقاق أول قسط')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات الخطة')
+    created_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='created_deposit_plans', verbose_name='أنشأها',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['academy__name']
+        verbose_name = 'خطة تأمين أكاديمية'
+        verbose_name_plural = 'خطط تأمين الأكاديميات'
+
+    @property
+    def paid_total(self):
+        return self.installments.aggregate(total=models.Sum('paid_amount'))['total'] or 0
+
+    @property
+    def supplied_total(self):
+        return self.installments.aggregate(total=models.Sum('supplied_amount'))['total'] or 0
+
+    @property
+    def remaining_amount(self):
+        return max(0, int(self.total_amount or 0) - int(self.paid_total or 0))
+
+    @property
+    def unsupplied_amount(self):
+        return max(0, int(self.paid_total or 0) - int(self.supplied_total or 0))
+
+    def __str__(self):
+        return f'{self.academy} - {self.total_amount}'
+
+
+class AcademyDepositInstallment(models.Model):
+    plan = models.ForeignKey(
+        AcademyDepositPlan, on_delete=models.CASCADE, related_name='installments', verbose_name='خطة التأمين'
+    )
+    installment_number = models.PositiveSmallIntegerField(verbose_name='رقم القسط')
+    due_month = models.DateField(verbose_name='شهر الاستحقاق')
+    due_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المستحق')
+    paid_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المسدد')
+    payment_date = models.DateField(null=True, blank=True, verbose_name='تاريخ السداد')
+    supplied_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المورد')
+    supplied_date = models.DateField(null=True, blank=True, verbose_name='تاريخ التوريد')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    paid_recorded_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='recorded_deposit_payments', verbose_name='مسجل السداد',
+    )
+    supplied_recorded_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='recorded_deposit_supplies', verbose_name='مسجل التوريد',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('plan', 'installment_number')
+        ordering = ['due_month', 'installment_number']
+        verbose_name = 'قسط تأمين أكاديمية'
+        verbose_name_plural = 'أقساط تأمين الأكاديميات'
+
+    @property
+    def remaining_amount(self):
+        return max(0, int(self.due_amount or 0) - int(self.paid_amount or 0))
+
+    @property
+    def unsupplied_amount(self):
+        return max(0, int(self.paid_amount or 0) - int(self.supplied_amount or 0))
+
+    def __str__(self):
+        return f'{self.plan.academy} - قسط {self.installment_number}'
+
+
 class OperationDayCancellation(models.Model):
     cancel_date = models.DateField(unique=True, verbose_name='تاريخ إلغاء التشغيل')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')

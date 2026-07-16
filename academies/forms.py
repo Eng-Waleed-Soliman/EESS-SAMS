@@ -4,7 +4,7 @@ from django import forms
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, DailyIncomeSupply
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -655,6 +655,35 @@ class AcademyMonthlyRentPaymentForm(forms.ModelForm):
             'supplied_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'notes': forms.TextInput(attrs={'class': 'form-control'}),
         }
+
+
+class AcademyDepositPlanForm(forms.ModelForm):
+    first_due_month = forms.DateField(
+        label='شهر استحقاق أول قسط',
+        input_formats=['%Y-%m', '%Y-%m-%d'],
+        widget=forms.DateInput(format='%Y-%m', attrs={'type': 'month', 'class': 'form-control'}),
+    )
+
+    class Meta:
+        model = AcademyDepositPlan
+        fields = ['total_amount', 'installments_count', 'first_due_month', 'notes']
+        widgets = {
+            'total_amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
+            'installments_count': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'max': '3', 'step': '1'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+    def clean_installments_count(self):
+        count = self.cleaned_data.get('installments_count') or 0
+        if count < 1 or count > 3:
+            raise forms.ValidationError('عدد أقساط التأمين يجب أن يكون من قسط واحد إلى 3 أقساط فقط.')
+        return count
+
+    def clean_total_amount(self):
+        amount = self.cleaned_data.get('total_amount') or 0
+        if amount <= 0:
+            raise forms.ValidationError('أدخل مبلغ تأمين أكبر من صفر.')
+        return amount
 
 
 class DailyBookingForm(forms.ModelForm):

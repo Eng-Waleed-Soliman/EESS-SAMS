@@ -5,6 +5,7 @@ from .models import (
     CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale,
     OperationDayCancellation, AcademyOperationOverride, UserPermission, DailyBookingCheckout,
     DailyIncomeSupply, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment,
+    AcademyDepositPlan, AcademyDepositInstallment,
 )
 
 
@@ -79,6 +80,19 @@ class AcademyMonthlyRentPaymentAdmin(admin.ModelAdmin):
     list_display = ('academy', 'month', 'expected_amount', 'paid_amount', 'supplied_amount', 'updated_at')
     list_filter = ('month',)
     search_fields = ('academy__name', 'notes')
+
+
+@admin.register(AcademyDepositPlan)
+class AcademyDepositPlanAdmin(admin.ModelAdmin):
+    list_display = ('academy', 'total_amount', 'installments_count', 'first_due_month', 'paid_total', 'remaining_amount', 'supplied_total', 'unsupplied_amount')
+    search_fields = ('academy__name', 'notes')
+
+
+@admin.register(AcademyDepositInstallment)
+class AcademyDepositInstallmentAdmin(admin.ModelAdmin):
+    list_display = ('plan', 'installment_number', 'due_month', 'due_amount', 'paid_amount', 'supplied_amount', 'remaining_amount', 'unsupplied_amount')
+    list_filter = ('due_month',)
+    search_fields = ('plan__academy__name', 'notes')
 
 
 @admin.register(Shareholder)

@@ -16,6 +16,8 @@ from .views import _academy_schedule_occurrences_for_date, _calculate_variable_i
 from .models import (
     Academy,
     AcademyMember,
+    AcademyDepositPlan,
+    AcademyDepositInstallment,
     AcademyMonthlyRentPayment,
     CafeteriaCategory,
     CafeteriaItem,
@@ -67,6 +69,72 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.get('/admin/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'admin/css/base.css')
+
+    def test_academy_deposit_plan_installments_payments_and_supplies(self):
+        today = date.today()
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_reports = True
+        profile.save()
+        academy = Academy.objects.create(
+            name='Deposit Academy', sport_activity='Football', company_name='Deposit Company',
+            manager_name='Manager', manager_phone='01099999999',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(today.year, 1, 1),
+            contract_end_date=date(today.year, 12, 31),
+            subscription_type='fixed', monthly_subscription=2000, security_deposit=1000,
+        )
+        rent_url = reverse('academy_rent_payments') + f'?month={today:%Y-%m}'
+        response = self.client.get(rent_url)
+        self.assertContains(response, 'إعداد الخطة')
+        self.assertEqual(response.context['deposit_totals']['expected'], 1000)
+
+        plan_url = reverse('academy_deposit_plan', args=[academy.pk])
+        response = self.client.post(plan_url, {
+            'action': 'save_plan',
+            'total_amount': 1000,
+            'installments_count': 3,
+            'first_due_month': today.strftime('%Y-%m'),
+            'notes': 'Three monthly installments',
+        })
+        self.assertRedirects(response, plan_url)
+        plan = AcademyDepositPlan.objects.get(academy=academy)
+        installments = list(plan.installments.all())
+        self.assertEqual([item.due_amount for item in installments], [334, 333, 333])
+        self.assertEqual(installments[1].due_month, date(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1))
+
+        first = installments[0]
+        response = self.client.post(plan_url, {
+            'action': 'save_installments',
+            f'installment_{first.id}_paid_amount': 334,
+            f'installment_{first.id}_payment_date': today.isoformat(),
+            f'installment_{first.id}_supplied_amount': 200,
+            f'installment_{first.id}_supplied_date': today.isoformat(),
+            f'installment_{first.id}_notes': 'First payment',
+        })
+        self.assertRedirects(response, plan_url)
+        first.refresh_from_db()
+        self.assertEqual(first.paid_recorded_by, self.user)
+        self.assertEqual(first.supplied_recorded_by, self.user)
+        self.assertEqual(first.remaining_amount, 0)
+        self.assertEqual(first.unsupplied_amount, 134)
+
+        response = self.client.get(rent_url)
+        self.assertEqual(response.context['deposit_totals']['paid'], 334)
+        self.assertEqual(response.context['deposit_totals']['remaining'], 666)
+        self.assertEqual(response.context['deposit_totals']['supplied'], 200)
+        self.assertEqual(response.context['deposit_totals']['unsupplied'], 134)
+        self.assertContains(response, 'السداد والتوريد')
+
+        response = self.client.post(plan_url, {
+            'action': 'save_installments',
+            f'installment_{first.id}_paid_amount': 334,
+            f'installment_{first.id}_payment_date': today.isoformat(),
+            f'installment_{first.id}_supplied_amount': 335,
+            f'installment_{first.id}_supplied_date': today.isoformat(),
+        }, follow=True)
+        self.assertContains(response, 'أكبر من المسدد')
+        first.refresh_from_db()
+        self.assertEqual(first.supplied_amount, 200)
 
     def test_login_uses_typed_username_without_exposing_user_list(self):
         hidden_user = User.objects.create_user(username='private_operator', password='operator-password')
