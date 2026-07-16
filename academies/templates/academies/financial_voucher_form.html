@@ -1,12 +1,24 @@
 {% extends 'academies/base.html' %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <h3>{{ title }}</h3>
-  <a class="btn btn-secondary" href="{% url 'financial_voucher_list' %}">سجل أوامر الصرف والتوريد</a>
+  <h3 class="fw-bold">{{ title }}</h3>
+  <div class="d-flex gap-2 flex-wrap">
+    <button type="submit" form="voucherForm" name="submit_action" value="pdf" class="btn btn-danger">تصدير PDF</button>
+    <button type="submit" form="voucherForm" name="submit_action" value="print" class="btn btn-outline-primary">طباعة</button>
+    <a class="btn btn-secondary" href="{% url 'financial_voucher_list' %}">سجل أوامر الصرف والتوريد</a>
+  </div>
 </div>
 
-<form method="post" class="card p-4 voucher-form-card mx-auto">
+<form method="post" id="voucherForm" class="card p-4 voucher-form-card mx-auto">
   {% csrf_token %}
+  <header class="voucher-form-header">
+    <div class="voucher-form-brand">
+      {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
+      <div>{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
+      <div class="brand-ar">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</div>
+    </div>
+    <h2>{{ title }}</h2>
+  </header>
   {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
   <div class="alert {% if voucher_type == 'disbursement' %}alert-warning{% else %}alert-info{% endif %}">
     سيتم إنشاء مستند A4 يظهر فيه المبلغ بالأرقام والحروف واسم اليوم والتاريخ ومسمى التوقيع.
@@ -17,7 +29,14 @@
     <div class="col-md-6"><label class="form-label fw-bold">{{ form.signature_title.label }}</label>{{ form.signature_title }}<div class="text-danger small">{{ form.signature_title.errors }}</div></div>
     <div class="col-12"><label class="form-label fw-bold">{% if voucher_type == 'disbursement' %}سبب الصرف{% else %}البيان{% endif %}</label>{{ form.statement }}<div class="text-danger small">{{ form.statement.errors }}</div></div>
   </div>
-  <div class="d-flex gap-2 mt-4"><button class="btn btn-primary">حفظ وعرض المستند</button><a class="btn btn-secondary" href="{% url 'reports_home' %}">رجوع للتقارير</a></div>
+  <div class="d-flex gap-2 mt-4 flex-wrap"><button name="submit_action" value="save" class="btn btn-primary">حفظ وعرض المستند</button><button name="submit_action" value="pdf" class="btn btn-danger">حفظ وتصدير PDF</button><button name="submit_action" value="print" class="btn btn-outline-primary">حفظ وطباعة</button><a class="btn btn-secondary" href="{% url 'reports_home' %}">رجوع للتقارير</a></div>
 </form>
-<style>.voucher-form-card{max-width:900px}</style>
+<style>
+.voucher-form-card{max-width:900px}
+.voucher-form-header{position:relative;min-height:115px;border-bottom:2px solid #2563eb;margin-bottom:22px;padding-bottom:12px;display:flex;align-items:center;justify-content:center}
+.voucher-form-header h2{font-size:30px;font-weight:900;text-align:center;margin:0;padding:0 210px}
+.voucher-form-brand{position:absolute;left:0;top:0;width:205px;text-align:center;direction:ltr;font-size:12px;line-height:1.45;font-weight:700}
+.voucher-form-brand img{display:block;max-width:72px;max-height:65px;object-fit:contain;margin:0 auto 5px}.voucher-form-brand .brand-ar{direction:rtl}
+@media(max-width:767px){.voucher-form-header{padding-top:105px}.voucher-form-header h2{padding:0}.voucher-form-brand{left:50%;transform:translateX(-50%)}}
+</style>
 {% endblock %}

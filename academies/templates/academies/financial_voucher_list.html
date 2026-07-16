@@ -1,21 +1,33 @@
 {% extends 'academies/base.html' %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <h3>أوامر الصرف والتوريد المالية</h3>
+  <h3 class="fw-bold">أوامر الصرف والتوريد المالية</h3>
   <div class="d-flex gap-2 flex-wrap">
+    <button type="button" class="btn btn-danger" onclick="printVoucherRegister(true)">تصدير PDF</button>
+    <button type="button" class="btn btn-outline-primary" onclick="printVoucherRegister(false)">طباعة</button>
     <a class="btn btn-success" href="{% url 'financial_voucher_create' 'disbursement' %}">أمر صرف مبلغ مالي</a>
     <a class="btn btn-info" href="{% url 'financial_voucher_create' 'supply' %}">أمر توريد مبلغ مالي</a>
     <a class="btn btn-secondary" href="{% url 'reports_home' %}">رجوع للتقارير</a>
   </div>
 </div>
 <div class="card p-3 mb-4">
-  <div class="d-flex gap-2 flex-wrap">
+  <div class="d-flex gap-2 flex-wrap align-items-end">
     <a class="btn {% if not selected_type %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'financial_voucher_list' %}">الكل</a>
     <a class="btn {% if selected_type == 'disbursement' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?type=disbursement">أوامر الصرف</a>
     <a class="btn {% if selected_type == 'supply' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?type=supply">أوامر التوريد</a>
+    <div class="ms-auto signature-selector-wrap"><label class="form-label fw-bold mb-1">مسمى التوقيع</label><select id="registerSignatureSelector" class="form-select" onchange="updateRegisterSignature()">{% for title in signature_titles %}<option value="{{ title }}" {% if signature_title == title %}selected{% endif %}>{{ title }}</option>{% empty %}<option value="التوقيع">التوقيع</option>{% endfor %}</select></div>
   </div>
 </div>
-<div class="card p-3">
+
+<section class="card p-3 voucher-register-sheet">
+  <header class="voucher-register-header">
+    <div class="voucher-register-brand">
+      {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
+      <div>{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
+      <div class="brand-ar">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</div>
+    </div>
+    <div class="voucher-register-heading"><h2>سجل أوامر الصرف والتوريد المالية</h2><div>{% if selected_type == 'disbursement' %}أوامر الصرف{% elif selected_type == 'supply' %}أوامر التوريد{% else %}جميع الأوامر المالية{% endif %}</div></div>
+  </header>
   <div class="table-responsive"><table class="table table-striped align-middle text-center">
     <thead><tr><th>رقم الأمر</th><th>النوع</th><th>اليوم والتاريخ</th><th>القيمة</th><th>البيان</th><th>التوقيع</th><th>أنشئ بواسطة</th><th></th></tr></thead>
     <tbody>{% for voucher in vouchers %}<tr>
@@ -23,5 +35,21 @@
       <td class="text-nowrap"><a class="btn btn-sm btn-primary" href="{% url 'financial_voucher_detail' voucher.pk %}">عرض وطباعة</a> <a class="btn btn-sm btn-outline-primary" href="{% url 'financial_voucher_update' voucher.pk %}">تعديل</a></td>
     </tr>{% empty %}<tr><td colspan="8">لا توجد أوامر مالية مسجلة.</td></tr>{% endfor %}</tbody>
   </table></div>
-</div>
+  <footer class="voucher-register-footer">
+    <div class="register-signature"><div id="registerSignatureTitle" class="fw-bold">{{ signature_title }}</div><div class="signature-line">التوقيع: ........................................</div></div>
+    <div class="register-print-date">تاريخ الطباعة: {{ print_date|date:'d/m/Y' }}</div>
+  </footer>
+</section>
+<style>
+.signature-selector-wrap{min-width:240px}.voucher-register-sheet{background:#fff;color:#172033}
+.voucher-register-header{position:relative;min-height:120px;border-bottom:2px solid #2563eb;margin-bottom:20px;padding-bottom:12px}
+.voucher-register-brand{position:absolute;left:0;top:0;width:220px;text-align:center;direction:ltr;font-size:12px;line-height:1.45;font-weight:700}.voucher-register-brand img{display:block;max-width:75px;max-height:68px;object-fit:contain;margin:0 auto 5px}.voucher-register-brand .brand-ar{direction:rtl}
+.voucher-register-heading{text-align:center;padding:22px 235px 0;direction:rtl}.voucher-register-heading h2{font-size:29px;font-weight:900;margin-bottom:8px}
+.voucher-register-footer{display:flex;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:35px;min-height:100px}.register-signature{direction:rtl;width:270px;text-align:center;line-height:2}.register-signature .signature-line{border-top:1px solid #64748b;margin-top:20px;padding-top:8px}.register-print-date{direction:rtl;color:#475569;font-size:13px}
+@media print{@page{size:A4 landscape;margin:8mm}.sidebar,.no-print,body>nav,.content>div:not(.voucher-register-sheet),.content>section:not(.voucher-register-sheet),main>div:not(.voucher-register-sheet),main>section:not(.voucher-register-sheet){display:none!important}body{background:#fff!important}.content,main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}.voucher-register-sheet{display:block!important;border:0!important;box-shadow:none!important;padding:0!important;width:100%!important}.voucher-register-header{min-height:100px}.voucher-register-brand{width:200px}.voucher-register-heading{padding:18px 220px 0}.voucher-register-heading h2{font-size:25px}.voucher-register-sheet .table-responsive{overflow:visible!important}.voucher-register-sheet table{width:100%!important;font-size:11px!important}.voucher-register-sheet th,.voucher-register-sheet td{padding:6px 4px!important;border:1px solid #cbd5e1!important}.voucher-register-sheet a.btn{display:none!important}.voucher-register-footer{display:flex!important}}
+</style>
+<script>
+function updateRegisterSignature(){const selector=document.getElementById('registerSignatureSelector');document.getElementById('registerSignatureTitle').textContent=selector.options[selector.selectedIndex].text;}
+function printVoucherRegister(asPdf){updateRegisterSignature();const oldTitle=document.title;if(asPdf){document.title='سجل أوامر الصرف والتوريد المالية';}window.print();window.setTimeout(function(){document.title=oldTitle;},500);}
+</script>
 {% endblock %}

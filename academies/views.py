@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.db import transaction
 from django.db.models import Sum, Q, Count
 from datetime import date, timedelta
@@ -1842,6 +1843,12 @@ def _voucher_access_or_redirect(request):
     return redirect('dashboard')
 
 
+def _voucher_signature_titles():
+    titles = set(JobTitle.objects.values_list('name', flat=True))
+    titles.update(Employee.objects.exclude(job_title='').values_list('job_title', flat=True))
+    return sorted(title for title in titles if title)
+
+
 @login_required
 def financial_voucher_list(request):
     denied = _voucher_access_or_redirect(request)
@@ -1851,9 +1858,18 @@ def financial_voucher_list(request):
     vouchers = FinancialVoucher.objects.select_related('created_by')
     if selected_type in dict(FinancialVoucher.TYPE_CHOICES):
         vouchers = vouchers.filter(voucher_type=selected_type)
+    signature_titles = _voucher_signature_titles()
+    requested_signature = request.GET.get('signature_title', '').strip()
+    signature_title = requested_signature if requested_signature in signature_titles else (
+        'مدير التشغيل' if 'مدير التشغيل' in signature_titles
+        else (signature_titles[0] if signature_titles else 'التوقيع')
+    )
     return render(request, 'academies/financial_voucher_list.html', {
         'vouchers': vouchers,
         'selected_type': selected_type,
+        'signature_titles': signature_titles,
+        'signature_title': signature_title,
+        'print_date': date.today(),
     })
 
 
@@ -1873,7 +1889,11 @@ def financial_voucher_create(request, voucher_type):
         voucher.created_by = request.user
         voucher.save()
         messages.success(request, f'تم إنشاء {type_labels[voucher_type]} بنجاح.')
-        return redirect('financial_voucher_detail', pk=voucher.pk)
+        destination = reverse('financial_voucher_detail', kwargs={'pk': voucher.pk})
+        submit_action = request.POST.get('submit_action', 'save')
+        if submit_action in {'print', 'pdf'}:
+            destination += f'?auto_print=1&pdf={1 if submit_action == "pdf" else 0}'
+        return redirect(destination)
     return render(request, 'academies/financial_voucher_form.html', {
         'form': form,
         'voucher_type': voucher_type,
@@ -1891,7 +1911,11 @@ def financial_voucher_update(request, pk):
     if form.is_valid():
         form.save()
         messages.success(request, 'تم تحديث الأمر المالي بنجاح.')
-        return redirect('financial_voucher_detail', pk=voucher.pk)
+        destination = reverse('financial_voucher_detail', kwargs={'pk': voucher.pk})
+        submit_action = request.POST.get('submit_action', 'save')
+        if submit_action in {'print', 'pdf'}:
+            destination += f'?auto_print=1&pdf={1 if submit_action == "pdf" else 0}'
+        return redirect(destination)
     return render(request, 'academies/financial_voucher_form.html', {
         'form': form,
         'voucher_type': voucher.voucher_type,
@@ -1909,6 +1933,8 @@ def financial_voucher_detail(request, pk):
     return render(request, 'academies/financial_voucher_detail.html', {
         'voucher': voucher,
         'print_date': date.today(),
+        'auto_print': request.GET.get('auto_print') == '1',
+        'print_as_pdf': request.GET.get('pdf') == '1',
     })
 
 

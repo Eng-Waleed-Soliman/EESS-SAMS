@@ -150,6 +150,10 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(reports_response, reverse('financial_voucher_create', args=['supply']))
 
         disbursement_url = reverse('financial_voucher_create', args=['disbursement'])
+        create_screen = self.client.get(disbursement_url)
+        self.assertContains(create_screen, 'name="submit_action" value="pdf"')
+        self.assertContains(create_screen, 'name="submit_action" value="print"')
+        self.assertContains(create_screen, 'voucher-form-header')
         response = self.client.post(disbursement_url, {
             'amount': 1250,
             'statement': 'شراء مستلزمات تشغيل',
@@ -183,6 +187,21 @@ class ApplicationFlowsTests(TestCase):
         list_response = self.client.get(reverse('financial_voucher_list'))
         self.assertContains(list_response, voucher.voucher_number)
         self.assertContains(list_response, supply.voucher_number)
+        self.assertContains(list_response, 'printVoucherRegister')
+        self.assertContains(list_response, 'voucher-register-header')
+        self.assertContains(list_response, 'registerSignatureSelector')
+
+        response = self.client.post(reverse('financial_voucher_update', args=[voucher.pk]), {
+            'amount': voucher.amount,
+            'statement': voucher.statement,
+            'voucher_date': voucher.voucher_date.isoformat(),
+            'signature_title': voucher.signature_title,
+            'submit_action': 'pdf',
+        })
+        expected_print_url = reverse('financial_voucher_detail', args=[voucher.pk]) + '?auto_print=1&pdf=1'
+        self.assertRedirects(response, expected_print_url)
+        print_detail = self.client.get(expected_print_url)
+        self.assertContains(print_detail, "printVoucher(true)")
 
     def test_login_uses_typed_username_without_exposing_user_list(self):
         hidden_user = User.objects.create_user(username='private_operator', password='operator-password')
