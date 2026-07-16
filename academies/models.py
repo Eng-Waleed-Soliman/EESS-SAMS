@@ -340,6 +340,49 @@ class DailyIncomeSupply(models.Model):
         return f'{self.supply_date} - {self.amount}'
 
 
+class FinancialVoucher(models.Model):
+    TYPE_DISBURSEMENT = 'disbursement'
+    TYPE_SUPPLY = 'supply'
+    TYPE_CHOICES = [
+        (TYPE_DISBURSEMENT, 'أمر صرف مبلغ مالي'),
+        (TYPE_SUPPLY, 'أمر توريد مبلغ مالي'),
+    ]
+
+    voucher_type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name='نوع الأمر')
+    amount = models.PositiveIntegerField(verbose_name='قيمة المبلغ')
+    statement = models.TextField(verbose_name='السبب / البيان')
+    voucher_date = models.DateField(verbose_name='التاريخ')
+    signature_title = models.CharField(max_length=150, verbose_name='مسمى وظيفة التوقيع')
+    created_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='financial_vouchers', verbose_name='أنشئ بواسطة',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-voucher_date', '-id']
+        verbose_name = 'أمر صرف أو توريد مالي'
+        verbose_name_plural = 'أوامر الصرف والتوريد المالية'
+
+    @property
+    def voucher_number(self):
+        prefix = 'ص' if self.voucher_type == self.TYPE_DISBURSEMENT else 'ت'
+        return f'{prefix}-{self.id:05d}' if self.id else f'{prefix}-جديد'
+
+    @property
+    def amount_in_words(self):
+        from .number_words import egyptian_pounds_in_words
+        return egyptian_pounds_in_words(self.amount)
+
+    @property
+    def day_name(self):
+        return WEEKDAY_AR[self.voucher_date.weekday()]
+
+    def __str__(self):
+        return f'{self.get_voucher_type_display()} - {self.voucher_number}'
+
+
 class AcademyMonthlyRentPayment(models.Model):
     academy = models.ForeignKey(Academy, on_delete=models.CASCADE, related_name='monthly_rent_payments', verbose_name='الأكاديمية')
     month = models.DateField(verbose_name='الشهر')

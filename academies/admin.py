@@ -6,6 +6,7 @@ from .models import (
     OperationDayCancellation, AcademyOperationOverride, UserPermission, DailyBookingCheckout,
     DailyIncomeSupply, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment,
     AcademyDepositPlan, AcademyDepositInstallment,
+    FinancialVoucher,
 )
 
 
@@ -93,6 +94,13 @@ class AcademyDepositInstallmentAdmin(admin.ModelAdmin):
     list_display = ('plan', 'installment_number', 'due_month', 'due_amount', 'paid_amount', 'supplied_amount', 'remaining_amount', 'unsupplied_amount')
     list_filter = ('due_month',)
     search_fields = ('plan__academy__name', 'notes')
+
+
+@admin.register(FinancialVoucher)
+class FinancialVoucherAdmin(admin.ModelAdmin):
+    list_display = ('voucher_number', 'voucher_type', 'voucher_date', 'amount', 'signature_title', 'created_by')
+    list_filter = ('voucher_type', 'voucher_date')
+    search_fields = ('statement', 'signature_title')
 
 
 @admin.register(Shareholder)

@@ -29,6 +29,8 @@ from .models import (
     DailyExpense,
     DailyIncomeSupply,
     Employee,
+    FinancialVoucher,
+    JobTitle,
     MonthlyExpense,
     OperatingExpense,
     Shareholder,
@@ -135,6 +137,52 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'أكبر من المسدد')
         first.refresh_from_db()
         self.assertEqual(first.supplied_amount, 200)
+
+    def test_financial_disbursement_and_supply_vouchers_render_numbers_and_words(self):
+        today = date.today()
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_reports = True
+        profile.save()
+        JobTitle.objects.create(name='المدير المالي')
+
+        reports_response = self.client.get(reverse('reports_home'))
+        self.assertContains(reports_response, reverse('financial_voucher_create', args=['disbursement']))
+        self.assertContains(reports_response, reverse('financial_voucher_create', args=['supply']))
+
+        disbursement_url = reverse('financial_voucher_create', args=['disbursement'])
+        response = self.client.post(disbursement_url, {
+            'amount': 1250,
+            'statement': 'شراء مستلزمات تشغيل',
+            'voucher_date': today.isoformat(),
+            'signature_title': 'المدير المالي',
+        })
+        voucher = FinancialVoucher.objects.get(voucher_type=FinancialVoucher.TYPE_DISBURSEMENT)
+        self.assertRedirects(response, reverse('financial_voucher_detail', args=[voucher.pk]))
+        self.assertEqual(voucher.created_by, self.user)
+        self.assertEqual(voucher.amount_in_words, 'ألف ومائتان وخمسون جنيه مصري فقط لا غير')
+
+        detail = self.client.get(reverse('financial_voucher_detail', args=[voucher.pk]))
+        self.assertContains(detail, 'أمر صرف مبلغ مالي')
+        self.assertContains(detail, '1250 جنيه مصري')
+        self.assertContains(detail, voucher.amount_in_words)
+        self.assertContains(detail, WEEKDAY_AR[today.weekday()])
+        self.assertContains(detail, 'المدير المالي')
+        self.assertContains(detail, 'تصدير PDF')
+        self.assertContains(detail, 'window.print()')
+
+        supply_url = reverse('financial_voucher_create', args=['supply'])
+        response = self.client.post(supply_url, {
+            'amount': 2000,
+            'statement': 'توريد إيراد يومي',
+            'voucher_date': today.isoformat(),
+            'signature_title': 'المدير المالي',
+        })
+        supply = FinancialVoucher.objects.get(voucher_type=FinancialVoucher.TYPE_SUPPLY)
+        self.assertRedirects(response, reverse('financial_voucher_detail', args=[supply.pk]))
+        self.assertEqual(supply.amount_in_words, 'ألفان جنيه مصري فقط لا غير')
+        list_response = self.client.get(reverse('financial_voucher_list'))
+        self.assertContains(list_response, voucher.voucher_number)
+        self.assertContains(list_response, supply.voucher_number)
 
     def test_login_uses_typed_username_without_exposing_user_list(self):
         hidden_user = User.objects.create_user(username='private_operator', password='operator-password')

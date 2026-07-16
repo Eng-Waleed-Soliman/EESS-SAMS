@@ -9,8 +9,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.db import transaction
 from django.db.models import Sum, Q, Count
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
 
@@ -1833,6 +1833,83 @@ def reports_home(request):
             ],
         })
     return render(request, 'academies/reports.html', context)
+
+
+def _voucher_access_or_redirect(request):
+    if _can_access_reports(request.user):
+        return None
+    messages.error(request, 'ليس لديك صلاحية إدارة أوامر الصرف والتوريد.')
+    return redirect('dashboard')
+
+
+@login_required
+def financial_voucher_list(request):
+    denied = _voucher_access_or_redirect(request)
+    if denied:
+        return denied
+    selected_type = request.GET.get('type', '').strip()
+    vouchers = FinancialVoucher.objects.select_related('created_by')
+    if selected_type in dict(FinancialVoucher.TYPE_CHOICES):
+        vouchers = vouchers.filter(voucher_type=selected_type)
+    return render(request, 'academies/financial_voucher_list.html', {
+        'vouchers': vouchers,
+        'selected_type': selected_type,
+    })
+
+
+@login_required
+def financial_voucher_create(request, voucher_type):
+    denied = _voucher_access_or_redirect(request)
+    if denied:
+        return denied
+    type_labels = dict(FinancialVoucher.TYPE_CHOICES)
+    if voucher_type not in type_labels:
+        messages.error(request, 'نوع الأمر المالي غير صحيح.')
+        return redirect('financial_voucher_list')
+    form = FinancialVoucherForm(request.POST or None, initial={'voucher_date': date.today()})
+    if form.is_valid():
+        voucher = form.save(commit=False)
+        voucher.voucher_type = voucher_type
+        voucher.created_by = request.user
+        voucher.save()
+        messages.success(request, f'تم إنشاء {type_labels[voucher_type]} بنجاح.')
+        return redirect('financial_voucher_detail', pk=voucher.pk)
+    return render(request, 'academies/financial_voucher_form.html', {
+        'form': form,
+        'voucher_type': voucher_type,
+        'title': type_labels[voucher_type],
+    })
+
+
+@login_required
+def financial_voucher_update(request, pk):
+    denied = _voucher_access_or_redirect(request)
+    if denied:
+        return denied
+    voucher = get_object_or_404(FinancialVoucher, pk=pk)
+    form = FinancialVoucherForm(request.POST or None, instance=voucher)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'تم تحديث الأمر المالي بنجاح.')
+        return redirect('financial_voucher_detail', pk=voucher.pk)
+    return render(request, 'academies/financial_voucher_form.html', {
+        'form': form,
+        'voucher_type': voucher.voucher_type,
+        'title': f'تعديل {voucher.get_voucher_type_display()}',
+        'voucher': voucher,
+    })
+
+
+@login_required
+def financial_voucher_detail(request, pk):
+    denied = _voucher_access_or_redirect(request)
+    if denied:
+        return denied
+    voucher = get_object_or_404(FinancialVoucher.objects.select_related('created_by'), pk=pk)
+    return render(request, 'academies/financial_voucher_detail.html', {
+        'voucher': voucher,
+        'print_date': date.today(),
+    })
 
 
 @login_required

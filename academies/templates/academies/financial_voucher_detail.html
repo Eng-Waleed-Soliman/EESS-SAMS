@@ -1,0 +1,66 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
+  <h3>{{ voucher.get_voucher_type_display }}</h3>
+  <div class="d-flex gap-2 flex-wrap">
+    <button type="button" class="btn btn-danger" onclick="printVoucher(true)">تصدير PDF</button>
+    <button type="button" class="btn btn-outline-primary" onclick="printVoucher(false)">طباعة</button>
+    <a class="btn btn-outline-secondary" href="{% url 'financial_voucher_update' voucher.pk %}">تعديل</a>
+    <a class="btn btn-secondary" href="{% url 'financial_voucher_list' %}">رجوع للسجل</a>
+  </div>
+</div>
+
+<article class="financial-voucher-sheet {% if voucher.voucher_type == 'disbursement' %}voucher-disbursement{% else %}voucher-supply{% endif %}">
+  <header class="voucher-header">
+    <div class="voucher-brand">
+      {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
+      <div class="company-en">{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
+      <div class="company-ar">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</div>
+    </div>
+    <div class="voucher-heading">
+      <h1>{{ voucher.get_voucher_type_display }}</h1>
+      <div class="voucher-number">رقم الأمر: {{ voucher.voucher_number }}</div>
+    </div>
+  </header>
+
+  <section class="voucher-date-line">إنه في يوم <strong>{{ voucher.day_name }}</strong> الموافق <strong>{{ voucher.voucher_date|date:'d/m/Y' }}</strong></section>
+
+  <section class="voucher-body">
+    <div class="voucher-intro">{% if voucher.voucher_type == 'disbursement' %}يرجى التكرم بصرف المبلغ الموضح أدناه وفقًا للبيان المعتمد:{% else %}يفيد هذا الأمر بتوريد المبلغ الموضح أدناه وفقًا للبيان المعتمد:{% endif %}</div>
+    <div class="voucher-row amount-row"><div class="voucher-label">المبلغ بالأرقام</div><div class="voucher-value amount-number">{{ voucher.amount }} جنيه مصري</div></div>
+    <div class="voucher-row"><div class="voucher-label">المبلغ بالحروف</div><div class="voucher-value amount-words">{{ voucher.amount_in_words }}</div></div>
+    <div class="voucher-row statement-row"><div class="voucher-label">{% if voucher.voucher_type == 'disbursement' %}سبب الصرف{% else %}البيان{% endif %}</div><div class="voucher-value">{{ voucher.statement|linebreaksbr }}</div></div>
+  </section>
+
+  <footer class="voucher-footer">
+    <div class="voucher-signature">
+      <div class="signature-title">{{ voucher.signature_title }}</div>
+      <div class="signature-space">التوقيع: ........................................</div>
+    </div>
+    <div class="voucher-meta">
+      <div>أُنشئ بواسطة: {{ voucher.created_by.first_name|default:voucher.created_by.username|default:'-' }}</div>
+      <div>تاريخ الطباعة: {{ print_date|date:'d/m/Y' }}</div>
+    </div>
+  </footer>
+</article>
+
+<style>
+.financial-voucher-sheet{direction:rtl;background:#fff;color:#172033;max-width:900px;min-height:650px;margin:0 auto;padding:32px 38px;border:1px solid #cad5e3;border-top:7px solid #1d4ed8;border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.12)}
+.voucher-disbursement{border-top-color:#b45309}.voucher-supply{border-top-color:#047857}
+.voucher-header{display:grid;grid-template-columns:230px 1fr;align-items:start;gap:25px;padding-bottom:22px;border-bottom:2px solid #dbe4f0}
+.voucher-brand{text-align:center;direction:ltr;font-size:12px;line-height:1.45}.voucher-brand img{display:block;max-width:78px;max-height:72px;object-fit:contain;margin:0 auto 7px}.company-en,.company-ar{font-weight:800}.company-ar{direction:rtl}
+.voucher-heading{text-align:center;padding-top:12px}.voucher-heading h1{font-size:32px;font-weight:900;margin:0 0 12px}.voucher-number{display:inline-block;padding:6px 18px;border:1px solid #94a3b8;border-radius:20px;font-weight:700}
+.voucher-date-line{text-align:center;font-size:19px;margin:28px 0;padding:13px;background:#f1f5f9;border-radius:8px}.voucher-intro{font-size:18px;margin-bottom:18px}
+.voucher-row{display:grid;grid-template-columns:170px 1fr;border:1px solid #cbd5e1;border-bottom:0;min-height:64px}.voucher-row:last-child{border-bottom:1px solid #cbd5e1}.voucher-label{background:#e8eef7;font-weight:800;padding:18px}.voucher-value{padding:18px;font-size:18px}.amount-number{font-size:25px;font-weight:900}.amount-words{font-weight:800}.statement-row{min-height:130px}
+.voucher-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:55px}.voucher-signature{width:280px;text-align:center}.signature-title{font-size:19px;font-weight:900;margin-bottom:22px}.signature-space{border-top:1px solid #64748b;padding-top:12px}.voucher-meta{font-size:13px;line-height:2;color:#475569}
+@media print{@page{size:A4 portrait;margin:8mm}.sidebar,.no-print,body>nav{display:none!important}body{background:#fff!important}.content,main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}.financial-voucher-sheet{width:100%!important;max-width:none!important;min-height:270mm;margin:0!important;padding:12mm!important;border-radius:0!important;box-shadow:none!important;box-sizing:border-box}.voucher-header{grid-template-columns:190px 1fr}.voucher-heading h1{font-size:28px}.voucher-footer{margin-top:70px}}
+</style>
+<script>
+function printVoucher(asPdf){
+  const oldTitle = document.title;
+  if(asPdf){ document.title = '{{ voucher.get_voucher_type_display|escapejs }} - {{ voucher.voucher_number|escapejs }}'; }
+  window.print();
+  window.setTimeout(function(){ document.title = oldTitle; }, 500);
+}
+</script>
+{% endblock %}

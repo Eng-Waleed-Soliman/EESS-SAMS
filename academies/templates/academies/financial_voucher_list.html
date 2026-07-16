@@ -1,0 +1,27 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3>أوامر الصرف والتوريد المالية</h3>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-success" href="{% url 'financial_voucher_create' 'disbursement' %}">أمر صرف مبلغ مالي</a>
+    <a class="btn btn-info" href="{% url 'financial_voucher_create' 'supply' %}">أمر توريد مبلغ مالي</a>
+    <a class="btn btn-secondary" href="{% url 'reports_home' %}">رجوع للتقارير</a>
+  </div>
+</div>
+<div class="card p-3 mb-4">
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn {% if not selected_type %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'financial_voucher_list' %}">الكل</a>
+    <a class="btn {% if selected_type == 'disbursement' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?type=disbursement">أوامر الصرف</a>
+    <a class="btn {% if selected_type == 'supply' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?type=supply">أوامر التوريد</a>
+  </div>
+</div>
+<div class="card p-3">
+  <div class="table-responsive"><table class="table table-striped align-middle text-center">
+    <thead><tr><th>رقم الأمر</th><th>النوع</th><th>اليوم والتاريخ</th><th>القيمة</th><th>البيان</th><th>التوقيع</th><th>أنشئ بواسطة</th><th></th></tr></thead>
+    <tbody>{% for voucher in vouchers %}<tr>
+      <td>{{ voucher.voucher_number }}</td><td>{{ voucher.get_voucher_type_display }}</td><td>{{ voucher.day_name }} {{ voucher.voucher_date|date:'d/m/Y' }}</td><td>{{ voucher.amount }}</td><td>{{ voucher.statement|truncatechars:70 }}</td><td>{{ voucher.signature_title }}</td><td>{{ voucher.created_by.first_name|default:voucher.created_by.username|default:'-' }}</td>
+      <td class="text-nowrap"><a class="btn btn-sm btn-primary" href="{% url 'financial_voucher_detail' voucher.pk %}">عرض وطباعة</a> <a class="btn btn-sm btn-outline-primary" href="{% url 'financial_voucher_update' voucher.pk %}">تعديل</a></td>
+    </tr>{% empty %}<tr><td colspan="8">لا توجد أوامر مالية مسجلة.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

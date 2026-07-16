@@ -4,7 +4,7 @@ from django import forms
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -683,6 +683,40 @@ class AcademyDepositPlanForm(forms.ModelForm):
         amount = self.cleaned_data.get('total_amount') or 0
         if amount <= 0:
             raise forms.ValidationError('أدخل مبلغ تأمين أكبر من صفر.')
+        return amount
+
+
+class FinancialVoucherForm(forms.ModelForm):
+    signature_title = forms.ChoiceField(
+        label='مسمى وظيفة التوقيع',
+        choices=[],
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
+    class Meta:
+        model = FinancialVoucher
+        fields = ['amount', 'statement', 'voucher_date', 'signature_title']
+        widgets = {
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
+            'statement': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'voucher_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        titles = set(JobTitle.objects.values_list('name', flat=True))
+        titles.update(Employee.objects.exclude(job_title='').values_list('job_title', flat=True))
+        current_title = self.instance.signature_title if self.instance and self.instance.pk else ''
+        if current_title:
+            titles.add(current_title)
+        self.fields['signature_title'].choices = [('', 'اختر مسمى وظيفة التوقيع')] + [
+            (title, title) for title in sorted(title for title in titles if title)
+        ]
+
+    def clean_amount(self):
+        amount = self.cleaned_data.get('amount') or 0
+        if amount <= 0:
+            raise forms.ValidationError('قيمة المبلغ يجب أن تكون أكبر من صفر.')
         return amount
 
 

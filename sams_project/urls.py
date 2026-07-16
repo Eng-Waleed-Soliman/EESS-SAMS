@@ -108,5 +108,9 @@ urlpatterns = [
     path('settings/bonus/<int:pk>/edit/', views.bonus_tier_update, name='bonus_tier_update'),
     path('settings/bonus/<int:pk>/delete/', views.bonus_tier_delete, name='bonus_tier_delete'),
     path('reports/', views.reports_home_v2, name='reports_home'),
+    path('reports/financial-vouchers/', views.financial_voucher_list, name='financial_voucher_list'),
+    path('reports/financial-vouchers/add/<str:voucher_type>/', views.financial_voucher_create, name='financial_voucher_create'),
+    path('reports/financial-vouchers/<int:pk>/', views.financial_voucher_detail, name='financial_voucher_detail'),
+    path('reports/financial-vouchers/<int:pk>/edit/', views.financial_voucher_update, name='financial_voucher_update'),
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
