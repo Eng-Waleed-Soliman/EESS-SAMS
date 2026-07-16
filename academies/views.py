@@ -1849,6 +1849,13 @@ def _voucher_signature_titles():
     return sorted(title for title in titles if title)
 
 
+def _voucher_employee_names_by_title():
+    names_by_title = {}
+    for employee in Employee.objects.exclude(job_title='').order_by('name'):
+        names_by_title.setdefault(employee.job_title, []).append(employee.name)
+    return names_by_title
+
+
 @login_required
 def financial_voucher_list(request):
     denied = _voucher_access_or_redirect(request)
@@ -1864,11 +1871,15 @@ def financial_voucher_list(request):
         'مدير التشغيل' if 'مدير التشغيل' in signature_titles
         else (signature_titles[0] if signature_titles else 'التوقيع')
     )
+    employee_names_by_title = _voucher_employee_names_by_title()
+    signature_names = employee_names_by_title.get(signature_title, [])
     return render(request, 'academies/financial_voucher_list.html', {
         'vouchers': vouchers,
         'selected_type': selected_type,
         'signature_titles': signature_titles,
         'signature_title': signature_title,
+        'signature_name': signature_names[0] if signature_names else '',
+        'employee_names_by_title': employee_names_by_title,
         'print_date': date.today(),
     })
 

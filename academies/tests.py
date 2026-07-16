@@ -204,6 +204,11 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(list_response, 'printVoucherRegister')
         self.assertContains(list_response, 'voucher-register-header')
         self.assertContains(list_response, 'registerSignatureSelector')
+        self.assertContains(list_response, 'registerSignatureName')
+        self.assertContains(list_response, 'registerEmployeeNames')
+        self.assertContains(list_response, 'voucher-register-toolbar')
+        self.assertContains(list_response, 'تصدير PDF')
+        self.assertContains(list_response, signer.name)
 
         response = self.client.post(reverse('financial_voucher_update', args=[voucher.pk]), {
             'amount': voucher.amount,

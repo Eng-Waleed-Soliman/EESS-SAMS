@@ -1,6 +1,6 @@
 {% extends 'academies/base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="voucher-register-toolbar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
   <h3 class="fw-bold">أوامر الصرف والتوريد المالية</h3>
   <div class="d-flex gap-2 flex-wrap">
     <button type="button" class="btn btn-danger" onclick="printVoucherRegister(true)">تصدير PDF</button>
@@ -31,25 +31,27 @@
   <div class="table-responsive"><table class="table table-striped align-middle text-center">
     <thead><tr><th>رقم الأمر</th><th>النوع</th><th>اليوم والتاريخ</th><th>القيمة</th><th>البيان</th><th>التوقيع</th><th>أنشئ بواسطة</th><th></th></tr></thead>
     <tbody>{% for voucher in vouchers %}<tr>
-      <td>{{ voucher.voucher_number }}</td><td>{{ voucher.get_voucher_type_display }}</td><td>{{ voucher.day_name }} {{ voucher.voucher_date|date:'d/m/Y' }}</td><td>{{ voucher.amount }}</td><td>{{ voucher.statement|truncatechars:70 }}</td><td>{{ voucher.signature_title }}</td><td>{{ voucher.created_by.first_name|default:voucher.created_by.username|default:'-' }}</td>
+      <td>{{ voucher.voucher_number }}</td><td>{{ voucher.get_voucher_type_display }}</td><td>{{ voucher.day_name }} {{ voucher.voucher_date|date:'d/m/Y' }}</td><td>{{ voucher.amount }}</td><td>{{ voucher.statement|truncatechars:70 }}</td><td><div class="fw-bold">{{ voucher.signature_title }}</div><div class="small mt-1">{{ voucher.signer_name|default:'-' }}</div></td><td>{{ voucher.created_by.first_name|default:voucher.created_by.username|default:'-' }}</td>
       <td class="text-nowrap"><a class="btn btn-sm btn-primary" href="{% url 'financial_voucher_detail' voucher.pk %}">عرض وطباعة</a> <a class="btn btn-sm btn-outline-primary" href="{% url 'financial_voucher_update' voucher.pk %}">تعديل</a></td>
     </tr>{% empty %}<tr><td colspan="8">لا توجد أوامر مالية مسجلة.</td></tr>{% endfor %}</tbody>
   </table></div>
   <footer class="voucher-register-footer">
-    <div class="register-signature"><div id="registerSignatureTitle" class="fw-bold">{{ signature_title }}</div><div class="signature-line">التوقيع: ........................................</div></div>
+    <div class="register-signature"><div id="registerSignatureTitle" class="fw-bold">{{ signature_title }}</div><div id="registerSignatureName" class="register-signature-name">{{ signature_name|default:'-' }}</div><div class="signature-line">التوقيع: ........................................</div></div>
     <div class="register-print-date">تاريخ الطباعة: {{ print_date|date:'d/m/Y' }}</div>
   </footer>
 </section>
 <style>
-.signature-selector-wrap{min-width:240px}.voucher-register-sheet{background:#fff;color:#172033}
+.voucher-register-toolbar{position:sticky;top:8px;z-index:30;background:#eef4fb;padding:10px 12px;border-radius:14px;box-shadow:0 8px 22px rgba(15,23,42,.12)}.signature-selector-wrap{min-width:240px}.voucher-register-sheet{background:#fff;color:#172033}
 .voucher-register-header{position:relative;min-height:120px;border-bottom:2px solid #2563eb;margin-bottom:20px;padding-bottom:12px}
 .voucher-register-brand{position:absolute;left:0;top:0;width:220px;text-align:center;direction:ltr;font-size:12px;line-height:1.45;font-weight:700}.voucher-register-brand img{display:block;max-width:75px;max-height:68px;object-fit:contain;margin:0 auto 5px}.voucher-register-brand .brand-ar{direction:rtl}
 .voucher-register-heading{text-align:center;padding:22px 235px 0;direction:rtl}.voucher-register-heading h2{font-size:29px;font-weight:900;margin-bottom:8px}
-.voucher-register-footer{display:flex;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:35px;min-height:100px}.register-signature{direction:rtl;width:270px;text-align:center;line-height:2}.register-signature .signature-line{border-top:1px solid #64748b;margin-top:20px;padding-top:8px}.register-print-date{direction:rtl;color:#475569;font-size:13px}
+.voucher-register-footer{display:flex;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:35px;min-height:110px}.register-signature{direction:rtl;width:270px;text-align:center;line-height:1.8}.register-signature-name{font-weight:700;margin-top:3px}.register-signature .signature-line{border-top:1px solid #64748b;margin-top:15px;padding-top:8px}.register-print-date{direction:rtl;color:#475569;font-size:13px}
 @media print{@page{size:A4 landscape;margin:8mm}.sidebar,.no-print,body>nav,.content>div:not(.voucher-register-sheet),.content>section:not(.voucher-register-sheet),main>div:not(.voucher-register-sheet),main>section:not(.voucher-register-sheet){display:none!important}body{background:#fff!important}.content,main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}.voucher-register-sheet{display:block!important;border:0!important;box-shadow:none!important;padding:0!important;width:100%!important}.voucher-register-header{min-height:100px}.voucher-register-brand{width:200px}.voucher-register-heading{padding:18px 220px 0}.voucher-register-heading h2{font-size:25px}.voucher-register-sheet .table-responsive{overflow:visible!important}.voucher-register-sheet table{width:100%!important;font-size:11px!important}.voucher-register-sheet th,.voucher-register-sheet td{padding:6px 4px!important;border:1px solid #cbd5e1!important}.voucher-register-sheet a.btn{display:none!important}.voucher-register-footer{display:flex!important}}
 </style>
+{{ employee_names_by_title|json_script:"registerEmployeeNames" }}
 <script>
-function updateRegisterSignature(){const selector=document.getElementById('registerSignatureSelector');document.getElementById('registerSignatureTitle').textContent=selector.options[selector.selectedIndex].text;}
+const registerEmployeeNames=JSON.parse(document.getElementById('registerEmployeeNames').textContent||'{}');
+function updateRegisterSignature(){const selector=document.getElementById('registerSignatureSelector');const title=selector.options[selector.selectedIndex].text;const names=registerEmployeeNames[selector.value]||[];document.getElementById('registerSignatureTitle').textContent=title;document.getElementById('registerSignatureName').textContent=names[0]||'-';}
 function printVoucherRegister(asPdf){updateRegisterSignature();const oldTitle=document.title;if(asPdf){document.title='سجل أوامر الصرف والتوريد المالية';}window.print();window.setTimeout(function(){document.title=oldTitle;},500);}
 </script>
 {% endblock %}
