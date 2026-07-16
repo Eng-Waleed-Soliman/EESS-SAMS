@@ -59,6 +59,15 @@ class ApplicationFlowsTests(TestCase):
             middleware(RequestFactory().post('/save/'))
         self.assertEqual(calls['count'], 1)
 
+    @override_settings(DEBUG=False)
+    def test_django_admin_renders_without_a_static_manifest(self):
+        self.user.is_staff = True
+        self.user.is_superuser = True
+        self.user.save(update_fields=['is_staff', 'is_superuser'])
+        response = self.client.get('/admin/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'admin/css/base.css')
+
     def test_login_uses_typed_username_without_exposing_user_list(self):
         hidden_user = User.objects.create_user(username='private_operator', password='operator-password')
         self.client.logout()
