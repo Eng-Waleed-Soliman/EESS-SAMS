@@ -1888,7 +1888,6 @@ def financial_voucher_create(request, voucher_type):
         voucher.voucher_type = voucher_type
         voucher.created_by = request.user
         voucher.save()
-        messages.success(request, f'تم إنشاء {type_labels[voucher_type]} بنجاح.')
         destination = reverse('financial_voucher_detail', kwargs={'pk': voucher.pk})
         submit_action = request.POST.get('submit_action', 'save')
         if submit_action in {'print', 'pdf'}:

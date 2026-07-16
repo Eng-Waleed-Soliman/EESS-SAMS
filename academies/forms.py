@@ -692,10 +692,15 @@ class FinancialVoucherForm(forms.ModelForm):
         choices=[],
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
+    signature_name = forms.CharField(
+        label='اسم الموظف الموقّع',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'}),
+    )
 
     class Meta:
         model = FinancialVoucher
-        fields = ['amount', 'statement', 'voucher_date', 'signature_title']
+        fields = ['amount', 'statement', 'voucher_date', 'signature_title', 'signature_name']
         widgets = {
             'amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
             'statement': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
@@ -712,6 +717,27 @@ class FinancialVoucherForm(forms.ModelForm):
         self.fields['signature_title'].choices = [('', 'اختر مسمى وظيفة التوقيع')] + [
             (title, title) for title in sorted(title for title in titles if title)
         ]
+        self.employee_names_by_title = {}
+        for employee in Employee.objects.exclude(job_title='').order_by('name'):
+            self.employee_names_by_title.setdefault(employee.job_title, []).append(employee.name)
+        if self.instance and self.instance.pk and self.instance.signature_name:
+            self.fields['signature_name'].initial = self.instance.signature_name
+
+    def clean_signature_name(self):
+        title = self.cleaned_data.get('signature_title', '')
+        submitted_name = (self.cleaned_data.get('signature_name') or '').strip()
+        if (
+            self.instance and self.instance.pk
+            and title == self.instance.signature_title
+            and submitted_name == self.instance.signature_name
+        ):
+            return submitted_name
+        employee_names = list(
+            Employee.objects.filter(job_title=title).order_by('name').values_list('name', flat=True)
+        )
+        if submitted_name in employee_names:
+            return submitted_name
+        return employee_names[0] if employee_names else ''
 
     def clean_amount(self):
         amount = self.cleaned_data.get('amount') or 0

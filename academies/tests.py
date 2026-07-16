@@ -144,6 +144,7 @@ class ApplicationFlowsTests(TestCase):
         profile.can_reports = True
         profile.save()
         JobTitle.objects.create(name='المدير المالي')
+        signer = Employee.objects.create(name='أحمد محمود', job_title='المدير المالي')
 
         reports_response = self.client.get(reverse('reports_home'))
         self.assertContains(reports_response, reverse('financial_voucher_create', args=['disbursement']))
@@ -154,6 +155,10 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(create_screen, 'name="submit_action" value="pdf"')
         self.assertContains(create_screen, 'name="submit_action" value="print"')
         self.assertContains(create_screen, 'voucher-form-header')
+        self.assertContains(create_screen, 'اسم الموظف الموقّع')
+        self.assertContains(create_screen, 'voucherEmployeeNames')
+        self.assertContains(create_screen, 'id_signature_name')
+        self.assertContains(create_screen, 'مستند A5')
         response = self.client.post(disbursement_url, {
             'amount': 1250,
             'statement': 'شراء مستلزمات تشغيل',
@@ -163,6 +168,7 @@ class ApplicationFlowsTests(TestCase):
         voucher = FinancialVoucher.objects.get(voucher_type=FinancialVoucher.TYPE_DISBURSEMENT)
         self.assertRedirects(response, reverse('financial_voucher_detail', args=[voucher.pk]))
         self.assertEqual(voucher.created_by, self.user)
+        self.assertEqual(voucher.signature_name, signer.name)
         self.assertEqual(voucher.amount_in_words, 'ألف ومائتان وخمسون جنيه مصري فقط لا غير')
 
         detail = self.client.get(reverse('financial_voucher_detail', args=[voucher.pk]))
@@ -171,6 +177,11 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, voucher.amount_in_words)
         self.assertContains(detail, WEEKDAY_AR[today.weekday()])
         self.assertContains(detail, 'المدير المالي')
+        self.assertContains(detail, signer.name)
+        self.assertContains(detail, 'تم صرف')
+        self.assertContains(detail, 'المبلغ المالي الموضح أدناه اليوم')
+        self.assertContains(detail, '@page{size:A5 portrait')
+        self.assertNotContains(detail, 'تم إنشاء أمر صرف مبلغ مالي بنجاح')
         self.assertContains(detail, 'تصدير PDF')
         self.assertContains(detail, 'window.print()')
 
@@ -184,6 +195,9 @@ class ApplicationFlowsTests(TestCase):
         supply = FinancialVoucher.objects.get(voucher_type=FinancialVoucher.TYPE_SUPPLY)
         self.assertRedirects(response, reverse('financial_voucher_detail', args=[supply.pk]))
         self.assertEqual(supply.amount_in_words, 'ألفان جنيه مصري فقط لا غير')
+        supply_detail = self.client.get(reverse('financial_voucher_detail', args=[supply.pk]))
+        self.assertContains(supply_detail, 'تم استلام')
+        self.assertContains(supply_detail, 'المبلغ المالي الموضح أدناه اليوم')
         list_response = self.client.get(reverse('financial_voucher_list'))
         self.assertContains(list_response, voucher.voucher_number)
         self.assertContains(list_response, supply.voucher_number)

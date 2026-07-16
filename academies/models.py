@@ -353,6 +353,7 @@ class FinancialVoucher(models.Model):
     statement = models.TextField(verbose_name='السبب / البيان')
     voucher_date = models.DateField(verbose_name='التاريخ')
     signature_title = models.CharField(max_length=150, verbose_name='مسمى وظيفة التوقيع')
+    signature_name = models.CharField(max_length=200, blank=True, verbose_name='اسم الموظف الموقّع')
     created_by = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL,
         related_name='financial_vouchers', verbose_name='أنشئ بواسطة',
@@ -378,6 +379,13 @@ class FinancialVoucher(models.Model):
     @property
     def day_name(self):
         return WEEKDAY_AR[self.voucher_date.weekday()]
+
+    @property
+    def signer_name(self):
+        if self.signature_name:
+            return self.signature_name
+        employee = Employee.objects.filter(job_title=self.signature_title).order_by('name').first()
+        return employee.name if employee else ''
 
     def __str__(self):
         return f'{self.get_voucher_type_display()} - {self.voucher_number}'
