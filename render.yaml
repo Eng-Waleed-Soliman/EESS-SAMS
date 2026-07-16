@@ -3,4 +3,4 @@ services:
     name: EESS-SAMS
     env: python
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
-    startCommand: gunicorn sams_project.wsgi:application
+    startCommand: python manage.py migrate --noinput && gunicorn sams_project.wsgi:application --workers 2 --threads 4 --timeout 120 --max-requests 1000 --max-requests-jitter 50 --access-logfile - --error-logfile -

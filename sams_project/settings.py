@@ -71,10 +71,18 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
     database_config = dj_database_url.config(
         default=DATABASE_URL,
-        conn_max_age=600,
+        conn_max_age=60,
+        conn_health_checks=True,
+        disable_server_side_cursors=True,
     )
     if database_config.get("ENGINE") == "django.db.backends.postgresql":
-        database_config.setdefault("OPTIONS", {}).setdefault("sslmode", "require")
+        database_options = database_config.setdefault("OPTIONS", {})
+        database_options.setdefault("sslmode", "require")
+        database_options.setdefault("connect_timeout", 10)
+        database_options.setdefault("keepalives", 1)
+        database_options.setdefault("keepalives_idle", 30)
+        database_options.setdefault("keepalives_interval", 10)
+        database_options.setdefault("keepalives_count", 5)
     DATABASES = {
         "default": database_config
     }
@@ -114,6 +122,26 @@ SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
