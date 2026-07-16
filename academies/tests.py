@@ -2,12 +2,16 @@ import json
 from datetime import date, timedelta
 
 from django.contrib.auth.models import User
+from django.db import OperationalError
 from django.db.models import Sum
+from django.http import HttpResponse
+from django.test import RequestFactory
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
 from .forms import AcademyForm, DailyBookingForm, EESSUserUpdateForm
+from .middleware import DatabaseRetryMiddleware
 from .views import _academy_schedule_occurrences_for_date, _calculate_variable_income_by_facility
 from .models import (
     Academy,
@@ -35,6 +39,25 @@ class ApplicationFlowsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='tester', password='test-password')
         self.client.force_login(self.user)
+
+    def test_database_retry_middleware_retries_reads_but_not_writes(self):
+        calls = {'count': 0}
+
+        def transient_response(request):
+            calls['count'] += 1
+            if calls['count'] == 1:
+                raise OperationalError('temporary connection failure')
+            return HttpResponse('ok')
+
+        middleware = DatabaseRetryMiddleware(transient_response)
+        response = middleware(RequestFactory().get('/admin/'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls['count'], 2)
+
+        calls['count'] = 0
+        with self.assertRaises(OperationalError):
+            middleware(RequestFactory().post('/save/'))
+        self.assertEqual(calls['count'], 1)
 
     def test_login_uses_typed_username_without_exposing_user_list(self):
         hidden_user = User.objects.create_user(username='private_operator', password='operator-password')

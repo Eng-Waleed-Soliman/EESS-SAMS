@@ -1,4 +1,12 @@
+import logging
+import time
+
+from django.db import connections
+from django.db.utils import InterfaceError, OperationalError
 from django.shortcuts import redirect
+
+
+logger = logging.getLogger(__name__)
 
 
 CAFETERIA_SPECIALIST_USERNAME = 'cafeteria_specialist'
@@ -30,3 +38,25 @@ class CafeteriaSpecialistAccessMiddleware:
             if not any(request.path.startswith(prefix) for prefix in self.allowed_prefixes):
                 return redirect('cafe_sale_list')
         return self.get_response(request)
+
+
+class DatabaseRetryMiddleware:
+    """Retry a read request once when a pooled Neon connection has gone stale."""
+
+    retryable_methods = {'GET', 'HEAD', 'OPTIONS'}
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            return self.get_response(request)
+        except (OperationalError, InterfaceError):
+            already_retried = getattr(request, '_database_retry_attempted', False)
+            if request.method not in self.retryable_methods or already_retried:
+                raise
+            request._database_retry_attempted = True
+            logger.warning('Retrying a read request after a transient database connection error.')
+            connections.close_all()
+            time.sleep(0.2)
+            return self.get_response(request)
