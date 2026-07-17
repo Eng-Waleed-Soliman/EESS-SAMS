@@ -190,6 +190,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, 'يتم صرف')
         self.assertContains(detail, 'المبلغ المالي الموضح أدناه اليوم')
         self.assertContains(detail, 'voucher-number-block')
+        self.assertContains(detail, 'grid-template-areas:"number . brand" "heading heading heading"')
         self.assertContains(detail, '@page{size:A5 portrait')
         self.assertNotContains(detail, 'تم إنشاء أمر صرف مبلغ مالي بنجاح')
         self.assertContains(detail, 'تصدير PDF')
