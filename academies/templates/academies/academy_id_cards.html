@@ -19,7 +19,7 @@
     </div>
     <div class="col-lg-4">
       <label class="form-label fw-bold">العام التدريبي</label>
-      <select name="training_year" class="form-select" onchange="this.form.submit()">
+      <select name="training_year" class="form-select training-year-select" dir="ltr" onchange="this.form.submit()">
         {% for value, label in training_year_choices %}<option value="{{ value }}" {% if training_year == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
       </select>
     </div>
@@ -44,7 +44,7 @@
   <article class="identity-card-pair">
     <section class="identity-card identity-card-front">
       <div class="card-company-brand">
-        {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="لوجو الشركة">{% else %}<div class="logo-placeholder">{{ company_short_name }}</div>{% endif %}
+        {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="لوجو الشركة" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="logo-placeholder fallback-logo">{{ company_short_name }}</div>{% else %}<div class="logo-placeholder">{{ company_short_name }}</div>{% endif %}
         <strong>{{ company_short_name }}</strong>
       </div>
       <div class="member-photo-wrap">
@@ -54,9 +54,9 @@
       <div class="member-role">{{ member.get_role_display }}{% if member.job_title %} — {{ member.job_title }}{% endif %}</div>
       <div class="academy-brand">
         {% if academy.logo_data_uri %}
-          <img src="{{ academy.logo_data_uri }}" alt="لوجو {{ academy.name }}">
+          <img src="{{ academy.logo_data_uri }}" alt="لوجو {{ academy.name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="academy-logo-placeholder fallback-logo">{{ academy.name|slice:":2" }}</div>
         {% elif academy.branch and academy.branch.logo %}
-          <img src="{{ academy.branch.logo.url }}" alt="لوجو {{ academy.name }}">
+          <img src="{{ academy.branch.logo.url }}" alt="لوجو {{ academy.name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="academy-logo-placeholder fallback-logo">{{ academy.name|slice:":2" }}</div>
         {% else %}
           <div class="academy-logo-placeholder">{{ academy.name|slice:":2" }}</div>
         {% endif %}
@@ -82,6 +82,7 @@
 
 <style>
 .cards-print-heading{display:none;text-align:center;margin:0 0 8mm}.cards-print-heading h1{font-size:20pt;margin:0 0 2mm}
+.training-year-select{direction:ltr;text-align:center}.fallback-logo{display:none!important}.fallback-logo[style*="display: grid"]{display:grid!important}
 .identity-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(390px,1fr));gap:26px;align-items:start}
 .identity-card-pair{display:flex;gap:14px;justify-content:center;break-inside:avoid;page-break-inside:avoid}
 .identity-card{width:54mm;height:86mm;box-sizing:border-box;border:1px solid #b8c8da;border-radius:4mm;overflow:hidden;background:#fff;position:relative;text-align:center;box-shadow:0 8px 24px rgba(15,23,42,.12);font-family:Tahoma,Arial,sans-serif}

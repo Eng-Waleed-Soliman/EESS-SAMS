@@ -6,7 +6,7 @@
 </div>
 <form class="mb-3 row g-2 align-items-end">
   <div class="col-lg-7"><label class="form-label fw-bold">البحث</label><input class="form-control search-box" name="q" value="{{ q }}" placeholder="بحث بالاسم أو النشاط أو المدير"></div>
-  <div class="col-lg-3"><label class="form-label fw-bold">العام التدريبي</label><select class="form-select" name="training_year" onchange="this.form.submit()">{% for value, label in training_year_choices %}<option value="{{ value }}" {% if training_year == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-lg-3"><label class="form-label fw-bold">العام التدريبي</label><select class="form-select text-center" name="training_year" dir="ltr" onchange="this.form.submit()">{% for value, label in training_year_choices %}<option value="{{ value }}" {% if training_year == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
   <div class="col-lg-2"><button class="btn btn-primary w-100">بحث</button></div>
 </form>
 <div class="card p-3">
