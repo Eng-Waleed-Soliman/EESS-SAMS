@@ -1,49 +1,97 @@
 {% extends 'academies/base.html' %}
 {% block content %}
-<div class="card p-4 mb-4">
-  <div class="d-flex align-items-center gap-3 flex-wrap">
-    {% if app_settings and app_settings.company_logo %}<img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
+<section class="dashboard-brand-card mb-4">
+  <div class="dashboard-brand">
+    {% if app_settings and app_settings.company_logo %}
+      <img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">
+    {% endif %}
     <div>
       <h2 class="mb-1 fw-bold">{% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</h2>
       <div class="text-muted">{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
     </div>
   </div>
-</div>
+
+  <form method="get" class="dashboard-context-form" id="dashboard-context-form">
+    <div>
+      <label for="branch_id">الفرع</label>
+      <select name="branch_id" id="branch_id" class="form-select">
+        <option value="all" {% if active_branch_is_all %}selected{% endif %}>عرض كل الفروع</option>
+        {% for branch in available_branches %}
+          <option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="training_year">العام التدريبي</label>
+      <select name="training_year" id="training_year" class="form-select" dir="ltr">
+        {% for value,label in training_year_choices %}
+          <option value="{{ value }}" {% if training_year == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+</section>
 
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
   <h3 class="page-title mb-0">لوحة التحكم</h3>
-  <span class="badge bg-primary fs-6">بيانات الشهر الحالي: {{ month_value }}</span>
+  <span class="context-badge">
+    {% if active_branch_is_all %}كل الفروع{% elif active_branch %}{{ active_branch.name }}{% endif %}
+    — {{ training_year }}
+  </span>
 </div>
 
-<div class="row g-3 dashboard-cards mb-4">
-  <div class="dashboard-card-col">
-    <a class="stat-link" href="{% url 'academy_list' %}"><div class="card stat-card dashboard-stat-card p-3"><b>الأكاديميات المتعاقد معها</b><h2>{{ contracted_academies }}</h2><small>فتح الأكاديميات</small></div></a>
+{% if activities %}
+  <div class="activity-grid">
+    {% for activity in activities %}
+      <a class="activity-card" href="{% url 'academy_list' %}?activity={{ activity.name|urlencode }}">
+        <div class="activity-visual">
+          {% if activity.media and activity.media.image %}
+            <img src="{{ activity.media.image.url }}" alt="{{ activity.name }}">
+          {% else %}
+            <span aria-hidden="true">{{ activity.symbol }}</span>
+          {% endif %}
+        </div>
+        <div class="activity-details">
+          <h4>{{ activity.name }}</h4>
+          <p>{{ activity.academy_count }} أكاديمية</p>
+          <small>فتح بيانات النشاط</small>
+        </div>
+      </a>
+    {% endfor %}
   </div>
-  <div class="dashboard-card-col">
-    <a class="stat-link" href="{% url 'academy_rent_payments' %}?month={{ month_value }}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي المبالغ المستحقة</b><h2>{{ expected_total }}</h2><small>عن الشهر الحالي</small></div></a>
+{% else %}
+  <div class="card empty-branch-state p-5 text-center">
+    <div class="empty-icon">🏟️</div>
+    <h4>لا توجد ألعاب أو أنشطة مسجلة لهذا الفرع والعام التدريبي</h4>
+    <p class="text-muted mb-0">لن تظهر هنا بيانات أو مبالغ تخص فروعًا أخرى.</p>
   </div>
-  <div class="dashboard-card-col">
-    <a class="stat-link" href="{% url 'academy_rent_payments' %}?month={{ month_value }}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي المبالغ المسددة</b><h2>{{ paid_total }}</h2><small>فتح بيانات السداد</small></div></a>
-  </div>
-  <div class="dashboard-card-col">
-    <a class="stat-link" href="{% url 'daily_income_supply' %}"><div class="card stat-card dashboard-stat-card p-3"><b>الحجز اليومي</b><h2>{{ daily_booking_supplied }}</h2><small>إجمالي المبالغ الموردة عن الشهر الحالي</small></div></a>
-  </div>
-  <div class="dashboard-card-col">
-    <a class="stat-link" href="{% url 'cafe_sale_list' %}"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي دخل الكافيتريا</b><h2>{{ cafeteria_income }}</h2><small>عن الشهر الحالي</small></div></a>
-  </div>
-  <div class="dashboard-card-col">
-    <a class="stat-link" href="{% url 'reports_home' %}?report_type=monthly_income&month={{ month_value }}&section=supplied"><div class="card stat-card dashboard-stat-card p-3"><b>إجمالي المبالغ الموردة</b><h2>{{ supplied_total }}</h2><small>الحجز اليومي والأكاديميات</small></div></a>
-  </div>
-</div>
+{% endif %}
 
 <style>
-  .dashboard-card-col{flex:0 0 20%;max-width:20%}
-  .dashboard-stat-card{height:100%;min-height:150px;justify-content:space-between;border-top:5px solid #2563eb}
-  .dashboard-stat-card b{font-size:18px;line-height:1.5}
-  .dashboard-stat-card h2{margin:12px 0;color:#0f172a}
-  .dashboard-stat-card small{color:#64748b}
-  @media(max-width:1199px){.dashboard-card-col{flex:0 0 33.333%;max-width:33.333%}}
-  @media(max-width:767px){.dashboard-card-col{flex:0 0 50%;max-width:50%}}
-  @media(max-width:480px){.dashboard-card-col{flex:0 0 100%;max-width:100%}}
+  .dashboard-brand-card{background:var(--sidebar-bg);border:1px solid #bfefff;border-radius:20px;padding:24px;display:flex;align-items:center;justify-content:space-between;gap:24px;box-shadow:0 15px 35px rgba(15,23,42,.08)}
+  .dashboard-brand{display:flex;align-items:center;gap:16px}
+  .dashboard-context-form{display:grid;grid-template-columns:minmax(230px,1fr) minmax(210px,1fr);gap:14px;min-width:min(520px,100%);direction:rtl}
+  .dashboard-context-form label{display:block;font-weight:900;margin-bottom:6px}
+  .context-badge{background:#2563eb;color:#fff;border-radius:9px;padding:7px 14px;font-weight:900}
+  .activity-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px}
+  .activity-card{display:flex;flex-direction:column;min-height:265px;background:#fff;border-radius:20px;overflow:hidden;text-decoration:none;color:#0f172a;border-top:5px solid #2563eb;box-shadow:0 15px 35px rgba(15,23,42,.08);transition:.2s}
+  .activity-card:hover{transform:translateY(-5px);box-shadow:0 20px 42px rgba(15,23,42,.16);color:#0f172a}
+  .activity-visual{height:155px;background:linear-gradient(135deg,#dff6ff,#eef4ff);display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .activity-visual img{width:100%;height:100%;object-fit:cover}
+  .activity-visual span{font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;font-size:76px}
+  .activity-details{padding:16px;text-align:center}
+  .activity-details h4{font-weight:900;margin:0 0 8px}
+  .activity-details p{margin:0;color:#475569;font-weight:700}
+  .activity-details small{display:block;margin-top:7px;color:#2563eb}
+  .empty-icon{font-size:68px}
+  @media(max-width:1199px){.activity-grid{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:767px){.dashboard-brand-card{align-items:stretch;flex-direction:column}.dashboard-context-form{grid-template-columns:1fr;min-width:0}.activity-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:480px){.activity-grid{grid-template-columns:1fr}}
 </style>
+<script>
+  (function(){
+    const form = document.getElementById('dashboard-context-form');
+    form.querySelectorAll('select').forEach(select => select.addEventListener('change', () => form.submit()));
+  })();
+</script>
 {% endblock %}

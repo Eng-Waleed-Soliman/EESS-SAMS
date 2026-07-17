@@ -20,6 +20,7 @@ from .models import (
     AcademyDepositPlan,
     AcademyDepositInstallment,
     AcademyMonthlyRentPayment,
+    Branch,
     CafeteriaCategory,
     CafeteriaItem,
     CafeteriaPurchase,
@@ -580,7 +581,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'مشتروات الكافيتريا')
         self.assertNotContains(response, reverse('operating_expense_list'))
 
-    def test_dashboard_shows_six_current_month_linked_cards(self):
+    def test_dashboard_shows_activity_cards_instead_of_financial_cards(self):
         today = date.today()
         academy = Academy.objects.create(
             name='أكاديمية لوحة التحكم', sport_activity='كرة قدم', company_name='شركة',
@@ -611,13 +612,29 @@ class ApplicationFlowsTests(TestCase):
         CafeteriaSale.objects.create(item=item, sale_date=today, quantity=3, unit_price=20)
 
         response = self.client.get(reverse('dashboard'))
-        self.assertEqual(response.context['contracted_academies'], 1)
-        self.assertEqual(response.context['expected_total'], 1000)
-        self.assertEqual(response.context['paid_total'], 800)
-        self.assertEqual(response.context['daily_booking_supplied'], 450)
-        self.assertEqual(response.context['cafeteria_income'], 60)
-        self.assertEqual(response.context['supplied_total'], 1050)
-        self.assertEqual(response.content.decode().count('<div class="dashboard-card-col">'), 6)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['activities']), 1)
+        self.assertEqual(response.context['activities'][0]['academy_count'], 1)
+        self.assertEqual(response.content.decode().count('class="activity-card"'), 1)
+        self.assertNotContains(response, 'dashboard-card-col')
+
+    def test_dashboard_does_not_leak_activities_between_branches(self):
+        first = Branch.objects.create(name='الفرع الرئيسي')
+        second = Branch.objects.create(name='الفرع الثاني')
+        Academy.objects.create(
+            branch=first, name='أكاديمية الفرع الأول', sport_activity='كرة سلة',
+            company_name='شركة', manager_name='مدير', manager_phone='01000000000',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(), contract_end_date=date.today(),
+            subscription_type='fixed',
+        )
+        response = self.client.get(reverse('dashboard'), {
+            'branch_id': second.pk,
+            'training_year': '2027-2028',
+        })
+        self.assertEqual(response.context['activities'], [])
+        self.assertEqual(response.context['training_year'], '2027-2028')
+        self.assertNotContains(response, 'كرة سلة')
 
     def test_daily_booking_cash_supply_screen_records_multiple_entries(self):
         today = date.today()

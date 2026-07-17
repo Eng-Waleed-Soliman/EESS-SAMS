@@ -303,6 +303,7 @@ class Customer(models.Model):
 
 
 class DailyBooking(models.Model):
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='daily_bookings', verbose_name='الفرع')
     customer_code = models.CharField(max_length=50, blank=True, verbose_name='كود العميل')
     venue = models.CharField(max_length=100, verbose_name='مكان الحجز')
     booking_date = models.DateField(verbose_name='تاريخ الحجز')
@@ -352,6 +353,7 @@ class DailyBookingCheckout(models.Model):
 
 
 class DailyIncomeSupply(models.Model):
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='daily_income_supplies', verbose_name='الفرع')
     supply_date = models.DateField(verbose_name='تاريخ التوريد')
     amount = models.PositiveIntegerField(default=0, verbose_name='مبلغ التوريد')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
@@ -368,6 +370,7 @@ class DailyIncomeSupply(models.Model):
 
 
 class FinancialVoucher(models.Model):
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='financial_vouchers', verbose_name='الفرع')
     TYPE_DISBURSEMENT = 'disbursement'
     TYPE_SUPPLY = 'supply'
     TYPE_CHOICES = [
@@ -671,6 +674,7 @@ class BonusTier(models.Model):
 
 
 class Employee(models.Model):
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='employees', verbose_name='الفرع')
     name = models.CharField(max_length=200, verbose_name='اسم الموظف')
     national_id = models.CharField(max_length=50, blank=True, verbose_name='الرقم القومي')
     phone = models.CharField(max_length=50, blank=True, verbose_name='رقم الهاتف')
@@ -693,6 +697,7 @@ class Employee(models.Model):
 
 
 class FoundingExpense(models.Model):
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='founding_expenses', verbose_name='الفرع')
     title = models.CharField(max_length=200, verbose_name='بيان مصروف التأسيس')
     expense_date = models.DateField(verbose_name='تاريخ المصروف')
     amount = models.PositiveIntegerField(default=0, verbose_name='القيمة')
@@ -709,6 +714,7 @@ class FoundingExpense(models.Model):
 
 
 class MonthlyExpense(models.Model):
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='monthly_expenses', verbose_name='الفرع')
     title = models.CharField(max_length=200, verbose_name='بيان المصروف الشهري')
     expense_month = models.DateField(verbose_name='شهر المصروف')
     amount = models.PositiveIntegerField(default=0, verbose_name='القيمة')
@@ -725,6 +731,7 @@ class MonthlyExpense(models.Model):
 
 
 class DailyExpense(models.Model):
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='daily_expenses', verbose_name='الفرع')
     title = models.CharField(max_length=200, verbose_name='بيان المصروف اليومي')
     expense_date = models.DateField(verbose_name='تاريخ المصروف')
     amount = models.PositiveIntegerField(default=0, verbose_name='القيمة')
@@ -755,6 +762,7 @@ class DailyExpense(models.Model):
 
 
 class OperatingExpense(models.Model):
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='operating_expenses', verbose_name='الفرع')
     title = models.CharField(max_length=200, verbose_name='بيان مصروف التشغيل')
     expense_date = models.DateField(verbose_name='تاريخ المصروف')
     amount = models.PositiveIntegerField(default=0, verbose_name='قيمة المصروف')
@@ -786,6 +794,7 @@ class CafeteriaCategory(models.Model):
 
 
 class CafeteriaItem(models.Model):
+    branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='cafeteria_items', verbose_name='الفرع')
     category = models.ForeignKey(CafeteriaCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name='items', verbose_name='فئة الصنف')
     code = models.PositiveIntegerField(default=0, verbose_name='كود الصنف')
     name = models.CharField(max_length=200, verbose_name='اسم الصنف')

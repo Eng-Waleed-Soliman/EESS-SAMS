@@ -9,6 +9,7 @@
     :root{--brand:#2563eb;--brand-dark:#1d4ed8;--accent:#38bdf8;--button-bg:#dff6ff;--button-hover:#2563eb;--sidebar-bg:#dff6ff;--bg:#eef4fb;--card:#fff;--text:#0f172a;--muted:#64748b;}
     body{background:linear-gradient(135deg,#eef5ff 0%,#f8fbff 100%);font-family:"Times New Roman", Times, serif;color:var(--text)}
     .sidebar{min-height:100vh;background:var(--sidebar-bg);box-shadow:-8px 0 24px rgba(15,23,42,.12);position:sticky;top:0;border-left:1px solid #bfefff}
+    .sidebar-context{padding:12px 14px;border-bottom:1px solid #bfefff}.sidebar-context label{display:block;font-weight:900;margin-bottom:5px}.sidebar-context .form-select{font-size:15px;padding:7px 10px;background:#fff}
     .brand-block{display:flex;align-items:center;justify-content:center;gap:10px;flex-direction:column;padding:16px 10px;border-bottom:1px solid #bfefff}.brand-logo{width:74px;height:74px;object-fit:contain;border-radius:12px;background:#fff;padding:6px;box-shadow:0 8px 18px rgba(15,23,42,.10)}
     .sidebar h5{font-size:26px;font-weight:800;text-align:center;letter-spacing:.5px;color:#0f172a!important;border-color:#bfefff!important}.sidebar a{color:#0f172a;text-decoration:none;display:block;padding:13px 22px;margin:4px 10px;border-radius:14px;font-weight:700}.sidebar a:hover{background:var(--button-hover);color:#fff}
     main{padding:32px!important}.page-title,h3{font-weight:900;font-size:34px;margin-bottom:24px}.page-title:after,h3:after{content:"";display:block;width:72px;height:4px;background:linear-gradient(90deg,var(--brand),var(--accent));border-radius:8px;margin-top:10px;margin-right:auto}
@@ -26,6 +27,18 @@
         {% if app_settings and app_settings.company_logo %}<img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
         <h5 class="text-white p-3 border-bottom">{% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</h5>
       </div>
+      {% if request.user.is_authenticated and not is_cafeteria_specialist %}
+      <form class="sidebar-context" method="get" action="{% url 'dashboard' %}">
+        <label>سياق العمل</label>
+        <select name="branch_id" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="all" {% if active_branch_is_all %}selected{% endif %}>كل الفروع</option>
+          {% for branch in available_branches %}
+          <option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>
+          {% endfor %}
+        </select>
+        <input type="hidden" name="training_year" value="{{ training_year }}">
+      </form>
+      {% endif %}
       {% if is_cafeteria_specialist %}
       <a href="{% url 'cafe_sale_list' %}">الكافيتريا - البيع</a>
       <a href="{% url 'cafe_menu' %}">المنيو</a>

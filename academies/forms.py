@@ -858,6 +858,7 @@ class DailyBookingForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.branch = kwargs.pop('branch', None)
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
             css_class = field.widget.attrs.get('class', '')
@@ -988,6 +989,8 @@ class DailyBookingForm(forms.ModelForm):
         if commit:
             customer.save()
         booking.customer_code = customer.customer_code
+        if self.branch is not None:
+            booking.branch = self.branch
         booking.total_amount = self.cleaned_data.get('total_amount') or booking.total_amount or 0
         booking.remaining_amount = self.cleaned_data.get('remaining_amount') or 0
         if commit:
@@ -1016,6 +1019,7 @@ class DailyBookingForm(forms.ModelForm):
             hours_count = self._hours_count(start_time, end_time)
             total_amount = int(Decimal(first_booking.amount or 0) * hours_count)
             clone = DailyBooking.objects.create(
+                branch=first_booking.branch,
                 customer_code=first_booking.customer_code,
                 customer_name=first_booking.customer_name,
                 customer_phone=first_booking.customer_phone,

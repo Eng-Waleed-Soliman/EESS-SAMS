@@ -17,24 +17,31 @@ from .models import Academy, DailyBooking, Customer, OperationDayCancellation, A
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
-
-
-TRAINING_YEAR_CHOICES = [
-    (f'{year}-{year + 1}', f'{year} - {year + 1}')
-    for year in range(2026, 2100)
-]
+from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
 
 
 def _selected_training_year(request):
-    valid_values = {value for value, _ in TRAINING_YEAR_CHOICES}
-    requested = (request.GET.get('training_year') or '').strip()
-    if requested in valid_values:
-        request.session['training_year'] = requested
-        return requested
-    saved = request.session.get('training_year')
-    if saved in valid_values:
-        return saved
-    return TRAINING_YEAR_CHOICES[0][0]
+    return selected_training_year(request)
+
+
+def _activity_symbol(name):
+    value = (name or '').lower()
+    symbols = (
+        (('قدم', 'football', 'soccer'), '⚽'),
+        (('سلة', 'basket'), '🏀'),
+        (('طائرة', 'volley'), '🏐'),
+        (('تنس', 'tennis'), '🎾'),
+        (('سباحة', 'swim'), '🏊'),
+        (('جيم', 'لياقة', 'gym', 'fitness'), '🏋️'),
+        (('قوس', 'سهم', 'archery'), '🏹'),
+        (('كاراتيه', 'تايكوندو', 'كونغ', 'martial'), '🥋'),
+        (('يد', 'handball'), '🤾'),
+        (('بادل', 'padel'), '🎾'),
+    )
+    for keywords, symbol in symbols:
+        if any(keyword in value for keyword in keywords):
+            return symbol
+    return '🏅'
 
 
 def _company_short_name(company_name):
@@ -170,28 +177,33 @@ def logout_view(request):
 
 @login_required
 def dashboard(request):
-    today = date.today()
-    year, month, start, end, month_value = _month_bounds(today.strftime('%Y-%m'))
-    rent_rows = _academy_rent_rows(year, month, start, end)
-    daily_booking_supplied = DailyIncomeSupply.objects.filter(
-        supply_date__range=(start, end)
-    ).aggregate(total=Sum('amount'))['total'] or 0
-    academy_supplied = sum(row['supplied'] for row in rent_rows)
-    cafeteria_income = sum(
-        sale.total_amount
-        for sale in CafeteriaSale.objects.filter(sale_date__range=(start, end))
+    branch, all_branches = selected_branch(request)
+    training_year = _selected_training_year(request)
+    academies = Academy.objects.select_related('branch')
+    if not all_branches:
+        academies = academies.filter(branch=branch)
+    activity_names = list(
+        academies.exclude(sport_activity='')
+        .values_list('sport_activity', flat=True).distinct().order_by('sport_activity')
     )
+    media_by_name = {
+        media.name.strip().casefold(): media
+        for media in SportActivityMedia.objects.filter(is_active=True)
+    }
+    activities = []
+    for name in activity_names:
+        media = media_by_name.get(name.strip().casefold())
+        activities.append({
+            'name': name,
+            'media': media,
+            'symbol': _activity_symbol(name),
+            'academy_count': academies.filter(sport_activity=name).count(),
+        })
     context = {
-        'month_value': month_value,
-        'contracted_academies': Academy.objects.filter(
-            contract_start_date__lte=today,
-            contract_end_date__gte=today,
-        ).count(),
-        'expected_total': sum(row['expected'] for row in rent_rows),
-        'paid_total': sum(row['paid'] for row in rent_rows),
-        'daily_booking_supplied': daily_booking_supplied,
-        'cafeteria_income': cafeteria_income,
-        'supplied_total': academy_supplied + int(daily_booking_supplied),
+        'activities': activities,
+        'active_branch': branch,
+        'active_branch_is_all': all_branches,
+        'training_year': training_year,
     }
     return render(request, 'academies/dashboard.html', context)
 
@@ -200,7 +212,13 @@ def dashboard(request):
 def academy_list(request):
     q = request.GET.get('q', '').strip()
     training_year = _selected_training_year(request)
+    branch, all_branches = selected_branch(request)
     academies = Academy.objects.all()
+    if not all_branches:
+        academies = academies.filter(branch=branch)
+    activity = request.GET.get('activity', '').strip()
+    if activity:
+        academies = academies.filter(sport_activity=activity)
     if q:
         academies = academies.filter(
             Q(name__icontains=q)
@@ -213,14 +231,20 @@ def academy_list(request):
         'q': q,
         'training_year_choices': TRAINING_YEAR_CHOICES,
         'training_year': training_year,
+        'activity': activity,
     })
 
 
 @login_required
 def academy_create(request):
-    form = AcademyForm(request.POST or None, request.FILES or None)
+    branch, all_branches = selected_branch(request)
+    form = AcademyForm(request.POST or None, request.FILES or None, initial={'branch': branch})
     if form.is_valid():
-        form.save()
+        academy = form.save(commit=False)
+        if not all_branches:
+            academy.branch = branch
+        academy.save()
+        form.save_m2m()
         return redirect('academy_list')
     return render(request, 'academies/academy_form.html', {'form': form, 'title': 'إضافة أكاديمية'})
 
@@ -291,6 +315,10 @@ def booking_list(request):
     q = request.GET.get('q', '').strip()
     booking_date_value = request.GET.get('booking_date', '').strip()
     bookings = DailyBooking.objects.all()
+    active_branch, all_branches = selected_branch(request)
+    if not all_branches:
+        venue_names = active_branch.facilities.values_list('name', flat=True)
+        bookings = bookings.filter(venue__in=venue_names)
     if booking_date_value:
         try:
             selected_booking_date = date.fromisoformat(booking_date_value)
@@ -313,12 +341,17 @@ def booking_list(request):
 @login_required
 def daily_income_supply(request):
     """Record cash supplied from daily bookings and show the recent supply history."""
+    active_branch, all_branches = selected_branch(request)
     form = DailyIncomeSupplyForm(request.POST or None, initial={'supply_date': date.today()})
     if form.is_valid():
-        form.save()
+        supply = form.save(commit=False)
+        supply.branch = None if all_branches else active_branch
+        supply.save()
         messages.success(request, 'تم تسجيل توريد المبلغ النقدي بنجاح.')
         return redirect('daily_income_supply')
     supplies = DailyIncomeSupply.objects.all().order_by('-supply_date', '-created_at')
+    if not all_branches:
+        supplies = supplies.filter(branch=active_branch)
     return render(request, 'academies/daily_income_supply.html', {
         'form': form,
         'supplies': supplies,
@@ -354,7 +387,8 @@ def booking_create(request):
                 'start_time': requested_start,
                 'end_time': requested_end,
             }], ensure_ascii=False)
-    form = DailyBookingForm(request.POST or None, initial=initial)
+    active_branch, all_branches = selected_branch(request)
+    form = DailyBookingForm(request.POST or None, initial=initial, branch=None if all_branches else active_branch)
     if form.is_valid():
         form.save_all()
         return redirect('booking_list')
@@ -858,18 +892,25 @@ def shareholder_delete(request, pk):
 def employee_list(request):
     q = request.GET.get('q', '').strip()
     employees = Employee.objects.all()
+    active_branch, all_branches = selected_branch(request)
+    if not all_branches:
+        employees = employees.filter(branch=active_branch)
     if q:
-        employees = (Employee.objects.filter(name__icontains=q) |
-                     Employee.objects.filter(phone__icontains=q) |
-                     Employee.objects.filter(national_id__icontains=q) |
-                     Employee.objects.filter(job_title__icontains=q))
+        employees = employees.filter(
+            Q(name__icontains=q) | Q(phone__icontains=q) |
+            Q(national_id__icontains=q) | Q(job_title__icontains=q)
+        )
     return render(request, 'academies/employee_list.html', {'employees': employees, 'q': q})
 
 @login_required
 def employee_create(request):
     form = EmployeeForm(request.POST or None)
     if form.is_valid():
-        form.save()
+        employee = form.save(commit=False)
+        active_branch, all_branches = selected_branch(request)
+        if not all_branches:
+            employee.branch = active_branch
+        employee.save()
         return redirect('employee_list')
     return render(request, 'academies/simple_form.html', {'form': form, 'title': 'إضافة موظف', 'back_url': 'employee_list'})
 
@@ -909,6 +950,9 @@ def _month_bounds(month_text):
 def _generic_crud_list(request, model, template, context_name, search_fields=None):
     q = request.GET.get('q', '').strip()
     objects = model.objects.all()
+    active_branch, all_branches = selected_branch(request)
+    if not all_branches and any(field.name == 'branch' for field in model._meta.fields):
+        objects = objects.filter(branch=active_branch)
     if q and search_fields:
         query = None
         for field in search_fields:
@@ -921,7 +965,13 @@ def _generic_crud_list(request, model, template, context_name, search_fields=Non
 def _generic_form(request, form_class, title, back_url, instance=None):
     form = form_class(request.POST or None, request.FILES or None, instance=instance)
     if form.is_valid():
-        form.save()
+        obj = form.save(commit=False)
+        active_branch, all_branches = selected_branch(request)
+        if hasattr(obj, 'branch_id') and not all_branches:
+            obj.branch = active_branch
+        obj.save()
+        if hasattr(form, 'save_m2m'):
+            form.save_m2m()
         return redirect(back_url)
     return render(request, 'academies/simple_form.html', {'form': form, 'title': title, 'back_url': back_url})
 
@@ -995,6 +1045,9 @@ def daily_expense_create(request):
     if form.is_valid():
         expense = form.save(commit=False)
         expense.created_by = request.user
+        active_branch, all_branches = selected_branch(request)
+        if not all_branches:
+            expense.branch = active_branch
         expense.save()
         messages.success(request, 'تم تسجيل المصروف اليومي بنجاح.')
         return redirect('daily_expense_list')
@@ -1034,6 +1087,9 @@ def operating_expense_delete(request, pk):
 def cafe_item_list(request):
     q = request.GET.get('q', '').strip()
     items = CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name')
+    active_branch, all_branches = selected_branch(request)
+    if not all_branches:
+        items = items.filter(branch=active_branch)
     if q:
         items = items.filter(Q(name__icontains=q) | Q(notes__icontains=q) | Q(category__name__icontains=q))
     return render(request, 'academies/cafe_item_list.html', {'items': items, 'q': q})
@@ -1470,13 +1526,14 @@ def _is_ball_field_academy(academy):
     return any(_contains_value(place_text, field_name) for place_text in places for field_name in BALL_FIELD_NAMES)
 
 
-def _academy_rent_rows(year, month, start, end):
-    academies = list(
-        Academy.objects.select_related('branch').filter(
+def _academy_rent_rows(year, month, start, end, branch=None):
+    queryset = Academy.objects.select_related('branch').filter(
             contract_start_date__lte=end,
             contract_end_date__gte=start,
         )
-    )
+    if branch is not None:
+        queryset = queryset.filter(branch=branch)
+    academies = list(queryset)
     total_counts, active_counts, active_days = _monthly_academy_operation_counts(year, month, academies)
     month_start = date(year, month, 1)
     rows = []
@@ -1937,6 +1994,9 @@ def financial_voucher_list(request):
         return denied
     selected_type = request.GET.get('type', '').strip()
     vouchers = FinancialVoucher.objects.select_related('created_by')
+    active_branch, all_branches = selected_branch(request)
+    if not all_branches:
+        vouchers = vouchers.filter(branch=active_branch)
     if selected_type in dict(FinancialVoucher.TYPE_CHOICES):
         vouchers = vouchers.filter(voucher_type=selected_type)
     signature_titles = _voucher_signature_titles()
@@ -1972,6 +2032,9 @@ def financial_voucher_create(request, voucher_type):
         voucher = form.save(commit=False)
         voucher.voucher_type = voucher_type
         voucher.created_by = request.user
+        active_branch, all_branches = selected_branch(request)
+        if not all_branches:
+            voucher.branch = active_branch
         voucher.save()
         destination = reverse('financial_voucher_detail', kwargs={'pk': voucher.pk})
         submit_action = request.POST.get('submit_action', 'save')
@@ -2031,6 +2094,7 @@ def reports_home_v2(request):
         messages.error(request, 'ليس لديك صلاحية عرض التقارير.')
         return redirect('dashboard')
 
+    active_branch, all_branches = selected_branch(request)
     year, month, month_start, month_end, month_value = _month_bounds(request.GET.get('month'))
     range_mode = request.GET.get('range_mode', 'month')
     start, end = month_start, month_end
@@ -2103,6 +2167,8 @@ def reports_home_v2(request):
         'signature_title': signature_title,
         'section': section,
         'print_date': date.today(),
+        'active_branch': active_branch,
+        'active_branch_is_all': all_branches,
         'employees': [],
         'academy_choices': [],
         'selected_academy': None,
@@ -2114,9 +2180,20 @@ def reports_home_v2(request):
         'cafeteria_rows': [],
         'cafeteria_statistics': [],
     }
+    employee_qs = Employee.objects.all()
+    booking_checkout_qs = DailyBookingCheckout.objects.all()
+    monthly_expense_qs = MonthlyExpense.objects.all()
+    daily_expense_qs = DailyExpense.objects.all()
+    cafeteria_item_qs = CafeteriaItem.objects.all()
+    if not all_branches:
+        employee_qs = employee_qs.filter(branch=active_branch)
+        booking_checkout_qs = booking_checkout_qs.filter(booking__branch=active_branch)
+        monthly_expense_qs = monthly_expense_qs.filter(branch=active_branch)
+        daily_expense_qs = daily_expense_qs.filter(branch=active_branch)
+        cafeteria_item_qs = cafeteria_item_qs.filter(branch=active_branch)
 
     if report_type == 'employees':
-        context['employees'] = Employee.objects.all()
+        context['employees'] = employee_qs
 
     elif report_type == 'academies':
         subscription_labels = {
@@ -2125,6 +2202,8 @@ def reports_home_v2(request):
             'revenue_share': 'نسبة مشاركة',
         }
         academy_choices = Academy.objects.select_related('branch').all()
+        if not all_branches:
+            academy_choices = academy_choices.filter(branch=active_branch)
         context['academy_choices'] = academy_choices
         try:
             selected_academy_id = int(request.GET.get('academy_id', '') or 0)
@@ -2150,7 +2229,10 @@ def reports_home_v2(request):
         last_month = date(end.year, end.month, 1)
         while cursor <= last_month:
             cursor_end = date(cursor.year, cursor.month, monthrange(cursor.year, cursor.month)[1])
-            monthly_rent_rows.extend(_academy_rent_rows(cursor.year, cursor.month, cursor, cursor_end))
+            monthly_rent_rows.extend(_academy_rent_rows(
+                cursor.year, cursor.month, cursor, cursor_end,
+                None if all_branches else active_branch,
+            ))
             cursor = date(cursor.year + (1 if cursor.month == 12 else 0), 1 if cursor.month == 12 else cursor.month + 1, 1)
         rows_by_academy = {}
         for monthly_row in monthly_rent_rows:
@@ -2168,7 +2250,7 @@ def reports_home_v2(request):
                 row['supplied_date'] = supplied_date
         rows = sorted(rows_by_academy.values(), key=lambda row: row['academy'].name)
         daily_booking_rows = list(
-            DailyBookingCheckout.objects.filter(income_date__range=(start, end))
+            booking_checkout_qs.filter(income_date__range=(start, end))
             .values('income_date')
             .annotate(total_amount=Sum('total_amount'))
             .order_by('income_date')
@@ -2176,24 +2258,28 @@ def reports_home_v2(request):
         for booking_row in daily_booking_rows:
             booking_row['day_name'] = WEEKDAY_AR[booking_row['income_date'].weekday()]
         cafeteria_income_by_date = {}
-        for sale in CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item'):
+        for sale in CafeteriaSale.objects.filter(
+            sale_date__range=(start, end), item__in=cafeteria_item_qs
+        ).select_related('item'):
             cafeteria_income_by_date[sale.sale_date] = cafeteria_income_by_date.get(sale.sale_date, 0) + sale.total_amount
         cafeteria_income_rows = [
             {'date': sale_date, 'day_name': WEEKDAY_AR[sale_date.weekday()], 'amount': amount}
             for sale_date, amount in sorted(cafeteria_income_by_date.items())
         ]
         expense_rows = []
-        for expense in MonthlyExpense.objects.filter(expense_month__range=(start, end)):
+        for expense in monthly_expense_qs.filter(expense_month__range=(start, end)):
             expense_rows.append({
                 'type': 'مصروف شهري', 'date': expense.expense_month,
                 'title': expense.title, 'amount': expense.amount, 'notes': expense.notes,
             })
-        for expense in DailyExpense.objects.filter(expense_date__range=(start, end)):
+        for expense in daily_expense_qs.filter(expense_date__range=(start, end)):
             expense_rows.append({
                 'type': 'مصروف يومي', 'date': expense.expense_date,
                 'title': expense.title, 'amount': expense.amount, 'notes': expense.notes,
             })
-        for purchase in CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)).select_related('item'):
+        for purchase in CafeteriaPurchase.objects.filter(
+            purchase_date__range=(start, end), item__in=cafeteria_item_qs
+        ).select_related('item'):
             expense_rows.append({
                 'type': 'مشتروات الكافيتريا', 'date': purchase.purchase_date,
                 'title': f'{purchase.item.name} - كمية {purchase.quantity}',
@@ -2225,8 +2311,8 @@ def reports_home_v2(request):
         })
 
     elif report_type == 'expenses':
-        monthly_rows = MonthlyExpense.objects.filter(expense_month__range=(start, end))
-        daily_rows = DailyExpense.objects.filter(expense_date__range=(start, end)).select_related('created_by')
+        monthly_rows = monthly_expense_qs.filter(expense_month__range=(start, end))
+        daily_rows = daily_expense_qs.filter(expense_date__range=(start, end)).select_related('created_by')
         monthly_total = monthly_rows.aggregate(total=Sum('amount'))['total'] or 0
         daily_total = daily_rows.aggregate(total=Sum('amount'))['total'] or 0
         context.update({
@@ -2238,8 +2324,12 @@ def reports_home_v2(request):
         })
 
     elif report_type == 'cafeteria':
-        purchases = list(CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)).select_related('item'))
-        sales = list(CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item'))
+        purchases = list(CafeteriaPurchase.objects.filter(
+            purchase_date__range=(start, end), item__in=cafeteria_item_qs
+        ).select_related('item'))
+        sales = list(CafeteriaSale.objects.filter(
+            sale_date__range=(start, end), item__in=cafeteria_item_qs
+        ).select_related('item'))
         purchase_total = sum(row.total_amount for row in purchases)
         sales_total = sum(row.total_amount for row in sales)
         purchased_quantities = {}
@@ -2261,7 +2351,7 @@ def reports_home_v2(request):
             revenue_by_item[sale.item_id] = revenue_by_item.get(sale.item_id, 0) + sale.total_amount
             profit_by_item[sale.item_id] = profit_by_item.get(sale.item_id, 0) + sale.estimated_profit
         cafeteria_rows = []
-        for item in CafeteriaItem.objects.select_related('category').all():
+        for item in cafeteria_item_qs.select_related('category'):
             revenue = revenue_by_item.get(item.id, 0)
             profit = profit_by_item.get(item.id, 0)
             cafeteria_rows.append({
@@ -2671,7 +2761,8 @@ def academy_rent_payments(request):
         messages.error(request, 'ليس لديك صلاحية عرض الإيجارات الشهرية.')
         return redirect('dashboard')
     year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
-    rows = _academy_rent_rows(year, month, start, end)
+    active_branch, all_branches = selected_branch(request)
+    rows = _academy_rent_rows(year, month, start, end, None if all_branches else active_branch)
     if request.method == 'POST':
         for row in rows:
             payment = row['payment']
