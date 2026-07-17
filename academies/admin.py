@@ -47,9 +47,9 @@ class ActivityAdmin(admin.ModelAdmin):
 
 @admin.register(AcademyMember)
 class AcademyMemberAdmin(admin.ModelAdmin):
-    list_display = ('academy', 'role', 'name', 'phone', 'monthly_subscription', 'is_active')
+    list_display = ('academy', 'role', 'name', 'job_title', 'birth_date', 'phone', 'monthly_subscription', 'is_active')
     list_filter = ('role', 'is_active')
-    search_fields = ('academy__name', 'name', 'phone', 'national_id')
+    search_fields = ('academy__name', 'name', 'job_title', 'phone', 'national_id')
 
 
 @admin.register(Customer)

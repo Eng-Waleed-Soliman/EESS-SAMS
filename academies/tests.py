@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.db import OperationalError
 from django.db.models import Sum
 from django.http import HttpResponse
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -441,7 +442,6 @@ class ApplicationFlowsTests(TestCase):
         profile.can_reports = True
         profile.save()
         today = date.today()
-        Shareholder.objects.create(name='عضو مجلس اختبار', share_percentage=25)
         Employee.objects.create(name='موظف تقرير', job_title='مشغل', salary=5000)
         academy = Academy.objects.create(
             name='أكاديمية تقرير', sport_activity='كرة قدم', company_name='شركة تقرير',
@@ -450,7 +450,10 @@ class ApplicationFlowsTests(TestCase):
             contract_start_date=date(today.year, 1, 1), contract_end_date=date(today.year, 12, 31),
             subscription_type='fixed', monthly_subscription=1000,
         )
-        AcademyMember.objects.create(academy=academy, role=AcademyMember.ROLE_COACH, name='مدرب تقرير')
+        report_coach = AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_COACH, name='مدرب تقرير',
+            job_title='مدرب رئيسي', photo_data=b'photo-bytes', photo_content_type='image/png',
+        )
         AcademyMonthlyRentPayment.objects.create(
             academy=academy, month=date(today.year, today.month, 1),
             expected_amount=1000, paid_amount=700, supplied_amount=500,
@@ -479,9 +482,10 @@ class ApplicationFlowsTests(TestCase):
         CafeteriaSale.objects.create(item=item, sale_date=today, quantity=3, unit_price=20)
 
         response = self.client.get(reverse('reports_home'), {'report_type': 'board_members'})
-        self.assertContains(response, 'عضو مجلس اختبار')
-        self.assertEqual(len(response.context['allowed_report_options']), 6)
-        for label in ['أعضاء مجلس الإدارة', 'بيانات الموظفين', 'الأكاديميات الرياضية', 'الدخل الشهري', 'المصروفات', 'الكافيتريا']:
+        self.assertNotContains(response, 'أعضاء مجلس الإدارة')
+        self.assertEqual(response.context['report_type'], 'academies')
+        self.assertEqual(len(response.context['allowed_report_options']), 5)
+        for label in ['بيانات الموظفين', 'بيانات الأكاديميات', 'الدخل الشهري', 'المصروفات', 'الكافيتريا']:
             self.assertContains(response, label)
         self.assertNotContains(response, 'تقرير المرتبات الشهرية والبونص')
         self.assertNotContains(response, 'تقرير مبالغ التأمين')
@@ -490,11 +494,17 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'name="signature_title"')
         self.assertContains(response, 'print-report-header')
 
-        response = self.client.get(reverse('reports_home'), {'report_type': 'academies'})
+        response = self.client.get(reverse('reports_home'), {
+            'report_type': 'academies', 'academy_id': academy.pk, 'section': 'coach',
+        })
         self.assertContains(response, 'أكاديمية تقرير')
-        self.assertContains(response, '?role=coach')
-        self.assertContains(response, '?role=admin')
-        self.assertContains(response, '?role=player')
+        self.assertContains(response, 'بيانات المدربين')
+        self.assertContains(response, 'بيانات الإداريين')
+        self.assertContains(response, 'بيانات اللاعبين')
+        self.assertContains(response, report_coach.name)
+        self.assertContains(response, report_coach.job_title)
+        self.assertContains(response, reverse('academy_member_qr', args=[academy.pk, report_coach.pk]))
+        self.assertContains(response, 'data:image/png;base64,')
 
         response = self.client.get(reverse('reports_home'), {
             'report_type': 'monthly_income', 'month': today.strftime('%Y-%m'),
@@ -741,12 +751,41 @@ class ApplicationFlowsTests(TestCase):
         create_url = reverse('academy_member_create', args=[academy.pk]) + '?role=coach'
         response = self.client.get(create_url)
         self.assertNotContains(response, 'id_role')
+        self.assertNotContains(response, 'id_monthly_subscription')
+        self.assertNotContains(response, 'id_birth_date')
+        self.assertContains(response, 'id_job_title')
+        self.assertContains(response, 'id_photo')
+        self.assertContains(response, 'حفظ وتوليد QR Code')
+        coach_photo = SimpleUploadedFile('coach.png', b'fake-image-content', content_type='image/png')
         response = self.client.post(create_url, {
             'name': 'مدرب اختبار', 'phone': '', 'national_id': '',
-            'monthly_subscription': 0, 'is_active': 'on', 'notes': '',
+            'job_title': 'مدرب لياقة', 'photo': coach_photo,
+            'is_active': 'on', 'notes': '', 'submit_action': 'generate_qr',
         })
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(AcademyMember.objects.get(name='مدرب اختبار').role, AcademyMember.ROLE_COACH)
+        coach = AcademyMember.objects.get(name='مدرب اختبار')
+        self.assertEqual(coach.role, AcademyMember.ROLE_COACH)
+        self.assertEqual(coach.job_title, 'مدرب لياقة')
+        self.assertEqual(bytes(coach.photo_data), b'fake-image-content')
+        qr_response = self.client.get(reverse('academy_member_qr', args=[academy.pk, coach.pk]))
+        self.assertEqual(qr_response.status_code, 200)
+        self.assertEqual(qr_response['Content-Type'], 'image/svg+xml')
+        self.assertIn(b'<svg', qr_response.content)
+
+        admin_url = reverse('academy_member_create', args=[academy.pk]) + '?role=admin'
+        response = self.client.get(admin_url)
+        self.assertContains(response, 'id_job_title')
+        self.assertContains(response, 'id_photo')
+        self.assertNotContains(response, 'id_monthly_subscription')
+        self.assertNotContains(response, 'id_birth_date')
+
+        player_url = reverse('academy_member_create', args=[academy.pk]) + '?role=player'
+        response = self.client.get(player_url)
+        self.assertContains(response, 'id_birth_date')
+        self.assertContains(response, 'type="date"')
+        self.assertContains(response, 'id_monthly_subscription')
+        self.assertContains(response, 'id_photo')
+        self.assertNotContains(response, 'id_job_title')
 
     def test_company_management_and_expenses_are_nested_in_parent_modules(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)

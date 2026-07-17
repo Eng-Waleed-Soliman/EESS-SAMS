@@ -520,11 +520,17 @@ class ActivityForm(forms.ModelForm):
 
 
 class AcademyMemberForm(forms.ModelForm):
+    photo = forms.FileField(
+        label='إضافة صورة', required=False,
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/jpeg,image/png,image/webp,image/gif'}),
+    )
+
     class Meta:
         model = AcademyMember
-        fields = ['role', 'name', 'phone', 'national_id', 'monthly_subscription', 'is_active', 'notes']
+        fields = ['role', 'name', 'phone', 'national_id', 'job_title', 'birth_date', 'monthly_subscription', 'photo', 'is_active', 'notes']
         widgets = {
             'role': forms.Select(attrs={'class': 'form-select'}),
+            'birth_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '1'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
@@ -535,6 +541,12 @@ class AcademyMemberForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.fixed_role in dict(AcademyMember.ROLE_CHOICES):
             self.fields.pop('role', None)
+        effective_role = self.fixed_role or (self.instance.role if self.instance and self.instance.pk else '')
+        if effective_role == AcademyMember.ROLE_PLAYER:
+            self.fields.pop('job_title', None)
+        else:
+            self.fields.pop('birth_date', None)
+            self.fields.pop('monthly_subscription', None)
         for name, field in self.fields.items():
             if name == 'is_active':
                 continue
@@ -544,10 +556,31 @@ class AcademyMemberForm(forms.ModelForm):
             elif 'form-control' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
 
+    def clean_photo(self):
+        photo = self.cleaned_data.get('photo')
+        if not photo:
+            return photo
+        allowed_types = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
+        if getattr(photo, 'content_type', '') not in allowed_types:
+            raise forms.ValidationError('اختر صورة بصيغة JPG أو PNG أو WEBP أو GIF.')
+        if photo.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('حجم الصورة يجب ألا يتجاوز 5 ميجابايت.')
+        return photo
+
     def save(self, commit=True):
         member = super().save(commit=False)
         if self.fixed_role in dict(AcademyMember.ROLE_CHOICES):
             member.role = self.fixed_role
+        if member.role != AcademyMember.ROLE_PLAYER:
+            member.monthly_subscription = 0
+            member.birth_date = None
+        else:
+            member.job_title = ''
+        photo = self.cleaned_data.get('photo')
+        if photo:
+            member.photo_data = photo.read()
+            member.photo_content_type = getattr(photo, 'content_type', '') or 'image/jpeg'
+            member.photo_name = photo.name
         if commit:
             member.save()
         return member

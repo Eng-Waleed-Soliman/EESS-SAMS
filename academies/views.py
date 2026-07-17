@@ -1,4 +1,5 @@
 import json
+from io import BytesIO
 from calendar import monthrange
 from decimal import Decimal
 from django.contrib.auth.decorators import login_required
@@ -9,6 +10,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.db import transaction
 from django.db.models import Sum, Q, Count
+from django.http import HttpResponse
 from datetime import date, timedelta
 from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
@@ -30,7 +32,6 @@ def _ensure_user_profile(user):
 
 
 REPORT_PERMISSION_FIELDS = {
-    'board_members': 'can_report_shareholders',
     'employees': 'can_report_employees',
     'academies': 'can_report_income',
     'monthly_income': 'can_report_income',
@@ -53,9 +54,8 @@ SIDEBAR_PERMISSION_MODULES = [
 ]
 
 REPORT_TYPE_OPTIONS = [
-    ('board_members', 'أعضاء مجلس الإدارة'),
     ('employees', 'بيانات الموظفين'),
-    ('academies', 'الأكاديميات الرياضية'),
+    ('academies', 'بيانات الأكاديميات'),
     ('monthly_income', 'الدخل الشهري'),
     ('expenses', 'المصروفات'),
     ('cafeteria', 'الكافيتريا'),
@@ -87,9 +87,8 @@ def _user_allowed_report_types(user):
     report_permissions = getattr(profile, 'report_permissions', {}) or {}
     if report_permissions:
         legacy_permissions = {
-            'board_members': ('shareholders',),
             'employees': ('employees',),
-            'academies': ('income', 'academy_rent_payments', 'deposits'),
+            'academies': ('income', 'academy_rent_payments', 'deposits', 'board_members', 'shareholders'),
             'monthly_income': ('company_income', 'income', 'academy_rent_payments', 'daily_booking_monthly'),
             'expenses': ('expenses', 'monthly_expenses', 'daily_expenses', 'operating_expenses'),
             'cafeteria': ('cafeteria', 'cafeteria_inventory', 'cafeteria_sales', 'cafeteria_purchases'),
@@ -99,12 +98,14 @@ def _user_allowed_report_types(user):
             if report_permissions.get(key)
             or any(report_permissions.get(old_key) for old_key in legacy_permissions[key])
             or getattr(profile, field, False)
+            or (key == 'academies' and getattr(profile, 'can_report_shareholders', False))
         ]
     if getattr(profile, 'can_reports', False):
         return all_report_types
     return [
         key for key, field in REPORT_PERMISSION_FIELDS.items()
         if getattr(profile, field, False)
+        or (key == 'academies' and getattr(profile, 'can_report_shareholders', False))
     ]
 
 def _can_access_reports(user):
@@ -1976,7 +1977,8 @@ def reports_home_v2(request):
     requested_type = request.GET.get('report_type', '').strip()
     requested_section = request.GET.get('section', '').strip()
     legacy_aliases = {
-        'shareholders': ('board_members', 'summary'),
+        'shareholders': ('academies', 'summary'),
+        'board_members': ('academies', 'summary'),
         'income': ('monthly_income', 'summary'),
         'company_income': ('monthly_income', 'summary'),
         'academy_rent_payments': ('monthly_income', 'summary'),
@@ -1995,6 +1997,7 @@ def reports_home_v2(request):
 
     report_titles = dict(REPORT_TYPE_OPTIONS)
     section_choices = {
+        'academies': {'summary', 'coach', 'admin', 'player'},
         'monthly_income': {'summary', 'expected', 'paid', 'supplied'},
         'expenses': {'summary', 'monthly', 'daily'},
         'cafeteria': {'summary', 'inventory', 'statistics'},
@@ -2024,9 +2027,11 @@ def reports_home_v2(request):
         'signature_title': signature_title,
         'section': section,
         'print_date': date.today(),
-        'board_members': [],
         'employees': [],
-        'academies': [],
+        'academy_choices': [],
+        'selected_academy': None,
+        'selected_academy_row': None,
+        'academy_members': [],
         'income_rows': [],
         'monthly_expense_rows': [],
         'daily_expense_rows': [],
@@ -2034,10 +2039,7 @@ def reports_home_v2(request):
         'cafeteria_statistics': [],
     }
 
-    if report_type == 'board_members':
-        context['board_members'] = Shareholder.objects.all()
-
-    elif report_type == 'employees':
+    if report_type == 'employees':
         context['employees'] = Employee.objects.all()
 
     elif report_type == 'academies':
@@ -2046,13 +2048,21 @@ def reports_home_v2(request):
             'variable': 'قيمة متغيرة',
             'revenue_share': 'نسبة مشاركة',
         }
-        context['academies'] = [
-            {
-                'academy': academy,
-                'subscription_label': subscription_labels.get(academy.subscription_type, academy.subscription_type),
+        academy_choices = Academy.objects.select_related('branch').all()
+        context['academy_choices'] = academy_choices
+        try:
+            selected_academy_id = int(request.GET.get('academy_id', '') or 0)
+        except (TypeError, ValueError):
+            selected_academy_id = 0
+        selected_academy = academy_choices.filter(pk=selected_academy_id).first() if selected_academy_id else None
+        if selected_academy:
+            context['selected_academy'] = selected_academy
+            context['selected_academy_row'] = {
+                'academy': selected_academy,
+                'subscription_label': subscription_labels.get(selected_academy.subscription_type, selected_academy.subscription_type),
             }
-            for academy in Academy.objects.select_related('branch').all()
-        ]
+            if section in {'coach', 'admin', 'player'}:
+                context['academy_members'] = selected_academy.members.filter(role=section).order_by('name')
 
     elif report_type == 'monthly_income':
         monthly_rent_rows = []
@@ -2440,25 +2450,67 @@ def academy_member_create(request, academy_id):
     if role not in role_labels:
         messages.error(request, 'اختر نوع العضو من شاشة الأكاديمية.')
         return redirect(f'/academies/{academy.id}/members/')
-    form = AcademyMemberForm(request.POST or None, fixed_role=role)
+    form = AcademyMemberForm(request.POST or None, request.FILES or None, fixed_role=role)
     if form.is_valid():
         member = form.save(commit=False)
         member.academy = academy
         member.save()
-        return redirect(f'/academies/{academy.id}/members/?role={role}')
+        destination = f'/academies/{academy.id}/members/?role={role}'
+        if request.POST.get('submit_action') == 'generate_qr':
+            destination += f'&qr_member={member.pk}'
+        return redirect(destination)
     role_singular = {'coach': 'مدرب', 'admin': 'إداري', 'player': 'لاعب'}[role]
-    return render(request, 'academies/simple_form.html', {'form': form, 'title': f'إضافة {role_singular} - {academy.name}', 'back_url_path': f'/academies/{academy.id}/members/?role={role}'})
+    return render(request, 'academies/academy_member_form.html', {
+        'form': form, 'title': f'إضافة {role_singular} - {academy.name}',
+        'back_url_path': f'/academies/{academy.id}/members/?role={role}',
+        'member_role': role,
+    })
 
 
 @login_required
 def academy_member_update(request, academy_id, pk):
     academy = get_object_or_404(Academy, pk=academy_id)
     member = get_object_or_404(AcademyMember, pk=pk, academy=academy)
-    form = AcademyMemberForm(request.POST or None, instance=member)
+    form = AcademyMemberForm(request.POST or None, request.FILES or None, instance=member, fixed_role=member.role)
     if form.is_valid():
-        form.save()
-        return redirect('academy_member_list', academy_id=academy.id)
-    return render(request, 'academies/simple_form.html', {'form': form, 'title': f'تعديل عضو - {academy.name}', 'back_url_path': f'/academies/{academy.id}/members/'})
+        member = form.save()
+        destination = f'/academies/{academy.id}/members/?role={member.role}'
+        if request.POST.get('submit_action') == 'generate_qr':
+            destination += f'&qr_member={member.pk}'
+        return redirect(destination)
+    return render(request, 'academies/academy_member_form.html', {
+        'form': form, 'title': f'تعديل {member.get_role_display()} - {academy.name}',
+        'back_url_path': f'/academies/{academy.id}/members/?role={member.role}',
+        'member': member, 'member_role': member.role,
+    })
+
+
+@login_required
+def academy_member_qr(request, academy_id, pk):
+    import qrcode
+    from qrcode.image.svg import SvgPathImage
+
+    member = get_object_or_404(AcademyMember.objects.select_related('academy'), pk=pk, academy_id=academy_id)
+    details = [
+        'EESS Management System',
+        f'الأكاديمية: {member.academy.name}',
+        f'النوع: {member.get_role_display()}',
+        f'الاسم: {member.name}',
+    ]
+    if member.role in {AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN} and member.job_title:
+        details.append(f'الوظيفة: {member.job_title}')
+    if member.role == AcademyMember.ROLE_PLAYER and member.birth_date:
+        details.append(f'تاريخ الميلاد: {member.birth_date:%d/%m/%Y}')
+    details.append(f'المعرف: {member.qr_token}')
+    qr = qrcode.QRCode(version=None, box_size=8, border=2)
+    qr.add_data('\n'.join(details))
+    qr.make(fit=True)
+    image = qr.make_image(image_factory=SvgPathImage)
+    output = BytesIO()
+    image.save(output)
+    response = HttpResponse(output.getvalue(), content_type='image/svg+xml')
+    response['Cache-Control'] = 'private, max-age=3600'
+    return response
 
 
 @login_required
@@ -2754,7 +2806,12 @@ def _permission_detail_context(profile=None):
     return {
         'permission_modules': modules,
         'report_type_options': [
-            {'key': key, 'label': label, 'checked': bool(saved_reports.get(key) or (profile and getattr(profile, REPORT_PERMISSION_FIELDS.get(key, ''), False)))}
+            {'key': key, 'label': label, 'checked': bool(
+                saved_reports.get(key)
+                or (key == 'academies' and (saved_reports.get('board_members') or saved_reports.get('shareholders')))
+                or (profile and getattr(profile, REPORT_PERMISSION_FIELDS.get(key, ''), False))
+                or (key == 'academies' and profile and profile.can_report_shareholders)
+            )}
             for key, label in REPORT_TYPE_OPTIONS
         ],
     }

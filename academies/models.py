@@ -1,6 +1,8 @@
 from calendar import monthrange
 from decimal import Decimal
+import base64
 import datetime
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 from .constants import WEEKDAY_AR
@@ -235,7 +237,13 @@ class AcademyMember(models.Model):
     name = models.CharField(max_length=200, verbose_name='الاسم')
     phone = models.CharField(max_length=50, blank=True, verbose_name='رقم الهاتف')
     national_id = models.CharField(max_length=50, blank=True, verbose_name='الرقم القومي')
+    job_title = models.CharField(max_length=200, blank=True, verbose_name='الوظيفة')
+    birth_date = models.DateField(null=True, blank=True, verbose_name='تاريخ الميلاد')
     monthly_subscription = models.PositiveIntegerField(default=0, verbose_name='الاشتراك الشهري للاعب')
+    photo_data = models.BinaryField(null=True, blank=True, editable=False, verbose_name='بيانات الصورة')
+    photo_content_type = models.CharField(max_length=100, blank=True, editable=False, verbose_name='نوع ملف الصورة')
+    photo_name = models.CharField(max_length=255, blank=True, editable=False, verbose_name='اسم ملف الصورة')
+    qr_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name='معرف QR')
     is_active = models.BooleanField(default=True, verbose_name='نشط')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -247,6 +255,14 @@ class AcademyMember(models.Model):
 
     def __str__(self):
         return f'{self.name} - {self.academy}'
+
+    @property
+    def photo_data_uri(self):
+        if not self.photo_data:
+            return ''
+        content_type = self.photo_content_type or 'image/jpeg'
+        encoded = base64.b64encode(bytes(self.photo_data)).decode('ascii')
+        return f'data:{content_type};base64,{encoded}'
 
 
 class Customer(models.Model):

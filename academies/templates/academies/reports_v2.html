@@ -19,7 +19,7 @@
         {% for value, label in allowed_report_options %}<option value="{{ value }}" {% if report_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
       </select>
     </div>
-    <div class="report-range-field">
+    {% if report_type != 'academies' %}<div class="report-range-field">
       <label class="form-label">نوع الفترة</label>
       <select id="rangeMode" name="range_mode" class="form-select" onchange="toggleReportRange();this.form.submit()">
         <option value="month" {% if range_mode == 'month' %}selected{% endif %}>تقرير شهري</option>
@@ -32,6 +32,7 @@
     </div>
     <div id="dateFromField" class="report-date-field" {% if range_mode != 'custom' %}style="display:none"{% endif %}><label class="form-label">من تاريخ</label><input type="date" name="date_from" value="{{ date_from }}" class="form-control" onchange="this.form.submit()"></div>
     <div id="dateToField" class="report-date-field" {% if range_mode != 'custom' %}style="display:none"{% endif %}><label class="form-label">إلى تاريخ</label><input type="date" name="date_to" value="{{ date_to }}" class="form-control" onchange="this.form.submit()"></div>
+    {% endif %}
     <div class="report-signature-field">
       <label class="form-label">التوقيع</label>
       <select id="signatureTitle" name="signature_title" class="form-select" onchange="updateReportSignature()">
@@ -52,13 +53,6 @@
 
 <main class="report-print-content">
 
-{% if report_type == 'board_members' %}
-<div class="card p-3"><h4>أعضاء مجلس الإدارة وبيانات الأسهم</h4><div class="table-responsive"><table class="table table-striped text-center align-middle">
-  <thead><tr><th>م</th><th>الاسم</th><th>الرقم القومي</th><th>الهاتف</th><th>البريد الإلكتروني</th><th>نسبة الأسهم</th><th>العنوان</th><th>ملاحظات</th></tr></thead>
-  <tbody>{% for member in board_members %}<tr><td>{{ forloop.counter }}</td><td>{{ member.name }}</td><td>{{ member.national_id|default:'-' }}</td><td>{{ member.phone|default:'-' }}</td><td>{{ member.email|default:'-' }}</td><td>{{ member.share_percentage }}%</td><td>{{ member.address|default:'-' }}</td><td>{{ member.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="8">لا توجد بيانات</td></tr>{% endfor %}</tbody>
-</table></div></div>
-{% endif %}
-
 {% if report_type == 'employees' %}
 <div class="card p-3"><h4>بيانات الموظفين</h4><div class="table-responsive"><table class="table table-striped text-center align-middle">
   <thead><tr><th>م</th><th>الاسم</th><th>الوظيفة</th><th>الرقم القومي</th><th>الهاتف</th><th>البريد الإلكتروني</th><th>الراتب</th><th>تاريخ التعيين</th><th>العنوان</th><th>ملاحظات</th></tr></thead>
@@ -67,10 +61,38 @@
 {% endif %}
 
 {% if report_type == 'academies' %}
-<div class="card p-3"><h4>بيانات الأكاديميات الرياضية</h4><div class="table-responsive"><table class="table table-striped text-center align-middle" style="min-width:2200px">
-  <thead><tr><th>الأكاديمية</th><th>الفرع</th><th>النشاط</th><th>الشركة</th><th>مدير الأكاديمية</th><th>الرقم القومي للمدير</th><th>الهاتف</th><th>بداية التعاقد</th><th>نهاية التعاقد</th><th>نوع الاشتراك</th><th>القيمة الثابتة</th><th>القيمة المتغيرة</th><th>نسبة المشاركة</th><th>مبلغ التأمين</th><th>أماكن التدريب</th><th>الأيام</th><th>ملاحظات</th><th>الأعضاء</th></tr></thead>
-  <tbody>{% for row in academies %}{% with academy=row.academy %}<tr><td>{{ academy.name }}</td><td>{{ academy.branch.name|default:'-' }}</td><td>{{ academy.sport_activity }}</td><td>{{ academy.company_name }}</td><td>{{ academy.manager_name }}</td><td>{{ academy.manager_national_id|default:'-' }}</td><td>{{ academy.manager_phone }}</td><td>{{ academy.contract_start_date|date:'d/m/Y' }}</td><td>{{ academy.contract_end_date|date:'d/m/Y' }}</td><td>{{ row.subscription_label }}</td><td>{{ academy.monthly_subscription }}</td><td>{{ academy.variable_rent_value }}</td><td>{{ academy.eess_share_percentage }}%</td><td>{{ academy.security_deposit }}</td><td>{{ academy.operation_place }}</td><td>{{ academy.training_days|default:'-' }}</td><td>{{ academy.notes|default:'-' }}</td><td class="text-nowrap"><a class="btn btn-sm btn-primary" href="{% url 'academy_member_list' academy.pk %}?role=coach">المدربين</a> <a class="btn btn-sm btn-info" href="{% url 'academy_member_list' academy.pk %}?role=admin">الإداريين</a> <a class="btn btn-sm btn-success" href="{% url 'academy_member_list' academy.pk %}?role=player">اللاعبين</a></td></tr>{% endwith %}{% empty %}<tr><td colspan="18">لا توجد أكاديميات</td></tr>{% endfor %}</tbody>
+<div class="card p-3 mb-3 no-print">
+  <form method="get" class="row g-3 align-items-end">
+    <input type="hidden" name="report_type" value="academies">
+    <div class="col-md-8"><label class="form-label fw-bold">اختر الأكاديمية</label><select name="academy_id" class="form-select" onchange="this.form.submit()"><option value="">اختر من الأكاديميات المسجلة</option>{% for academy in academy_choices %}<option value="{{ academy.pk }}" {% if selected_academy.pk == academy.pk %}selected{% endif %}>{{ academy.name }} - {{ academy.sport_activity }}</option>{% endfor %}</select></div>
+  </form>
+</div>
+{% if selected_academy_row %}{% with academy=selected_academy_row.academy %}
+<div class="card p-3 academy-report-details mb-3">
+  <h4 class="text-center fw-bold mb-3">بيانات أكاديمية {{ academy.name }}</h4>
+  <div class="table-responsive"><table class="table table-bordered text-center align-middle">
+    <tbody>
+      <tr><th>الأكاديمية</th><td>{{ academy.name }}</td><th>الفرع</th><td>{{ academy.branch.name|default:'-' }}</td><th>النشاط</th><td>{{ academy.sport_activity }}</td></tr>
+      <tr><th>الشركة</th><td>{{ academy.company_name }}</td><th>مدير الأكاديمية</th><td>{{ academy.manager_name }}</td><th>رقم الهاتف</th><td>{{ academy.manager_phone }}</td></tr>
+      <tr><th>الرقم القومي للمدير</th><td>{{ academy.manager_national_id|default:'-' }}</td><th>بداية التعاقد</th><td>{{ academy.contract_start_date|date:'d/m/Y' }}</td><th>نهاية التعاقد</th><td>{{ academy.contract_end_date|date:'d/m/Y' }}</td></tr>
+      <tr><th>نوع الاشتراك</th><td>{{ selected_academy_row.subscription_label }}</td><th>القيمة الثابتة</th><td>{{ academy.monthly_subscription }}</td><th>القيمة المتغيرة</th><td>{{ academy.variable_rent_value }}</td></tr>
+      <tr><th>نسبة المشاركة</th><td>{{ academy.eess_share_percentage }}%</td><th>مبلغ التأمين</th><td>{{ academy.security_deposit }}</td><th>مكان التدريب</th><td>{{ academy.operation_place }}</td></tr>
+      <tr><th>أيام التدريب</th><td colspan="2">{{ academy.training_days|default:'-' }}</td><th>ملاحظات</th><td colspan="2">{{ academy.notes|default:'-' }}</td></tr>
+    </tbody>
+  </table></div>
+</div>
+<div class="d-flex gap-2 flex-wrap mb-3 no-print academy-member-report-buttons">
+  <a class="btn {% if section == 'coach' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=academies&academy_id={{ academy.pk }}&section=coach">بيانات المدربين</a>
+  <a class="btn {% if section == 'admin' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=academies&academy_id={{ academy.pk }}&section=admin">بيانات الإداريين</a>
+  <a class="btn {% if section == 'player' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=academies&academy_id={{ academy.pk }}&section=player">بيانات اللاعبين</a>
+</div>
+{% if section == 'coach' or section == 'admin' or section == 'player' %}
+<div class="card p-3 academy-member-report"><h4 class="text-center fw-bold">{% if section == 'coach' %}بيانات المدربين{% elif section == 'admin' %}بيانات الإداريين{% else %}بيانات اللاعبين{% endif %}</h4><div class="table-responsive"><table class="table table-bordered table-striped text-center align-middle">
+  <thead><tr><th>الصورة</th><th>الاسم</th><th>الهاتف</th><th>الرقم القومي</th>{% if section == 'player' %}<th>تاريخ الميلاد</th><th>الاشتراك الشهري</th>{% else %}<th>الوظيفة</th>{% endif %}<th>QR Code</th><th>الحالة</th></tr></thead>
+  <tbody>{% for member in academy_members %}<tr><td>{% if member.photo_data_uri %}<img class="report-member-photo" src="{{ member.photo_data_uri }}" alt="صورة {{ member.name }}">{% else %}-{% endif %}</td><td>{{ member.name }}</td><td>{{ member.phone|default:'-' }}</td><td>{{ member.national_id|default:'-' }}</td>{% if section == 'player' %}<td>{{ member.birth_date|date:'d/m/Y'|default:'-' }}</td><td>{{ member.monthly_subscription }}</td>{% else %}<td>{{ member.job_title|default:'-' }}</td>{% endif %}<td><img class="report-member-qr" src="{% url 'academy_member_qr' academy.pk member.pk %}" alt="QR {{ member.name }}"></td><td>{% if member.is_active %}نشط{% else %}غير نشط{% endif %}</td></tr>{% empty %}<tr><td colspan="{% if section == 'player' %}9{% else %}8{% endif %}">لا توجد بيانات مسجلة</td></tr>{% endfor %}</tbody>
 </table></div></div>
+{% endif %}
+{% endwith %}{% else %}<div class="alert alert-info text-center">اختر أكاديمية لعرض بياناتها.</div>{% endif %}
 {% endif %}
 
 {% if report_type == 'monthly_income' %}
@@ -130,6 +152,7 @@
 
 <style>
   .print-report-header,.print-report-signature{display:none}
+  .report-member-photo{width:72px;height:72px;object-fit:cover;border-radius:10px}.report-member-qr{width:90px;height:90px;background:#fff;padding:3px;border:1px solid #cbd5e1;border-radius:8px}
   .report-filter-card{width:100%;max-width:none;overflow-x:auto}
   .report-filter-grid{display:flex!important;flex-wrap:nowrap!important;gap:12px!important;min-width:990px;width:100%;margin:0!important}
   .report-filter-grid>div{width:auto!important;max-width:none!important;flex-shrink:0}
@@ -142,6 +165,7 @@
     @page{size:A4 portrait;margin:5mm 10mm 10mm}
     body{background:#fff!important;color:#111!important}
     .sidebar,.no-print,body>nav,.btn{display:none!important}
+    .report-member-photo{width:18mm;height:18mm}.report-member-qr{width:22mm;height:22mm}
     main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
     .print-report-header{display:block!important;position:relative;min-height:112px;border-bottom:2px solid #1d4ed8;margin:0 0 10px;padding:0 0 8px}
     .print-company-brand{position:absolute;left:0;top:0;width:235px;padding-bottom:8px;text-align:center;direction:ltr;font-size:12px;line-height:1.5}

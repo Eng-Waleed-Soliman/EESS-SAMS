@@ -16,6 +16,7 @@ urlpatterns = [
     path('academies/<int:academy_id>/members/', views.academy_member_list, name='academy_member_list'),
     path('academies/<int:academy_id>/members/add/', views.academy_member_create, name='academy_member_create'),
     path('academies/<int:academy_id>/members/<int:pk>/edit/', views.academy_member_update, name='academy_member_update'),
+    path('academies/<int:academy_id>/members/<int:pk>/qr/', views.academy_member_qr, name='academy_member_qr'),
     path('academies/<int:academy_id>/members/<int:pk>/delete/', views.academy_member_delete, name='academy_member_delete'),
     path('daily-bookings/', views.booking_list, name='booking_list'),
     path('daily-bookings/cash-supplies/', views.daily_income_supply, name='daily_income_supply'),

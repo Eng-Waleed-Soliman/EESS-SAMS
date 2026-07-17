@@ -16,20 +16,23 @@
 <div class="card p-3">
   <div class="table-responsive">
     <table class="table table-striped align-middle">
-      <thead><tr><th>الاسم</th><th>الهاتف</th><th>الرقم القومي</th>{% if role == 'player' %}<th>اشتراك اللاعب</th>{% endif %}<th>الحالة</th><th></th></tr></thead>
+      <thead><tr><th>الصورة</th><th>الاسم</th><th>الهاتف</th><th>الرقم القومي</th>{% if role == 'player' %}<th>تاريخ الميلاد</th><th>اشتراك اللاعب</th>{% else %}<th>الوظيفة</th>{% endif %}<th>QR Code</th><th>الحالة</th><th></th></tr></thead>
       <tbody>
         {% for member in members %}
-        <tr>
+        <tr {% if request.GET.qr_member == member.pk|stringformat:'s' %}class="table-success"{% endif %}>
+          <td>{% if member.photo_data_uri %}<img class="member-list-photo" src="{{ member.photo_data_uri }}" alt="صورة {{ member.name }}">{% else %}-{% endif %}</td>
           <td>{{ member.name }}</td>
           <td>{{ member.phone|default:'-' }}</td>
           <td>{{ member.national_id|default:'-' }}</td>
-          {% if role == 'player' %}<td>{{ member.monthly_subscription }}</td>{% endif %}
+          {% if role == 'player' %}<td>{{ member.birth_date|date:'d/m/Y'|default:'-' }}</td><td>{{ member.monthly_subscription }}</td>{% else %}<td>{{ member.job_title|default:'-' }}</td>{% endif %}
+          <td><img class="member-list-qr" src="{% url 'academy_member_qr' academy.id member.pk %}" alt="QR {{ member.name }}"></td>
           <td>{% if member.is_active %}نشط{% else %}غير نشط{% endif %}</td>
           <td><a class="btn btn-sm btn-primary" href="{% url 'academy_member_update' academy.id member.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'academy_member_delete' academy.id member.pk %}">حذف</a></td>
         </tr>
-        {% empty %}<tr><td colspan="{% if role == 'player' %}6{% else %}5{% endif %}">لا توجد بيانات بعد</td></tr>{% endfor %}
+        {% empty %}<tr><td colspan="{% if role == 'player' %}9{% else %}8{% endif %}">لا توجد بيانات بعد</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+<style>.member-list-photo{width:64px;height:64px;object-fit:cover;border-radius:10px}.member-list-qr{width:76px;height:76px;background:#fff;padding:3px;border:1px solid #dbe4ef;border-radius:8px}</style>
 {% endblock %}
