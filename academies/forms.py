@@ -252,6 +252,12 @@ def _academy_slot_conflicts(academy, booking_date, venue, wanted_start, wanted_e
 
 
 class AcademyForm(forms.ModelForm):
+    branch = forms.ModelChoiceField(
+        label='فرع التعاقد',
+        queryset=Branch.objects.none(),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
     logo = forms.FileField(
         label='لوجو الأكاديمية',
         required=False,
@@ -345,6 +351,7 @@ class AcademyForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['branch'].queryset = Branch.objects.all().order_by('name')
         activity_names = list(Activity.objects.filter(is_active=True).values_list('name', flat=True).order_by('name'))
         static_names = [value for value, _ in SPORT_ACTIVITY_CHOICES]
         choices = []
@@ -1058,11 +1065,17 @@ class ShareholderForm(forms.ModelForm):
 
 
 class EmployeeForm(forms.ModelForm):
+    branch = forms.ModelChoiceField(
+        label='اسم الفرع',
+        queryset=Branch.objects.none(),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
     job_title = forms.ChoiceField(label='الوظيفة', required=False, choices=[], widget=forms.Select(attrs={'class': 'form-select', 'id': 'id_job_title'}))
 
     class Meta:
         model = Employee
-        fields = ['name', 'national_id', 'phone', 'email', 'job_title', 'salary', 'hire_date', 'address', 'notes']
+        fields = ['branch', 'name', 'national_id', 'phone', 'email', 'job_title', 'salary', 'hire_date', 'address', 'notes']
         widgets = {
             'hire_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'address': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
@@ -1072,6 +1085,7 @@ class EmployeeForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['branch'].queryset = Branch.objects.all().order_by('name')
         jobs = list(JobTitle.objects.all())
         self.fields['job_title'].choices = [('', 'اختر من الوظائف المسجلة')] + [(job.name, f'{job.name} - أساسي المرتب {job.base_salary}') for job in jobs]
         self.fields['name'].required = True

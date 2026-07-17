@@ -7,6 +7,7 @@
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
 
     <div class="row">
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.branch.label }}</label>{{ form.branch }}<div class="text-danger small">{{ form.branch.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.name.label }}</label>{{ form.name }}<div class="text-danger small">{{ form.name.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.sport_activity.label }}</label>{{ form.sport_activity }}<div class="text-danger small">{{ form.sport_activity.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.logo.label }}</label>{{ form.logo }}<div class="form-text">يُستخدم في كروت التعارف. JPG أو PNG أو WEBP أو GIF بحد أقصى 5 ميجابايت.</div><div class="text-danger small">{{ form.logo.errors }}</div></div>

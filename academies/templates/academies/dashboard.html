@@ -23,7 +23,7 @@
     </div>
     <div>
       <label for="training_year">العام التدريبي</label>
-      <select name="training_year" id="training_year" class="form-select" dir="ltr">
+      <select name="training_year" id="training_year" class="form-select training-year-select" dir="ltr">
         {% for value,label in training_year_choices %}
           <option value="{{ value }}" {% if training_year == value %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
@@ -70,7 +70,9 @@
 <style>
   .dashboard-brand-card{background:var(--sidebar-bg);border:1px solid #bfefff;border-radius:20px;padding:24px;display:flex;align-items:center;justify-content:space-between;gap:24px;box-shadow:0 15px 35px rgba(15,23,42,.08)}
   .dashboard-brand{display:flex;align-items:center;gap:16px}
-  .dashboard-context-form{display:grid;grid-template-columns:minmax(230px,1fr) minmax(210px,1fr);gap:14px;min-width:min(520px,100%);direction:rtl}
+  .dashboard-context-form{display:grid;grid-template-columns:minmax(340px,1.35fr) minmax(230px,1fr);gap:14px;min-width:min(650px,100%);direction:rtl}
+  .dashboard-context-form select{white-space:nowrap;text-overflow:ellipsis}
+  .training-year-select{padding-left:2.5rem!important;padding-right:1rem!important;background-position:left .75rem center!important}
   .dashboard-context-form label{display:block;font-weight:900;margin-bottom:6px}
   .context-badge{background:#2563eb;color:#fff;border-radius:9px;padding:7px 14px;font-weight:900}
   .activity-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px}

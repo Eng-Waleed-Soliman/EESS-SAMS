@@ -538,7 +538,15 @@ class AcademyDepositInstallment(models.Model):
 
 
 class OperationDayCancellation(models.Model):
-    cancel_date = models.DateField(unique=True, verbose_name='تاريخ إلغاء التشغيل')
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.CASCADE,
+        related_name='operation_day_cancellations',
+        null=True,
+        blank=True,
+        verbose_name='الفرع',
+    )
+    cancel_date = models.DateField(verbose_name='تاريخ إلغاء التشغيل')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -546,6 +554,9 @@ class OperationDayCancellation(models.Model):
         ordering = ['-cancel_date']
         verbose_name = 'إلغاء حجوزات يوم'
         verbose_name_plural = 'إلغاء حجوزات الأيام'
+        constraints = [
+            models.UniqueConstraint(fields=['branch', 'cancel_date'], name='unique_operation_cancellation_per_branch'),
+        ]
 
     def __str__(self):
         return f'إلغاء حجوزات يوم {self.cancel_date}'

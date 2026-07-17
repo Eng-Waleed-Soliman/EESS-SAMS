@@ -24,6 +24,14 @@ def _selected_training_year(request):
     return selected_training_year(request)
 
 
+def _training_year_bounds(value):
+    try:
+        start_year, end_year = [int(part) for part in value.split('-', 1)]
+    except (TypeError, ValueError):
+        start_year, end_year = 2026, 2027
+    return date(start_year, 7, 1), date(end_year, 6, 30)
+
+
 def _activity_symbol(name):
     value = (name or '').lower()
     symbols = (
@@ -182,6 +190,11 @@ def dashboard(request):
     academies = Academy.objects.select_related('branch')
     if not all_branches:
         academies = academies.filter(branch=branch)
+    training_start, training_end = _training_year_bounds(training_year)
+    academies = academies.filter(
+        contract_start_date__lte=training_end,
+        contract_end_date__gte=training_start,
+    )
     activity_names = list(
         academies.exclude(sport_activity='')
         .values_list('sport_activity', flat=True).distinct().order_by('sport_activity')
@@ -216,6 +229,11 @@ def academy_list(request):
     academies = Academy.objects.all()
     if not all_branches:
         academies = academies.filter(branch=branch)
+    training_start, training_end = _training_year_bounds(training_year)
+    academies = academies.filter(
+        contract_start_date__lte=training_end,
+        contract_end_date__gte=training_start,
+    )
     activity = request.GET.get('activity', '').strip()
     if activity:
         academies = academies.filter(sport_activity=activity)
@@ -241,7 +259,7 @@ def academy_create(request):
     form = AcademyForm(request.POST or None, request.FILES or None, initial={'branch': branch})
     if form.is_valid():
         academy = form.save(commit=False)
-        if not all_branches:
+        if academy.branch_id is None and not all_branches:
             academy.branch = branch
         academy.save()
         form.save_m2m()
@@ -509,24 +527,42 @@ def cancel_operation_day(request):
     except Exception:
         selected_date = date.today()
     if request.method == 'POST':
-        DailyBooking.objects.filter(booking_date=selected_date).delete()
-        OperationDayCancellation.objects.get_or_create(cancel_date=selected_date)
-        AcademyOperationOverride.objects.filter(booking_date=selected_date).delete()
+        branch, all_branches = selected_branch(request)
+        bookings = DailyBooking.objects.filter(booking_date=selected_date)
+        overrides = AcademyOperationOverride.objects.filter(booking_date=selected_date)
+        if all_branches:
+            bookings.delete()
+            overrides.delete()
+            for item in Branch.objects.all():
+                OperationDayCancellation.objects.get_or_create(branch=item, cancel_date=selected_date)
+        else:
+            bookings.filter(branch=branch).delete()
+            overrides.filter(academy__branch=branch).delete()
+            OperationDayCancellation.objects.get_or_create(branch=branch, cancel_date=selected_date)
         messages.success(request, f'تم إلغاء كل حجوزات يوم {selected_date}، وتم حذف الحجز اليومي وعدم احتساب حجوزات الأكاديميات لهذا اليوم.')
-    return redirect(f'/operation/?date={selected_date.isoformat()}&period={request.POST.get("period", request.GET.get("period", "evening"))}')
+    branch_value = request.POST.get('branch_id') or request.GET.get('branch_id') or 'all'
+    return redirect(f'/operation/?date={selected_date.isoformat()}&period={request.POST.get("period", request.GET.get("period", "evening"))}&branch_id={branch_value}')
 
 
-def _academy_occurrences_for_date(selected_date, include_cancelled=False):
+def _academy_occurrences_for_date(selected_date, include_cancelled=False, branch=None):
     selected_day_ar = WEEKDAY_AR[selected_date.weekday()]
-    if OperationDayCancellation.objects.filter(cancel_date=selected_date).exists() and not include_cancelled:
+    if branch is not None and OperationDayCancellation.objects.filter(
+        cancel_date=selected_date,
+    ).filter(Q(branch=branch) | Q(branch__isnull=True)).exists() and not include_cancelled:
         return []
     occurrences = []
     academies = Academy.objects.filter(contract_start_date__lte=selected_date, contract_end_date__gte=selected_date)
+    if branch is not None:
+        academies = academies.filter(branch=branch)
     override_map = {
         (ov.academy_id, _norm(ov.original_place), ov.original_slot_index): ov
         for ov in AcademyOperationOverride.objects.filter(booking_date=selected_date).select_related('academy')
     }
     for academy in academies:
+        if not include_cancelled and OperationDayCancellation.objects.filter(
+            cancel_date=selected_date,
+        ).filter(Q(branch=academy.branch) | Q(branch__isnull=True)).exists():
+            continue
         detailed_occurrences = _academy_schedule_occurrences_for_date(academy, selected_date)
         if detailed_occurrences:
             for occ in detailed_occurrences:
@@ -670,6 +706,7 @@ def operation_card_action(request):
 
 @login_required
 def operation_screen(request):
+    active_branch, all_branches = selected_branch(request)
     selected_date = request.GET.get('date')
     if selected_date:
         try:
@@ -684,12 +721,24 @@ def operation_screen(request):
     if selected_period not in PERIOD_SLOT_RANGES:
         selected_period = 'all'
     visible_slot_indexes = list(PERIOD_SLOT_RANGES[selected_period])
-    day_cancelled = OperationDayCancellation.objects.filter(cancel_date=selected_date).exists()
+    cancellation_query = OperationDayCancellation.objects.filter(cancel_date=selected_date)
+    day_cancelled = (
+        cancellation_query.exists()
+        if all_branches
+        else cancellation_query.filter(Q(branch=active_branch) | Q(branch__isnull=True)).exists()
+    )
 
-    academy_occurrences = _academy_occurrences_for_date(selected_date)
+    academy_occurrences = _academy_occurrences_for_date(
+        selected_date, branch=None if all_branches else active_branch
+    )
 
     rows = []
-    for place in OPERATION_SCREEN_PLACES:
+    place_names = list(OPERATION_SCREEN_PLACES)
+    if not all_branches:
+        configured_places = list(active_branch.facilities.values_list('name', flat=True))
+        if configured_places:
+            place_names = configured_places
+    for place in place_names:
         cards = []
         for slot_index in visible_slot_indexes:
             slot_label = SLOT_LABELS[slot_index]
@@ -705,7 +754,10 @@ def operation_screen(request):
                         'original_slot_index': occ['original_slot_index'],
                     })
 
-            for booking in DailyBooking.objects.filter(venue=place, booking_date=selected_date):
+            booking_qs = DailyBooking.objects.filter(venue=place, booking_date=selected_date)
+            if not all_branches:
+                booking_qs = booking_qs.filter(branch=active_branch)
+            for booking in booking_qs:
                 if slot_index in _time_range_indexes(booking.start_time, booking.end_time):
                     entries.append({
                         'label': f'حجز: {booking.customer_name}',
@@ -756,6 +808,8 @@ def operation_screen(request):
         'day_cancelled': day_cancelled,
         'slot_choices': [(i, SLOT_LABELS[i]) for i in visible_slot_indexes],
         'time_choices': TIME_CHOICES,
+        'active_branch': active_branch,
+        'active_branch_is_all': all_branches,
     })
 
 
@@ -904,11 +958,11 @@ def employee_list(request):
 
 @login_required
 def employee_create(request):
+    active_branch, all_branches = selected_branch(request)
     form = EmployeeForm(request.POST or None)
     if form.is_valid():
         employee = form.save(commit=False)
-        active_branch, all_branches = selected_branch(request)
-        if not all_branches:
+        if employee.branch_id is None and not all_branches:
             employee.branch = active_branch
         employee.save()
         return redirect('employee_list')
@@ -1394,7 +1448,9 @@ def _calculate_variable_income_with_operation_changes(academy, year, month):
         current = date(year, month, day_number)
         if not (academy.contract_start_date <= current <= academy.contract_end_date):
             continue
-        if OperationDayCancellation.objects.filter(cancel_date=current).exists():
+        if OperationDayCancellation.objects.filter(cancel_date=current).filter(
+            Q(branch=academy.branch) | Q(branch__isnull=True)
+        ).exists():
             continue
         occs = [o for o in _academy_occurrences_for_date(current) if o['academy'].id == academy.id]
         if academy.variable_rent_type == 'hour':
@@ -1425,7 +1481,9 @@ def _calculate_variable_income_by_facility(academy, year, month):
         current = date(year, month, day_number)
         if not (academy.contract_start_date <= current <= academy.contract_end_date):
             continue
-        if OperationDayCancellation.objects.filter(cancel_date=current).exists():
+        if OperationDayCancellation.objects.filter(cancel_date=current).filter(
+            Q(branch=academy.branch) | Q(branch__isnull=True)
+        ).exists():
             continue
         occs = [o for o in _academy_occurrences_for_date(current) if o['academy'].id == academy.id]
         if academy.variable_rent_type == 'hour':
@@ -1445,7 +1503,7 @@ def _monthly_academy_operation_counts(year, month, academies):
     cancelled_dates = set(
         OperationDayCancellation.objects.filter(
             cancel_date__range=(start, end)
-        ).values_list('cancel_date', flat=True)
+        ).values_list('branch_id', 'cancel_date')
     )
     deleted_overrides = {
         (item.academy_id, item.booking_date, _norm(item.original_place), item.original_slot_index)
@@ -1461,8 +1519,8 @@ def _monthly_academy_operation_counts(year, month, academies):
     for day_number in range(1, monthrange(year, month)[1] + 1):
         current = date(year, month, day_number)
         day_ar = WEEKDAY_AR[current.weekday()]
-        is_cancelled = current in cancelled_dates
         for academy in academies:
+            is_cancelled = (academy.branch_id, current) in cancelled_dates or (None, current) in cancelled_dates
             if not (academy.contract_start_date <= current <= academy.contract_end_date):
                 continue
             day_active_count = 0
@@ -1638,18 +1696,33 @@ def _bonus_for_employee(employee, daily_income_total, cafe_sales_total):
     return total_bonus
 
 
-def _month_financial_summary(year, month, start, end):
-    rent_rows = _academy_rent_rows(year, month, start, end)
+def _month_financial_summary(year, month, start, end, branch=None):
+    rent_rows = _academy_rent_rows(year, month, start, end, branch)
     academy_income = sum(row['expected'] for row in rent_rows)
-    daily_income_total = DailyBookingCheckout.objects.filter(income_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0
-    cafe_sales_total = sum(s.total_amount for s in CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item'))
-    cafe_purchase_total = sum(p.total_amount for p in CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)))
-    monthly_expenses = MonthlyExpense.objects.filter(expense_month__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
-    daily_expenses = DailyExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
-    operating_expenses = OperatingExpense.objects.filter(expense_date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or 0
+    checkout_qs = DailyBookingCheckout.objects.filter(income_date__range=(start, end))
+    sale_qs = CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item')
+    purchase_qs = CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)).select_related('item')
+    monthly_qs = MonthlyExpense.objects.filter(expense_month__range=(start, end))
+    daily_qs = DailyExpense.objects.filter(expense_date__range=(start, end))
+    operating_qs = OperatingExpense.objects.filter(expense_date__range=(start, end))
+    employee_qs = Employee.objects.all()
+    if branch is not None:
+        checkout_qs = checkout_qs.filter(booking__branch=branch)
+        sale_qs = sale_qs.filter(item__branch=branch)
+        purchase_qs = purchase_qs.filter(item__branch=branch)
+        monthly_qs = monthly_qs.filter(branch=branch)
+        daily_qs = daily_qs.filter(branch=branch)
+        operating_qs = operating_qs.filter(branch=branch)
+        employee_qs = employee_qs.filter(branch=branch)
+    daily_income_total = checkout_qs.aggregate(total=Sum('total_amount'))['total'] or 0
+    cafe_sales_total = sum(s.total_amount for s in sale_qs)
+    cafe_purchase_total = sum(p.total_amount for p in purchase_qs)
+    monthly_expenses = monthly_qs.aggregate(total=Sum('amount'))['total'] or 0
+    daily_expenses = daily_qs.aggregate(total=Sum('amount'))['total'] or 0
+    operating_expenses = operating_qs.aggregate(total=Sum('amount'))['total'] or 0
     payroll_rows = []
     payroll_total = 0
-    for employee in Employee.objects.all().order_by('name'):
+    for employee in employee_qs.order_by('name'):
         bonus = _bonus_for_employee(employee, int(daily_income_total or 0), int(cafe_sales_total or 0))
         total = int(employee.salary or 0) + bonus
         payroll_total += total
@@ -2420,7 +2493,10 @@ def accounts_home(request):
         messages.error(request, 'ليس لديك صلاحية الحسابات.')
         return redirect('dashboard')
     year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
-    summary = _month_financial_summary(year, month, start, end) if can_view_financial_summary else None
+    active_branch, all_branches = selected_branch(request)
+    summary = _month_financial_summary(
+        year, month, start, end, None if all_branches else active_branch
+    ) if can_view_financial_summary else None
     shareholder_rows = []
     if summary:
         shareholder_rows = [
@@ -2448,6 +2524,8 @@ def accounts_home(request):
         'signature_name': signature_names[0] if signature_names else '',
         'employee_names_by_title': employee_names_by_title,
         'print_date': date.today(),
+        'active_branch': active_branch,
+        'active_branch_is_all': all_branches,
     })
 
 
@@ -2783,11 +2861,14 @@ def academy_rent_payments(request):
             payment.save()
         messages.success(request, 'تم حفظ سدادات وتوريدات إيجارات الأكاديميات.')
         return redirect(f"{request.path}?month={month_value}")
+    booking_income_qs = DailyBookingCheckout.objects.filter(income_date__range=(start, end))
+    if not all_branches:
+        booking_income_qs = booking_income_qs.filter(booking__branch=active_branch)
     totals = {
         'expected': sum(row['expected'] for row in rows),
         'paid': sum(row['paid'] for row in rows),
         'ball_field_paid': sum(row['paid'] for row in rows if row['is_ball_field_academy']),
-        'daily_booking_income': DailyBookingCheckout.objects.filter(income_date__range=(start, end)).aggregate(total=Sum('total_amount'))['total'] or 0,
+        'daily_booking_income': booking_income_qs.aggregate(total=Sum('total_amount'))['total'] or 0,
         'remaining': sum(row['remaining'] for row in rows),
         'supplied': sum(row['supplied'] for row in rows),
         'unsupplied': sum(row['unsupplied'] for row in rows),
@@ -2808,6 +2889,8 @@ def academy_rent_payments(request):
         'deposit_rows': deposit_rows,
         'deposit_totals': deposit_totals,
         'month_value': month_value,
+        'active_branch': active_branch,
+        'active_branch_is_all': all_branches,
     })
 
 

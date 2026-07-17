@@ -6,12 +6,12 @@
 </div>
 <form class="mb-3 row g-2 align-items-end">
   <div class="col-lg-7"><label class="form-label fw-bold">البحث</label><input class="form-control search-box" name="q" value="{{ q }}" placeholder="بحث بالاسم أو النشاط أو المدير"></div>
-  <div class="col-lg-3"><label class="form-label fw-bold">العام التدريبي</label><select class="form-select text-center" name="training_year" dir="ltr" onchange="this.form.submit()">{% for value, label in training_year_choices %}<option value="{{ value }}" {% if training_year == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-lg-3"><label class="form-label fw-bold">العام التدريبي</label><select class="form-select text-center academy-year-select" name="training_year" dir="ltr" onchange="this.form.submit()">{% for value, label in training_year_choices %}<option value="{{ value }}" {% if training_year == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
   <div class="col-lg-2"><button class="btn btn-primary w-100">بحث</button></div>
 </form>
 <div class="card p-3">
   <div class="table-responsive">
-    <table class="table table-hover align-middle">
+    <table class="table table-hover align-middle academy-list-table">
       <thead><tr><th>الأكاديمية</th><th>النشاط</th><th>الشركة</th><th>المدير</th><th>الهاتف</th><th>نهاية التعاقد</th><th>البيانات</th><th></th></tr></thead>
       <tbody>
         {% for a in academies %}
@@ -33,4 +33,10 @@
     </table>
   </div>
 </div>
+<style>
+.academy-year-select{padding-left:2.5rem!important;padding-right:1rem!important;background-position:left .75rem center!important}
+.academy-list-table{min-width:1420px}
+.academy-list-table th,.academy-list-table td{white-space:nowrap;vertical-align:middle}
+.academy-list-table td:nth-child(7),.academy-list-table td:last-child{min-width:285px}
+</style>
 {% endblock %}

@@ -879,7 +879,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, '2099 - 2100')
         self.assertEqual(response.context['training_year'], '2099-2100')
         self.assertEqual(self.client.session['training_year'], '2099-2100')
-        self.assertContains(response, 'المدربين والإداريين')
+        self.assertNotContains(response, academy.name)
         self.assertNotContains(response, '>المدربين<')
 
         cards_url = reverse('academy_id_cards')

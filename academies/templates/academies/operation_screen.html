@@ -6,6 +6,10 @@
     <div class="text-muted">اليوم: {{ selected_day_ar }}</div>
   </div>
   <form class="d-flex gap-2 flex-wrap operation-toolbar-form" method="get">
+    <select class="form-select operation-filter-branch" name="branch_id">
+      <option value="all" {% if active_branch_is_all %}selected{% endif %}>كل الفروع</option>
+      {% for branch in available_branches %}<option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>{% endfor %}
+    </select>
     <input type="date" class="form-control operation-filter-date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
     <select class="form-select operation-filter-period" name="period">
       {% for value, label in period_choices %}
@@ -22,19 +26,20 @@
 .operation-toolbar-form{align-items:center}
 .operation-filter-date{width:175px!important;min-width:175px!important;flex:0 0 175px!important}
 .operation-filter-period{width:310px!important;min-width:310px!important;flex:0 0 310px!important}
-@media(max-width:768px){.operation-filter-date,.operation-filter-period{width:100%!important;min-width:100%!important;flex-basis:100%!important}}
+.operation-filter-branch{width:285px!important;min-width:285px!important;flex:0 0 285px!important}
+.sticky-place{width:190px!important;min-width:190px!important;max-width:190px!important;white-space:normal!important;line-height:1.45!important}
+.operation-place-label{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.45}
+@media(max-width:768px){.operation-filter-date,.operation-filter-period,.operation-filter-branch{width:100%!important;min-width:100%!important;flex-basis:100%!important}}
 </style>
 <form id="cancelDayForm" method="post" action="{% url 'cancel_operation_day' %}" style="display:none">
   {% csrf_token %}
   <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
   <input type="hidden" name="period" value="{{ selected_period }}">
+  <input type="hidden" name="branch_id" value="{% if active_branch_is_all %}all{% elif active_branch %}{{ active_branch.pk }}{% endif %}">
 </form>
 {% if day_cancelled %}
   <div class="alert alert-warning">تم إلغاء حجوزات هذا اليوم، لذلك لا تظهر حجوزات الأكاديميات في شاشة التشغيل ولا يتم احتسابها في الدخل المتغير.</div>
 {% endif %}
-<div class="alert alert-info">
-  كل كارت يمثل فترة نصف ساعة. اللون الأخضر لحجوزات الأكاديميات، واللون الأزرق للحجز اليومي قبل Checkout، واللون الأحمر للحجز اليومي بعد Checkout، واللون الأبيض يعني أن الفترة متاحة.
-</div>
 <div id="selectedSlotsBar" class="alert alert-primary d-none align-items-center justify-content-between gap-2 flex-wrap">
   <span>تم تحديد <strong id="selectedSlotsCount">0</strong> فترة. اترك زر Ctrl أو اضغط الزر لإضافة الحجز.</span>
   <div><button type="button" class="btn btn-success" onclick="openSelectedAvailableSlots()">إضافة حجز للفترات المحددة</button> <button type="button" class="btn btn-outline-secondary" onclick="clearAvailableSelection()">إلغاء التحديد</button></div>
@@ -44,7 +49,7 @@
     <tbody>
       {% for row in rows %}
         <tr>
-          <th style="width:190px" class="table-light fs-5 sticky-place">{{ row.place }}</th>
+          <th style="width:190px" class="table-light fs-5 sticky-place"><span class="operation-place-label">{{ row.place }}</span></th>
           {% for card in row.cards %}
             <td class="operation-slot-cell">
               <div class="operation-card {{ card.card_class }}"

@@ -23,9 +23,10 @@
       <input type="month" name="month" value="{{ month_value }}" class="form-control">
     </div>
     <div class="col-md-4">
-      <label class="form-label fw-bold">التوقيع</label>
-      <select id="accountsSignatureSelector" name="signature_title" class="form-select" onchange="updateAccountsSignature()">
-        {% for title in signature_titles %}<option value="{{ title }}" {% if signature_title == title %}selected{% endif %}>{{ title }}</option>{% empty %}<option value="التوقيع">لا توجد وظائف مسجلة</option>{% endfor %}
+      <label class="form-label fw-bold">الفرع</label>
+      <select name="branch_id" class="form-select">
+        <option value="all" {% if active_branch_is_all %}selected{% endif %}>كل الفروع</option>
+        {% for branch in available_branches %}<option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>{% endfor %}
       </select>
     </div>
     <div class="col-md-3"><button class="btn btn-primary w-100">عرض</button></div>
@@ -95,6 +96,7 @@
 const accountsEmployeeNames=JSON.parse(document.getElementById('accountsEmployeeNames').textContent||'{}');
 function updateAccountsSignature(){
   const selector=document.getElementById('accountsSignatureSelector');
+  if(!selector) return;
   const title=selector.options[selector.selectedIndex].text;
   const names=accountsEmployeeNames[selector.value]||[];
   document.getElementById('accountsSignatureTitle').textContent=title;

@@ -10,6 +10,13 @@
       <label class="form-label fw-bold">الشهر</label>
       <input type="month" name="month" value="{{ month_value }}" class="form-control">
     </div>
+    <div class="col-md-4">
+      <label class="form-label fw-bold">الفرع</label>
+      <select name="branch_id" class="form-select">
+        <option value="all" {% if active_branch_is_all %}selected{% endif %}>كل الفروع</option>
+        {% for branch in available_branches %}<option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>{% endfor %}
+      </select>
+    </div>
     <div class="col-md-3">
       <button class="btn btn-primary w-100">عرض</button>
     </div>

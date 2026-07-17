@@ -160,7 +160,7 @@ class CafeteriaSaleAdmin(admin.ModelAdmin):
 
 @admin.register(OperationDayCancellation)
 class OperationDayCancellationAdmin(admin.ModelAdmin):
-    list_display = ('cancel_date', 'created_at')
+    list_display = ('cancel_date', 'branch', 'created_at')
 
 
 @admin.register(AcademyOperationOverride)

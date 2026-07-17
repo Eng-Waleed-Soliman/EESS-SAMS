@@ -27,18 +27,6 @@
         {% if app_settings and app_settings.company_logo %}<img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
         <h5 class="text-white p-3 border-bottom">{% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</h5>
       </div>
-      {% if request.user.is_authenticated and not is_cafeteria_specialist %}
-      <form class="sidebar-context" method="get" action="{% url 'dashboard' %}">
-        <label>سياق العمل</label>
-        <select name="branch_id" class="form-select form-select-sm" onchange="this.form.submit()">
-          <option value="all" {% if active_branch_is_all %}selected{% endif %}>كل الفروع</option>
-          {% for branch in available_branches %}
-          <option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>
-          {% endfor %}
-        </select>
-        <input type="hidden" name="training_year" value="{{ training_year }}">
-      </form>
-      {% endif %}
       {% if is_cafeteria_specialist %}
       <a href="{% url 'cafe_sale_list' %}">الكافيتريا - البيع</a>
       <a href="{% url 'cafe_menu' %}">المنيو</a>
