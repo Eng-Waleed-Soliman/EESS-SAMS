@@ -7,7 +7,7 @@
     <button type="button" class="btn btn-outline-primary" onclick="printVoucherRegister(false)">طباعة</button>
     <a class="btn btn-success" href="{% url 'financial_voucher_create' 'disbursement' %}">أمر صرف مبلغ مالي</a>
     <a class="btn btn-info" href="{% url 'financial_voucher_create' 'supply' %}">أمر توريد مبلغ مالي</a>
-    <a class="btn btn-secondary" href="{% url 'reports_home' %}">رجوع للتقارير</a>
+    <a class="btn btn-secondary" href="{% url 'accounts_home' %}">رجوع للحسابات</a>
   </div>
 </div>
 <div class="card p-3 mb-4">
@@ -45,7 +45,7 @@
 .voucher-register-header{position:relative;min-height:120px;border-bottom:2px solid #2563eb;margin-bottom:20px;padding-bottom:12px}
 .voucher-register-brand{position:absolute;left:0;top:0;width:220px;text-align:center;direction:ltr;font-size:12px;line-height:1.45;font-weight:700}.voucher-register-brand img{display:block;max-width:75px;max-height:68px;object-fit:contain;margin:0 auto 5px}.voucher-register-brand .brand-ar{direction:rtl}
 .voucher-register-heading{text-align:center;padding:22px 235px 0;direction:rtl}.voucher-register-heading h2{font-size:29px;font-weight:900;margin-bottom:8px}
-.voucher-register-footer{display:flex;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:35px;min-height:110px}.register-signature{direction:rtl;width:270px;text-align:center;line-height:1.8}.register-signature-name{font-weight:700;margin-top:3px}.register-signature .signature-line{border-top:1px solid #64748b;margin-top:15px;padding-top:8px}.register-print-date{direction:rtl;color:#475569;font-size:13px}
+.voucher-register-footer{display:flex;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:35px;min-height:110px}.register-signature{direction:rtl;width:270px;text-align:center;line-height:1.8}.register-signature>div{width:100%;text-align:center;white-space:nowrap}.register-signature-name{font-weight:700;margin-top:3px}.register-signature .signature-line{margin-top:15px;padding-top:8px}.register-print-date{direction:rtl;color:#475569;font-size:13px}
 @media print{@page{size:A4 landscape;margin:8mm}.sidebar,.no-print,body>nav,.content>div:not(.voucher-register-sheet),.content>section:not(.voucher-register-sheet),main>div:not(.voucher-register-sheet),main>section:not(.voucher-register-sheet){display:none!important}body{background:#fff!important}.content,main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}.voucher-register-sheet{display:block!important;border:0!important;box-shadow:none!important;padding:0!important;width:100%!important}.voucher-register-header{min-height:100px}.voucher-register-brand{width:200px}.voucher-register-heading{padding:18px 220px 0}.voucher-register-heading h2{font-size:25px}.voucher-register-sheet .table-responsive{overflow:visible!important}.voucher-register-sheet table{width:100%!important;font-size:11px!important}.voucher-register-sheet th,.voucher-register-sheet td{padding:6px 4px!important;border:1px solid #cbd5e1!important}.voucher-register-sheet a.btn{display:none!important}.voucher-register-footer{display:flex!important}}
 </style>
 {{ employee_names_by_title|json_script:"registerEmployeeNames" }}

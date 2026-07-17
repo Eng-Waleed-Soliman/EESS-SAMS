@@ -143,13 +143,21 @@ class ApplicationFlowsTests(TestCase):
         today = date.today()
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_reports = True
+        profile.can_accounts = True
         profile.save()
         JobTitle.objects.create(name='المدير المالي')
         signer = Employee.objects.create(name='أحمد محمود', job_title='المدير المالي')
 
         reports_response = self.client.get(reverse('reports_home'))
-        self.assertContains(reports_response, reverse('financial_voucher_create', args=['disbursement']))
-        self.assertContains(reports_response, reverse('financial_voucher_create', args=['supply']))
+        self.assertNotContains(reports_response, reverse('financial_voucher_create', args=['disbursement']))
+        self.assertNotContains(reports_response, reverse('financial_voucher_create', args=['supply']))
+        accounts_response = self.client.get(reverse('accounts_home'))
+        self.assertContains(accounts_response, reverse('financial_voucher_create', args=['disbursement']))
+        self.assertContains(accounts_response, reverse('financial_voucher_create', args=['supply']))
+        self.assertContains(accounts_response, reverse('financial_voucher_list'))
+        self.assertContains(accounts_response, 'accountsSignatureSelector')
+        self.assertContains(accounts_response, 'accountsSignatureName')
+        self.assertContains(accounts_response, 'طباعة')
 
         disbursement_url = reverse('financial_voucher_create', args=['disbursement'])
         create_screen = self.client.get(disbursement_url)
@@ -178,7 +186,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, voucher.amount_in_words)
         self.assertContains(detail, WEEKDAY_AR[today.weekday()])
         self.assertContains(detail, 'المدير المالي')
-        self.assertContains(detail, signer.name)
+        self.assertContains(detail, 'ـ')
         self.assertContains(detail, 'تم صرف')
         self.assertContains(detail, 'المبلغ المالي الموضح أدناه اليوم')
         self.assertContains(detail, '@page{size:A5 portrait')
@@ -208,6 +216,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(list_response, 'registerSignatureName')
         self.assertContains(list_response, 'registerEmployeeNames')
         self.assertContains(list_response, 'voucher-register-toolbar')
+        self.assertContains(list_response, 'رجوع للحسابات')
         self.assertContains(list_response, 'تصدير PDF')
         self.assertContains(list_response, signer.name)
 

@@ -1,24 +1,46 @@
 {% extends 'academies/base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
   <h3>الحسابات</h3>
-  <div class="btn-row">
+  <div class="btn-row d-flex gap-2 flex-wrap">
+    {% if can_manage_vouchers %}
+    <a class="btn btn-success" href="{% url 'financial_voucher_create' 'disbursement' %}">أمر صرف مبلغ مالي</a>
+    <a class="btn btn-info" href="{% url 'financial_voucher_create' 'supply' %}">أمر توريد مبلغ مالي</a>
+    <a class="btn btn-outline-secondary" href="{% url 'financial_voucher_list' %}">سجل أوامر الصرف والتوريد</a>
+    {% endif %}
     {% if can_view_expenses %}<a class="btn btn-primary" href="{% url 'general_expenses_home' %}">المصروفات العامة</a>{% endif %}
     {% if can_view_financial_summary %}
-    <button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button>
+    <button type="button" class="btn btn-danger" onclick="printAccounts(true)">تصدير PDF</button>
+    <button type="button" class="btn btn-outline-primary" onclick="printAccounts(false)">طباعة</button>
     {% endif %}
   </div>
 </div>
 {% if can_view_financial_summary %}
-<div class="card p-3 mb-4">
+<div class="card p-3 mb-4 no-print">
   <form class="row g-3 align-items-end" method="get">
     <div class="col-md-4">
       <label class="form-label fw-bold">الشهر</label>
       <input type="month" name="month" value="{{ month_value }}" class="form-control">
     </div>
+    <div class="col-md-4">
+      <label class="form-label fw-bold">التوقيع</label>
+      <select id="accountsSignatureSelector" name="signature_title" class="form-select" onchange="updateAccountsSignature()">
+        {% for title in signature_titles %}<option value="{{ title }}" {% if signature_title == title %}selected{% endif %}>{{ title }}</option>{% empty %}<option value="التوقيع">لا توجد وظائف مسجلة</option>{% endfor %}
+      </select>
+    </div>
     <div class="col-md-3"><button class="btn btn-primary w-100">عرض</button></div>
   </form>
 </div>
+<header class="accounts-print-header">
+  <div class="accounts-print-brand">
+    {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
+    <div>{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
+    <div class="brand-ar">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</div>
+  </div>
+  <h1>تقرير الحسابات</h1>
+  <div>عن شهر {{ month_value }}</div>
+</header>
+<section class="accounts-print-content">
 <div class="row g-3 mb-4">
   <div class="col-md-3"><div class="card p-3"><b>إجمالي الدخل الشهري</b><h3>{{ summary.gross_income }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>دخل الأكاديميات</b><h3>{{ summary.academy_income }}</h3></div></div>
@@ -37,5 +59,54 @@
   <h4>توزيع الأرباح على المساهمين</h4>
   <table class="table table-striped text-center"><thead><tr><th>المساهم</th><th>النسبة</th><th>النصيب من صافي الربح</th></tr></thead><tbody>{% for row in shareholder_rows %}<tr><td>{{ row.shareholder.name }}</td><td>{{ row.shareholder.share_percentage }}%</td><td>{{ row.profit_share }}</td></tr>{% empty %}<tr><td colspan="3">لا توجد بيانات مساهمين</td></tr>{% endfor %}</tbody></table>
 </div>
+</section>
+<footer class="accounts-print-footer">
+  <div class="accounts-signature">
+    <div id="accountsSignatureTitle" class="signature-title">{{ signature_title }}</div>
+    <div id="accountsSignatureName" class="signature-name">{{ signature_name|default:'-' }}</div>
+    <div class="signature-placeholder">التوقيع: ....................................</div>
+  </div>
+  <div>تاريخ الطباعة: {{ print_date|date:'d/m/Y' }}</div>
+</footer>
+{{ employee_names_by_title|json_script:"accountsEmployeeNames" }}
+<style>
+.accounts-print-header,.accounts-print-footer{display:none}
+.accounts-signature{width:280px;text-align:center;direction:rtl}
+.accounts-signature .signature-title,.accounts-signature .signature-name{display:block;width:100%;font-weight:800;text-align:center;white-space:nowrap}
+.accounts-signature .signature-name{margin-top:5px}
+.accounts-signature .signature-placeholder{margin-top:12px}
+@media print{
+  @page{size:A4 portrait;margin:10mm}
+  .sidebar,.no-print,body>nav{display:none!important}
+  body{background:#fff!important;color:#111!important}
+  main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
+  .accounts-print-header{display:block!important;position:relative;min-height:100px;border-bottom:2px solid #2563eb;margin-bottom:12px;text-align:center}
+  .accounts-print-header h1{font-size:25px;font-weight:900;margin:0;padding-top:12px}
+  .accounts-print-brand{position:absolute;left:0;top:0;width:210px;text-align:center;direction:ltr;font-size:11px;font-weight:700}
+  .accounts-print-brand img{display:block;max-width:70px;max-height:58px;object-fit:contain;margin:0 auto 3px}
+  .accounts-print-brand .brand-ar{direction:rtl}
+  .accounts-print-content .card{box-shadow:none!important;border:1px solid #cbd5e1!important;break-inside:avoid}
+  .accounts-print-content .row .card{text-align:center}
+  .accounts-print-footer{display:flex!important;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:25px;min-height:105px;font-size:12px}
+  .accounts-signature{direction:rtl}
+}
+</style>
+<script>
+const accountsEmployeeNames=JSON.parse(document.getElementById('accountsEmployeeNames').textContent||'{}');
+function updateAccountsSignature(){
+  const selector=document.getElementById('accountsSignatureSelector');
+  const title=selector.options[selector.selectedIndex].text;
+  const names=accountsEmployeeNames[selector.value]||[];
+  document.getElementById('accountsSignatureTitle').textContent=title;
+  document.getElementById('accountsSignatureName').textContent=names[0]||'-';
+}
+function printAccounts(asPdf){
+  updateAccountsSignature();
+  const oldTitle=document.title;
+  if(asPdf){document.title='تقرير الحسابات - {{ month_value|escapejs }}';}
+  window.print();
+  window.setTimeout(function(){document.title=oldTitle;},500);
+}
+</script>
 {% endif %}
 {% endblock %}

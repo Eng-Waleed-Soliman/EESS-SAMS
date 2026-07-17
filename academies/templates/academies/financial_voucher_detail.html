@@ -38,7 +38,7 @@
   <footer class="voucher-footer">
     <div class="voucher-signature">
       <div class="signature-title">{{ voucher.signature_title }}</div>
-      <div class="signature-name">{{ voucher.signer_name|default:'-' }}</div>
+      <div class="signature-name">{{ signature_display_name|default:'-' }}</div>
       <div class="signature-space">التوقيع: ................................</div>
     </div>
     <div class="voucher-meta">
@@ -56,7 +56,7 @@
 .voucher-heading{direction:rtl;text-align:center;padding-top:8mm;align-self:start}.voucher-heading h1{font-size:21px;font-weight:900;line-height:1.35;margin:0;white-space:nowrap}
 .voucher-date-line{text-align:center;font-size:13px;line-height:1.8;margin:6mm 0;padding:3mm 2mm;background:#f1f5f9;border-radius:6px}
 .voucher-row{display:grid;grid-template-columns:34mm 1fr;border:1px solid #cbd5e1;border-bottom:0;min-height:13mm}.voucher-row:last-child{border-bottom:1px solid #cbd5e1}.voucher-label{background:#e8eef7;font-weight:800;padding:3.5mm 3mm}.voucher-value{padding:3.5mm 3mm;font-size:12.5px}.amount-number{font-size:16px;font-weight:900}.amount-words{font-weight:800}.statement-row{min-height:28mm}
-.voucher-footer{display:flex;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:10mm}.voucher-signature{direction:rtl;width:48mm;text-align:center}.signature-title{font-size:13px;font-weight:900;margin-bottom:2mm}.signature-name{font-size:12px;font-weight:800;margin-bottom:6mm;min-height:5mm}.signature-space{border-top:1px solid #64748b;padding-top:3mm}.voucher-meta{direction:rtl;text-align:right;font-size:9px;line-height:1.8;color:#475569}
+.voucher-footer{display:flex;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:10mm}.voucher-signature{direction:rtl;width:48mm;text-align:center}.voucher-signature>div{width:100%;text-align:center;white-space:nowrap}.signature-title{font-size:13px;font-weight:900;margin-bottom:2mm}.signature-name{font-size:12px;font-weight:800;margin-bottom:6mm;min-height:5mm}.signature-space{padding-top:3mm}.voucher-meta{direction:rtl;text-align:right;font-size:9px;line-height:1.8;color:#475569}
 @media(max-width:620px){.financial-voucher-sheet{width:100%;padding:7mm}.voucher-heading h1{font-size:18px}.voucher-number{font-size:9px}}
 @page{size:A5 portrait;margin:0}
 @media print{.sidebar,.no-print,body>nav{display:none!important}html,body{width:148mm!important;height:208mm!important;margin:0!important;background:#fff!important;overflow:hidden!important}body>.container-fluid{width:148mm!important;height:208mm!important;margin:0!important;padding:0!important;overflow:hidden!important}body>.container-fluid>.row{width:148mm!important;height:208mm!important;margin:0!important;padding:0!important}.content,main.content,main.container-fluid{margin:0!important;padding:0!important;width:148mm!important;height:208mm!important;max-width:none!important;overflow:hidden!important}.financial-voucher-sheet{width:148mm!important;max-width:none!important;min-height:207mm!important;height:207mm!important;margin:0!important;padding:9mm!important;border:0!important;border-top-width:4px!important;border-top-style:solid!important;border-radius:0!important;box-shadow:none!important;overflow:hidden}.voucher-header{min-height:32mm}.voucher-footer{margin-top:9mm}}

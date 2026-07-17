@@ -1838,9 +1838,13 @@ def reports_home(request):
 
 
 def _voucher_access_or_redirect(request):
-    if _can_access_reports(request.user):
+    profile = _ensure_user_profile(request.user)
+    if (
+        request.user.is_superuser or request.user.is_staff or
+        profile.can_accounts
+    ):
         return None
-    messages.error(request, 'ليس لديك صلاحية إدارة أوامر الصرف والتوريد.')
+    messages.error(request, 'ليس لديك صلاحية الحسابات لإدارة أوامر الصرف والتوريد.')
     return redirect('dashboard')
 
 
@@ -1855,6 +1859,28 @@ def _voucher_employee_names_by_title():
     for employee in Employee.objects.exclude(job_title='').order_by('name'):
         names_by_title.setdefault(employee.job_title, []).append(employee.name)
     return names_by_title
+
+
+def _aligned_signature_name(job_title, employee_name):
+    """Stretch the second name with Arabic tatweel to align with the job title."""
+    job_title = (job_title or '').strip()
+    employee_name = (employee_name or '').strip()
+    missing = max(len(job_title) - len(employee_name), 0)
+    if not employee_name or not missing:
+        return employee_name
+    parts = employee_name.split()
+    target_index = 1 if len(parts) > 1 else 0
+    target = parts[target_index]
+    insert_at = max(1, len(target) // 2)
+    parts[target_index] = target[:insert_at] + ('ـ' * missing) + target[insert_at:]
+    return ' '.join(parts)
+
+
+def _voucher_aligned_employee_names_by_title():
+    return {
+        title: [_aligned_signature_name(title, name) for name in names]
+        for title, names in _voucher_employee_names_by_title().items()
+    }
 
 
 @login_required
@@ -1872,7 +1898,7 @@ def financial_voucher_list(request):
         'مدير التشغيل' if 'مدير التشغيل' in signature_titles
         else (signature_titles[0] if signature_titles else 'التوقيع')
     )
-    employee_names_by_title = _voucher_employee_names_by_title()
+    employee_names_by_title = _voucher_aligned_employee_names_by_title()
     signature_names = employee_names_by_title.get(signature_title, [])
     return render(request, 'academies/financial_voucher_list.html', {
         'vouchers': vouchers,
@@ -1943,6 +1969,7 @@ def financial_voucher_detail(request, pk):
     voucher = get_object_or_404(FinancialVoucher.objects.select_related('created_by'), pk=pk)
     return render(request, 'academies/financial_voucher_detail.html', {
         'voucher': voucher,
+        'signature_display_name': _aligned_signature_name(voucher.signature_title, voucher.signer_name),
         'print_date': date.today(),
         'auto_print': request.GET.get('auto_print') == '1',
         'print_as_pdf': request.GET.get('pdf') == '1',
@@ -2243,6 +2270,9 @@ def accounts_home(request):
     can_view_expenses = bool(
         request.user.is_superuser or request.user.is_staff or profile.can_general_expenses
     )
+    can_manage_vouchers = bool(
+        request.user.is_superuser or request.user.is_staff or profile.can_accounts
+    )
     if not (can_view_financial_summary or can_view_expenses):
         messages.error(request, 'ليس لديك صلاحية الحسابات.')
         return redirect('dashboard')
@@ -2254,6 +2284,14 @@ def accounts_home(request):
             {'shareholder': sh, 'profit_share': int(summary['net_profit'] * sh.share_percentage / 100)}
             for sh in Shareholder.objects.all()
         ]
+    signature_titles = _voucher_signature_titles()
+    requested_signature = request.GET.get('signature_title', '').strip()
+    signature_title = requested_signature if requested_signature in signature_titles else (
+        'مدير التشغيل' if 'مدير التشغيل' in signature_titles
+        else (signature_titles[0] if signature_titles else 'التوقيع')
+    )
+    employee_names_by_title = _voucher_aligned_employee_names_by_title()
+    signature_names = employee_names_by_title.get(signature_title, [])
     return render(request, 'academies/accounts_home.html', {
         'month_value': month_value,
         'summary': summary,
@@ -2261,6 +2299,12 @@ def accounts_home(request):
         'shareholder_rows': shareholder_rows,
         'can_view_financial_summary': can_view_financial_summary,
         'can_view_expenses': can_view_expenses,
+        'can_manage_vouchers': can_manage_vouchers,
+        'signature_titles': signature_titles,
+        'signature_title': signature_title,
+        'signature_name': signature_names[0] if signature_names else '',
+        'employee_names_by_title': employee_names_by_title,
+        'print_date': date.today(),
     })
 
 
