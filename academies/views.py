@@ -1,4 +1,5 @@
 import json
+import re
 from io import BytesIO
 from calendar import monthrange
 from decimal import Decimal
@@ -16,6 +17,31 @@ from .models import Academy, DailyBooking, Customer, OperationDayCancellation, A
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
+
+
+TRAINING_YEAR_CHOICES = [
+    (f'{year}-{year + 1}', f'{year} - {year + 1}')
+    for year in range(2026, 2100)
+]
+
+
+def _selected_training_year(request):
+    valid_values = {value for value, _ in TRAINING_YEAR_CHOICES}
+    requested = (request.GET.get('training_year') or '').strip()
+    if requested in valid_values:
+        request.session['training_year'] = requested
+        return requested
+    saved = request.session.get('training_year')
+    if saved in valid_values:
+        return saved
+    return TRAINING_YEAR_CHOICES[0][0]
+
+
+def _company_short_name(company_name):
+    words = re.findall(r'[A-Za-z0-9]+', company_name or '')
+    if words:
+        return ''.join(word[0].upper() for word in words[:6])
+    return 'EESS'
 
 
 def _can_manage_users(user):
@@ -40,7 +66,7 @@ REPORT_PERMISSION_FIELDS = {
 }
 
 SIDEBAR_PERMISSION_MODULES = [
-    {'key': 'academies', 'field': 'can_academies', 'label': 'الأكاديميات', 'buttons': ['إضافة أكاديمية', 'تعديل أكاديمية', 'حذف أكاديمية', 'المدربين', 'الإداريين', 'اللاعبين']},
+    {'key': 'academies', 'field': 'can_academies', 'label': 'الأكاديميات', 'buttons': ['إضافة أكاديمية', 'تعديل أكاديمية', 'حذف أكاديمية', 'المدربين والإداريين', 'اللاعبين', 'كروت التعارف']},
     {'key': 'daily_booking', 'field': 'can_daily_booking', 'label': 'الحجز اليومي', 'buttons': ['إضافة حجز', 'تعديل حجز', 'حذف حجز', 'Checkout', 'إلغاء يوم تشغيل']},
     {'key': 'academy_rent', 'field': 'can_academy_rent', 'label': 'إيجارات الأكاديميات', 'buttons': ['عرض', 'تعديل المسدد', 'تعديل التوريد للشركة', 'تصدير PDF']},
     {'key': 'operation', 'field': 'can_operation', 'label': 'التشغيل', 'buttons': ['تعديل موعد', 'حذف من التشغيل', 'نقل مكان التدريب', 'إرجاع للحالة الأصلية']},
@@ -173,18 +199,26 @@ def dashboard(request):
 @login_required
 def academy_list(request):
     q = request.GET.get('q', '').strip()
+    training_year = _selected_training_year(request)
     academies = Academy.objects.all()
     if q:
-        academies = (Academy.objects.filter(name__icontains=q) |
-                     Academy.objects.filter(sport_activity__icontains=q) |
-                     Academy.objects.filter(manager_name__icontains=q) |
-                     Academy.objects.filter(operation_place__icontains=q))
-    return render(request, 'academies/academy_list.html', {'academies': academies, 'q': q})
+        academies = academies.filter(
+            Q(name__icontains=q)
+            | Q(sport_activity__icontains=q)
+            | Q(manager_name__icontains=q)
+            | Q(operation_place__icontains=q)
+        )
+    return render(request, 'academies/academy_list.html', {
+        'academies': academies,
+        'q': q,
+        'training_year_choices': TRAINING_YEAR_CHOICES,
+        'training_year': training_year,
+    })
 
 
 @login_required
 def academy_create(request):
-    form = AcademyForm(request.POST or None)
+    form = AcademyForm(request.POST or None, request.FILES or None)
     if form.is_valid():
         form.save()
         return redirect('academy_list')
@@ -203,7 +237,7 @@ def academy_update(request, pk):
         'extra_training_place': academy.extra_training_place,
         'extra_training_hours': academy.extra_training_hours,
     }
-    form = AcademyForm(request.POST or None, instance=academy)
+    form = AcademyForm(request.POST or None, request.FILES or None, instance=academy)
     if form.is_valid():
         academy = form.save()
         new_schedule = {
@@ -2037,11 +2071,13 @@ def reports_home_v2(request):
 
     report_titles = dict(REPORT_TYPE_OPTIONS)
     section_choices = {
-        'academies': {'summary', 'coach', 'admin', 'player'},
+        'academies': {'summary', 'staff', 'player'},
         'monthly_income': {'summary', 'expected', 'paid', 'supplied'},
         'expenses': {'summary', 'monthly', 'daily'},
         'cafeteria': {'summary', 'inventory', 'statistics'},
     }
+    if report_type == 'academies' and requested_section in {'coach', 'admin'}:
+        requested_section = 'staff'
     section = requested_section if requested_section in section_choices.get(report_type, {'summary'}) else 'summary'
     signature_titles = list(
         Employee.objects.exclude(job_title='')
@@ -2101,7 +2137,11 @@ def reports_home_v2(request):
                 'academy': selected_academy,
                 'subscription_label': subscription_labels.get(selected_academy.subscription_type, selected_academy.subscription_type),
             }
-            if section in {'coach', 'admin', 'player'}:
+            if section == 'staff':
+                context['academy_members'] = selected_academy.members.filter(
+                    role__in=[AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN]
+                ).order_by('role', 'name')
+            elif section == 'player':
                 context['academy_members'] = selected_academy.members.filter(role=section).order_by('name')
 
     elif report_type == 'monthly_income':
@@ -2484,8 +2524,11 @@ def academy_member_list(request, academy_id):
     academy = get_object_or_404(Academy, pk=academy_id)
     role = request.GET.get('role', '').strip()
     members = academy.members.all()
-    role_labels = dict(AcademyMember.ROLE_CHOICES)
-    if role in role_labels:
+    if role in {AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN}:
+        role = 'staff'
+    if role == 'staff':
+        members = members.filter(role__in=[AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN])
+    elif role == AcademyMember.ROLE_PLAYER:
         members = members.filter(role=role)
     else:
         role = ''
@@ -2493,9 +2536,8 @@ def academy_member_list(request, academy_id):
         'academy': academy,
         'members': members,
         'role': role,
-        'role_choices': AcademyMember.ROLE_CHOICES,
-        'role_label': {'coach': 'مدربو', 'admin': 'إداريو', 'player': 'لاعبو'}.get(role, 'أعضاء'),
-        'role_singular': {'coach': 'مدرب', 'admin': 'إداري', 'player': 'لاعب'}.get(role, 'عضو'),
+        'role_label': {'staff': 'مدربو وإداريو', 'player': 'لاعبو'}.get(role, 'أعضاء'),
+        'role_singular': {'staff': 'مدرب أو إداري', 'player': 'لاعب'}.get(role, 'عضو'),
     })
 
 
@@ -2503,8 +2545,9 @@ def academy_member_list(request, academy_id):
 def academy_member_create(request, academy_id):
     academy = get_object_or_404(Academy, pk=academy_id)
     role = request.GET.get('role', '').strip()
-    role_labels = dict(AcademyMember.ROLE_CHOICES)
-    if role not in role_labels:
+    if role in {AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN}:
+        role = 'staff'
+    if role not in {'staff', AcademyMember.ROLE_PLAYER}:
         messages.error(request, 'اختر نوع العضو من شاشة الأكاديمية.')
         return redirect(f'/academies/{academy.id}/members/')
     form = AcademyMemberForm(request.POST or None, request.FILES or None, fixed_role=role)
@@ -2516,7 +2559,7 @@ def academy_member_create(request, academy_id):
         if request.POST.get('submit_action') == 'generate_qr':
             destination += f'&qr_member={member.pk}'
         return redirect(destination)
-    role_singular = {'coach': 'مدرب', 'admin': 'إداري', 'player': 'لاعب'}[role]
+    role_singular = {'staff': 'مدرب أو إداري', 'player': 'لاعب'}[role]
     return render(request, 'academies/academy_member_form.html', {
         'form': form, 'title': f'إضافة {role_singular} - {academy.name}',
         'back_url_path': f'/academies/{academy.id}/members/?role={role}',
@@ -2528,16 +2571,17 @@ def academy_member_create(request, academy_id):
 def academy_member_update(request, academy_id, pk):
     academy = get_object_or_404(Academy, pk=academy_id)
     member = get_object_or_404(AcademyMember, pk=pk, academy=academy)
-    form = AcademyMemberForm(request.POST or None, request.FILES or None, instance=member, fixed_role=member.role)
+    destination_role = 'staff' if member.role in {AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN} else member.role
+    form = AcademyMemberForm(request.POST or None, request.FILES or None, instance=member, fixed_role=destination_role)
     if form.is_valid():
         member = form.save()
-        destination = f'/academies/{academy.id}/members/?role={member.role}'
+        destination = f'/academies/{academy.id}/members/?role={destination_role}'
         if request.POST.get('submit_action') == 'generate_qr':
             destination += f'&qr_member={member.pk}'
         return redirect(destination)
     return render(request, 'academies/academy_member_form.html', {
         'form': form, 'title': f'تعديل {member.get_role_display()} - {academy.name}',
-        'back_url_path': f'/academies/{academy.id}/members/?role={member.role}',
+        'back_url_path': f'/academies/{academy.id}/members/?role={destination_role}',
         'member': member, 'member_role': member.role,
     })
 
@@ -2568,6 +2612,47 @@ def academy_member_qr(request, academy_id, pk):
     response = HttpResponse(output.getvalue(), content_type='image/svg+xml')
     response['Cache-Control'] = 'private, max-age=3600'
     return response
+
+
+@login_required
+def academy_id_cards(request):
+    if not _can_access_reports(request.user):
+        messages.error(request, 'ليس لديك صلاحية عرض كروت التعارف.')
+        return redirect('dashboard')
+
+    academy_choices = Academy.objects.select_related('branch').order_by('name')
+    try:
+        academy_id = int(request.GET.get('academy_id', '') or 0)
+    except (TypeError, ValueError):
+        academy_id = 0
+    academy = academy_choices.filter(pk=academy_id).first() if academy_id else None
+    card_group = request.GET.get('card_group', '').strip()
+    if card_group not in {'staff', 'player'}:
+        card_group = ''
+    members = AcademyMember.objects.none()
+    if academy and card_group == 'staff':
+        members = academy.members.filter(
+            role__in=[AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN]
+        ).order_by('role', 'name')
+    elif academy and card_group == 'player':
+        members = academy.members.filter(role=AcademyMember.ROLE_PLAYER).order_by('name')
+
+    app_settings = AppSetting.objects.first()
+    company_name = (
+        app_settings.company_name
+        if app_settings and app_settings.company_name
+        else 'Egyptian English Sports Services'
+    )
+    return render(request, 'academies/academy_id_cards.html', {
+        'academy_choices': academy_choices,
+        'academy': academy,
+        'members': members,
+        'card_group': card_group,
+        'training_year_choices': TRAINING_YEAR_CHOICES,
+        'training_year': _selected_training_year(request),
+        'company_short_name': _company_short_name(company_name),
+        'app_settings': app_settings,
+    })
 
 
 @login_required

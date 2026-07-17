@@ -18,6 +18,7 @@ urlpatterns = [
     path('academies/<int:academy_id>/members/<int:pk>/edit/', views.academy_member_update, name='academy_member_update'),
     path('academies/<int:academy_id>/members/<int:pk>/qr/', views.academy_member_qr, name='academy_member_qr'),
     path('academies/<int:academy_id>/members/<int:pk>/delete/', views.academy_member_delete, name='academy_member_delete'),
+    path('reports/academy-id-cards/', views.academy_id_cards, name='academy_id_cards'),
     path('daily-bookings/', views.booking_list, name='booking_list'),
     path('daily-bookings/cash-supplies/', views.daily_income_supply, name='daily_income_supply'),
     path('daily-bookings/add/', views.booking_create, name='booking_create'),

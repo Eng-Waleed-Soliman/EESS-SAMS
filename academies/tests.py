@@ -507,12 +507,12 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'print-report-header')
 
         response = self.client.get(reverse('reports_home'), {
-            'report_type': 'academies', 'academy_id': academy.pk, 'section': 'coach',
+            'report_type': 'academies', 'academy_id': academy.pk, 'section': 'staff',
         })
         self.assertContains(response, 'أكاديمية تقرير')
-        self.assertContains(response, 'بيانات المدربين')
-        self.assertContains(response, 'بيانات الإداريين')
+        self.assertContains(response, 'بيانات المدربين والإداريين')
         self.assertContains(response, 'بيانات اللاعبين')
+        self.assertContains(response, 'كروت التعارف')
         self.assertContains(response, report_coach.name)
         self.assertContains(response, report_coach.job_title)
         self.assertContains(response, reverse('academy_member_qr', args=[academy.pk, report_coach.pk]))
@@ -781,22 +781,28 @@ class ApplicationFlowsTests(TestCase):
         }, customers)
         self.assertContains(response, "addEventListener('input', lookupByPhone)")
 
-    def test_member_role_screen_has_only_matching_add_button_and_hidden_role(self):
+    def test_staff_member_screen_combines_coaches_and_admins(self):
         academy = Academy.objects.create(
             name='أكاديمية الأعضاء', sport_activity='كرة قدم', company_name='شركة',
             manager_name='مدير', manager_phone='01000000002',
             operation_place=OPERATION_PLACE_CHOICES[0][0],
             contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=30),
         )
-        list_url = reverse('academy_member_list', args=[academy.pk]) + '?role=coach'
+        AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_ADMIN,
+            name='إداري موجود', job_title='مدير إداري',
+        )
+        list_url = reverse('academy_member_list', args=[academy.pk]) + '?role=staff'
         response = self.client.get(list_url)
-        self.assertContains(response, 'إضافة مدرب')
-        self.assertNotContains(response, 'إضافة إداري')
+        self.assertContains(response, 'إضافة مدرب أو إداري')
+        self.assertContains(response, 'إداري موجود')
         self.assertNotContains(response, 'إضافة لاعب')
 
-        create_url = reverse('academy_member_create', args=[academy.pk]) + '?role=coach'
+        create_url = reverse('academy_member_create', args=[academy.pk]) + '?role=staff'
         response = self.client.get(create_url)
-        self.assertNotContains(response, 'id_role')
+        self.assertContains(response, 'id_role')
+        self.assertContains(response, '<option value="coach">مدرب</option>', html=True)
+        self.assertContains(response, '<option value="admin">إداري</option>', html=True)
         self.assertNotContains(response, 'id_monthly_subscription')
         self.assertNotContains(response, 'id_birth_date')
         self.assertContains(response, 'id_job_title')
@@ -804,6 +810,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'حفظ وتوليد QR Code')
         coach_photo = SimpleUploadedFile('coach.png', b'fake-image-content', content_type='image/png')
         response = self.client.post(create_url, {
+            'role': AcademyMember.ROLE_COACH,
             'name': 'مدرب اختبار', 'phone': '', 'national_id': '',
             'job_title': 'مدرب لياقة', 'photo': coach_photo,
             'is_active': 'on', 'notes': '', 'submit_action': 'generate_qr',
@@ -818,13 +825,6 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(qr_response['Content-Type'], 'image/svg+xml')
         self.assertIn(b'<svg', qr_response.content)
 
-        admin_url = reverse('academy_member_create', args=[academy.pk]) + '?role=admin'
-        response = self.client.get(admin_url)
-        self.assertContains(response, 'id_job_title')
-        self.assertContains(response, 'id_photo')
-        self.assertNotContains(response, 'id_monthly_subscription')
-        self.assertNotContains(response, 'id_birth_date')
-
         player_url = reverse('academy_member_create', args=[academy.pk]) + '?role=player'
         response = self.client.get(player_url)
         self.assertContains(response, 'id_birth_date')
@@ -832,6 +832,64 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'id_monthly_subscription')
         self.assertContains(response, 'id_photo')
         self.assertNotContains(response, 'id_job_title')
+
+    def test_training_year_selector_and_portrait_identity_cards(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_reports = True
+        profile.save()
+        academy = Academy.objects.create(
+            name='أكاديمية البطاقات', sport_activity='كرة قدم', company_name='Card Academy Company',
+            manager_name='مدير البطاقات', manager_phone='01000000003',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=30),
+            logo_data=b'academy-logo', logo_content_type='image/png',
+        )
+        coach = AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_COACH,
+            name='مدرب البطاقة', job_title='مدرب عام',
+        )
+        admin_member = AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_ADMIN,
+            name='إداري البطاقة', job_title='مدير فريق',
+        )
+        player = AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_PLAYER,
+            name='لاعب البطاقة', birth_date=date(2010, 1, 1),
+        )
+
+        response = self.client.get(reverse('academy_list'), {'training_year': '2099-2100'})
+        self.assertContains(response, '2026 - 2027')
+        self.assertContains(response, '2099 - 2100')
+        self.assertEqual(response.context['training_year'], '2099-2100')
+        self.assertEqual(self.client.session['training_year'], '2099-2100')
+        self.assertContains(response, 'المدربين والإداريين')
+        self.assertNotContains(response, '>المدربين<')
+
+        cards_url = reverse('academy_id_cards')
+        response = self.client.get(cards_url, {
+            'academy_id': academy.pk,
+            'training_year': '2027-2028',
+            'card_group': 'staff',
+        })
+        self.assertContains(response, 'كروت تعارف المدربين والإداريين')
+        self.assertContains(response, coach.name)
+        self.assertContains(response, admin_member.name)
+        self.assertNotContains(response, player.name)
+        self.assertContains(response, 'width:54mm')
+        self.assertContains(response, 'height:86mm')
+        self.assertContains(response, '2027-2028')
+        self.assertContains(response, reverse('academy_member_qr', args=[academy.pk, coach.pk]))
+        self.assertContains(response, 'data:image/png;base64,')
+        self.assertContains(response, 'تصدير PDF')
+        self.assertContains(response, 'طباعة')
+
+        response = self.client.get(cards_url, {
+            'academy_id': academy.pk,
+            'training_year': '2027-2028',
+            'card_group': 'player',
+        })
+        self.assertContains(response, player.name)
+        self.assertNotContains(response, coach.name)
 
     def test_company_management_and_expenses_are_nested_in_parent_modules(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)

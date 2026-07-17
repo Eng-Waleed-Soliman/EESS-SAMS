@@ -79,14 +79,14 @@
   </table></div>
 </div>
 <div class="d-flex gap-2 flex-wrap mb-3 no-print academy-member-report-buttons">
-  <a class="btn {% if section == 'coach' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=academies&academy_id={{ academy.pk }}&section=coach">بيانات المدربين</a>
-  <a class="btn {% if section == 'admin' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=academies&academy_id={{ academy.pk }}&section=admin">بيانات الإداريين</a>
+  <a class="btn {% if section == 'staff' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=academies&academy_id={{ academy.pk }}&section=staff">بيانات المدربين والإداريين</a>
   <a class="btn {% if section == 'player' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=academies&academy_id={{ academy.pk }}&section=player">بيانات اللاعبين</a>
+  <a class="btn btn-outline-success" href="{% url 'academy_id_cards' %}?academy_id={{ academy.pk }}">كروت التعارف</a>
 </div>
-{% if section == 'coach' or section == 'admin' or section == 'player' %}
-<div class="card p-3 academy-member-report"><h4 class="text-center fw-bold">{% if section == 'coach' %}بيانات المدربين{% elif section == 'admin' %}بيانات الإداريين{% else %}بيانات اللاعبين{% endif %}</h4><div class="table-responsive"><table class="table table-bordered table-striped text-center align-middle">
-  <thead><tr><th>الصورة</th><th>الاسم</th><th>الهاتف</th><th>الرقم القومي</th>{% if section == 'player' %}<th>تاريخ الميلاد</th><th>الاشتراك الشهري</th>{% else %}<th>الوظيفة</th>{% endif %}<th>QR Code</th><th>الحالة</th></tr></thead>
-  <tbody>{% for member in academy_members %}<tr><td>{% if member.photo_data_uri %}<img class="report-member-photo" src="{{ member.photo_data_uri }}" alt="صورة {{ member.name }}">{% else %}-{% endif %}</td><td>{{ member.name }}</td><td>{{ member.phone|default:'-' }}</td><td>{{ member.national_id|default:'-' }}</td>{% if section == 'player' %}<td>{{ member.birth_date|date:'d/m/Y'|default:'-' }}</td><td>{{ member.monthly_subscription }}</td>{% else %}<td>{{ member.job_title|default:'-' }}</td>{% endif %}<td><img class="report-member-qr" src="{% url 'academy_member_qr' academy.pk member.pk %}" alt="QR {{ member.name }}"></td><td>{% if member.is_active %}نشط{% else %}غير نشط{% endif %}</td></tr>{% empty %}<tr><td colspan="{% if section == 'player' %}9{% else %}8{% endif %}">لا توجد بيانات مسجلة</td></tr>{% endfor %}</tbody>
+{% if section == 'staff' or section == 'player' %}
+<div class="card p-3 academy-member-report"><h4 class="text-center fw-bold">{% if section == 'staff' %}بيانات المدربين والإداريين{% else %}بيانات اللاعبين{% endif %}</h4><div class="table-responsive"><table class="table table-bordered table-striped text-center align-middle">
+  <thead><tr><th>الصورة</th><th>الاسم</th>{% if section == 'staff' %}<th>النوع</th>{% endif %}<th>الهاتف</th><th>الرقم القومي</th>{% if section == 'player' %}<th>تاريخ الميلاد</th><th>الاشتراك الشهري</th>{% else %}<th>الوظيفة</th>{% endif %}<th>QR Code</th><th>الحالة</th></tr></thead>
+  <tbody>{% for member in academy_members %}<tr><td>{% if member.photo_data_uri %}<img class="report-member-photo" src="{{ member.photo_data_uri }}" alt="صورة {{ member.name }}">{% else %}-{% endif %}</td><td>{{ member.name }}</td>{% if section == 'staff' %}<td>{{ member.get_role_display }}</td>{% endif %}<td>{{ member.phone|default:'-' }}</td><td>{{ member.national_id|default:'-' }}</td>{% if section == 'player' %}<td>{{ member.birth_date|date:'d/m/Y'|default:'-' }}</td><td>{{ member.monthly_subscription }}</td>{% else %}<td>{{ member.job_title|default:'-' }}</td>{% endif %}<td><img class="report-member-qr" src="{% url 'academy_member_qr' academy.pk member.pk %}" alt="QR {{ member.name }}"></td><td>{% if member.is_active %}نشط{% else %}غير نشط{% endif %}</td></tr>{% empty %}<tr><td colspan="9">لا توجد بيانات مسجلة</td></tr>{% endfor %}</tbody>
 </table></div></div>
 {% endif %}
 {% endwith %}{% else %}<div class="alert alert-info text-center">اختر أكاديمية لعرض بياناتها.</div>{% endif %}

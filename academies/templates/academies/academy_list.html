@@ -4,7 +4,11 @@
   <h3>الأكاديميات</h3>
   <a class="btn btn-primary" href="{% url 'academy_create' %}">إضافة أكاديمية</a>
 </div>
-<form class="mb-3"><input class="form-control search-box w-half" name="q" value="{{ q }}" placeholder="بحث بالاسم أو النشاط أو المدير"></form>
+<form class="mb-3 row g-2 align-items-end">
+  <div class="col-lg-7"><label class="form-label fw-bold">البحث</label><input class="form-control search-box" name="q" value="{{ q }}" placeholder="بحث بالاسم أو النشاط أو المدير"></div>
+  <div class="col-lg-3"><label class="form-label fw-bold">العام التدريبي</label><select class="form-select" name="training_year" onchange="this.form.submit()">{% for value, label in training_year_choices %}<option value="{{ value }}" {% if training_year == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="col-lg-2"><button class="btn btn-primary w-100">بحث</button></div>
+</form>
 <div class="card p-3">
   <div class="table-responsive">
     <table class="table table-hover align-middle">
@@ -19,8 +23,7 @@
           <td>{{ a.manager_phone }}</td>
           <td>{{ a.contract_end_date }}</td>
           <td>
-            <a class="btn btn-sm btn-outline-primary" href="{% url 'academy_member_list' a.pk %}?role=coach">المدربين</a>
-            <a class="btn btn-sm btn-outline-primary" href="{% url 'academy_member_list' a.pk %}?role=admin">الإداريين</a>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'academy_member_list' a.pk %}?role=staff">المدربين والإداريين</a>
             <a class="btn btn-sm btn-outline-primary" href="{% url 'academy_member_list' a.pk %}?role=player">اللاعبين</a>
           </td>
           <td><a class="btn btn-sm btn-outline-primary" href="{% url 'academy_update' a.pk %}">تعديل</a> <a class="btn btn-sm btn-outline-danger" href="{% url 'academy_delete' a.pk %}">حذف</a></td>

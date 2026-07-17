@@ -3,10 +3,8 @@
 <div class="d-flex justify-content-between mb-3 flex-wrap gap-2">
   <h3>{{ role_label }} أكاديمية {{ academy.name }}</h3>
   <div class="btn-row">
-    {% if role == 'coach' %}
-    <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=coach">إضافة مدرب</a>
-    {% elif role == 'admin' %}
-    <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=admin">إضافة إداري</a>
+    {% if role == 'staff' %}
+    <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=staff">إضافة مدرب أو إداري</a>
     {% elif role == 'player' %}
     <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=player">إضافة لاعب</a>
     {% endif %}
@@ -16,12 +14,13 @@
 <div class="card p-3">
   <div class="table-responsive">
     <table class="table table-striped align-middle">
-      <thead><tr><th>الصورة</th><th>الاسم</th><th>الهاتف</th><th>الرقم القومي</th>{% if role == 'player' %}<th>تاريخ الميلاد</th><th>اشتراك اللاعب</th>{% else %}<th>الوظيفة</th>{% endif %}<th>QR Code</th><th>الحالة</th><th></th></tr></thead>
+      <thead><tr><th>الصورة</th><th>الاسم</th>{% if role == 'staff' %}<th>النوع</th>{% endif %}<th>الهاتف</th><th>الرقم القومي</th>{% if role == 'player' %}<th>تاريخ الميلاد</th><th>اشتراك اللاعب</th>{% else %}<th>الوظيفة</th>{% endif %}<th>QR Code</th><th>الحالة</th><th></th></tr></thead>
       <tbody>
         {% for member in members %}
         <tr {% if request.GET.qr_member == member.pk|stringformat:'s' %}class="table-success"{% endif %}>
           <td>{% if member.photo_data_uri %}<img class="member-list-photo" src="{{ member.photo_data_uri }}" alt="صورة {{ member.name }}">{% else %}-{% endif %}</td>
           <td>{{ member.name }}</td>
+          {% if role == 'staff' %}<td>{{ member.get_role_display }}</td>{% endif %}
           <td>{{ member.phone|default:'-' }}</td>
           <td>{{ member.national_id|default:'-' }}</td>
           {% if role == 'player' %}<td>{{ member.birth_date|date:'d/m/Y'|default:'-' }}</td><td>{{ member.monthly_subscription }}</td>{% else %}<td>{{ member.job_title|default:'-' }}</td>{% endif %}
@@ -29,7 +28,7 @@
           <td>{% if member.is_active %}نشط{% else %}غير نشط{% endif %}</td>
           <td><a class="btn btn-sm btn-primary" href="{% url 'academy_member_update' academy.id member.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'academy_member_delete' academy.id member.pk %}">حذف</a></td>
         </tr>
-        {% empty %}<tr><td colspan="{% if role == 'player' %}9{% else %}8{% endif %}">لا توجد بيانات بعد</td></tr>{% endfor %}
+        {% empty %}<tr><td colspan="{% if role == 'player' %}9{% elif role == 'staff' %}9{% else %}8{% endif %}">لا توجد بيانات بعد</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>

@@ -252,6 +252,14 @@ def _academy_slot_conflicts(academy, booking_date, venue, wanted_start, wanted_e
 
 
 class AcademyForm(forms.ModelForm):
+    logo = forms.FileField(
+        label='لوجو الأكاديمية',
+        required=False,
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-control',
+            'accept': 'image/jpeg,image/png,image/webp,image/gif',
+        }),
+    )
     training_schedule_data = forms.CharField(required=False, widget=forms.HiddenInput(attrs={'id': 'id_training_schedule_data'}))
     sport_activity = forms.ChoiceField(
         label='النشاط الرياضي',
@@ -320,7 +328,7 @@ class AcademyForm(forms.ModelForm):
     class Meta:
         model = Academy
         fields = [
-            'branch', 'name', 'sport_activity', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone',
+            'branch', 'name', 'logo', 'sport_activity', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone',
             'operation_place', 'contract_start_date', 'contract_end_date', 'subscription_type', 'monthly_subscription',
             'variable_rent_type', 'variable_rent_value', 'eess_share_percentage', 'security_deposit', 'training_days', 'training_hours',
             'has_extra_hours', 'extra_training_days', 'extra_training_place', 'extra_training_hours', 'notes'
@@ -374,6 +382,17 @@ class AcademyForm(forms.ModelForm):
                     start_time, end_time = [part.strip() for part in slot.split(' - ', 1)]
                     rows.append({'place': place, 'day': day, 'start_time': start_time, 'end_time': end_time, 'hourly_rent': self.instance.variable_rent_value or 0})
         return rows
+
+    def clean_logo(self):
+        logo = self.cleaned_data.get('logo')
+        if not logo:
+            return logo
+        allowed_types = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
+        if getattr(logo, 'content_type', '') not in allowed_types:
+            raise forms.ValidationError('اختر صورة بصيغة JPG أو PNG أو WEBP أو GIF.')
+        if logo.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('حجم لوجو الأكاديمية يجب ألا يتجاوز 5 ميجابايت.')
+        return logo
 
     def clean(self):
         cleaned_data = super().clean()
@@ -450,6 +469,11 @@ class AcademyForm(forms.ModelForm):
 
     def save(self, commit=True):
         academy = super().save(commit=False)
+        logo = self.cleaned_data.get('logo')
+        if logo:
+            academy.logo_data = logo.read()
+            academy.logo_content_type = getattr(logo, 'content_type', '') or 'image/png'
+            academy.logo_name = logo.name
         academy.operation_place = ', '.join(self.cleaned_data.get('operation_place', []))
         academy.training_days = ', '.join(self.cleaned_data.get('training_days', []))
         academy.training_hours = ', '.join(self.cleaned_data.get('training_hours', []))
@@ -541,7 +565,17 @@ class AcademyMemberForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.fixed_role in dict(AcademyMember.ROLE_CHOICES):
             self.fields.pop('role', None)
-        effective_role = self.fixed_role or (self.instance.role if self.instance and self.instance.pk else '')
+        elif self.fixed_role == 'staff':
+            self.fields['role'].label = 'النوع'
+            self.fields['role'].choices = [
+                (AcademyMember.ROLE_COACH, 'مدرب'),
+                (AcademyMember.ROLE_ADMIN, 'إداري'),
+            ]
+        effective_role = (
+            self.instance.role
+            if self.fixed_role == 'staff' and self.instance and self.instance.pk
+            else self.fixed_role or (self.instance.role if self.instance and self.instance.pk else '')
+        )
         if effective_role == AcademyMember.ROLE_PLAYER:
             self.fields.pop('job_title', None)
         else:

@@ -125,6 +125,9 @@ class Activity(models.Model):
 class Academy(models.Model):
     branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='academies', verbose_name='الفرع')
     name = models.CharField(max_length=200, verbose_name='اسم الأكاديمية')
+    logo_data = models.BinaryField(null=True, blank=True, editable=False, verbose_name='بيانات لوجو الأكاديمية')
+    logo_content_type = models.CharField(max_length=100, blank=True, editable=False, verbose_name='نوع ملف لوجو الأكاديمية')
+    logo_name = models.CharField(max_length=255, blank=True, editable=False, verbose_name='اسم ملف لوجو الأكاديمية')
     sport_activity = models.CharField(max_length=150, verbose_name='النشاط الرياضي')
     company_name = models.CharField(max_length=200, verbose_name='اسم الشركة')
     manager_name = models.CharField(max_length=200, verbose_name='اسم مدير الأكاديمية')
@@ -160,6 +163,14 @@ class Academy(models.Model):
     @property
     def operation_places_list(self):
         return split_values(self.operation_place)
+
+    @property
+    def logo_data_uri(self):
+        if not self.logo_data:
+            return ''
+        content_type = self.logo_content_type or 'image/png'
+        encoded = base64.b64encode(bytes(self.logo_data)).decode('ascii')
+        return f'data:{content_type};base64,{encoded}'
 
     @property
     def training_hours_list(self):

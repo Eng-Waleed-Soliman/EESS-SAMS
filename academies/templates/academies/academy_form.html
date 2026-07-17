@@ -2,13 +2,15 @@
 {% block content %}
 <h3 class="mb-3">{{ title }}</h3>
 <div class="card p-4">
-  <form method="post" id="academy-form">
+  <form method="post" id="academy-form" enctype="multipart/form-data">
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
 
     <div class="row">
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.name.label }}</label>{{ form.name }}<div class="text-danger small">{{ form.name.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.sport_activity.label }}</label>{{ form.sport_activity }}<div class="text-danger small">{{ form.sport_activity.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.logo.label }}</label>{{ form.logo }}<div class="form-text">يُستخدم في كروت التعارف. JPG أو PNG أو WEBP أو GIF بحد أقصى 5 ميجابايت.</div><div class="text-danger small">{{ form.logo.errors }}</div></div>
+      {% if form.instance.logo_data_uri %}<div class="col-md-6 mb-3"><label class="form-label fw-bold d-block">اللوجو الحالي</label><img src="{{ form.instance.logo_data_uri }}" alt="لوجو {{ form.instance.name }}" style="width:110px;height:110px;object-fit:contain;border:1px solid #d9e2ef;border-radius:12px;background:#fff;padding:6px"></div>{% endif %}
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.company_name.label }}</label>{{ form.company_name }}<div class="text-danger small">{{ form.company_name.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_name.label }}</label>{{ form.manager_name }}<div class="text-danger small">{{ form.manager_name.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_national_id.label }}</label>{{ form.manager_national_id }}<div class="text-danger small">{{ form.manager_national_id.errors }}</div></div>
