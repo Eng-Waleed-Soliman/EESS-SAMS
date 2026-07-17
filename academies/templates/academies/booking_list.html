@@ -4,18 +4,43 @@
   <h3>الحجز اليومي</h3>
   <div class="d-flex gap-2 flex-wrap"><button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button><a class="btn btn-success" href="{% url 'daily_income_supply' %}">توريد مبالغ نقدية</a><a class="btn btn-primary" href="{% url 'booking_create' %}">إضافة حجز يومي</a></div>
 </div>
-<form class="mb-3"><input class="form-control search-box w-half" name="q" value="{{ q }}" placeholder="بحث باسم العميل أو رقم الموبايل أو المكان"></form>
-<div class="card p-3">
-  <table class="table table-hover align-middle">
-    <tr><th>كود العميل</th><th>العميل</th><th>الموبايل</th><th>الرقم القومي</th><th>عدد اللاعبين</th><th>المكان</th><th>التاريخ</th><th>من</th><th>إلى</th><th>إيجار الساعة</th><th>الإجمالي</th><th>المقدم</th><th>المتبقي</th><th></th></tr>
+<form class="card p-3 mb-3 booking-filter-form" method="get">
+  <div class="d-flex align-items-end gap-3 flex-wrap">
+    <div class="booking-date-filter">
+      <label class="form-label fw-bold">تاريخ الحجز</label>
+      <input type="date" class="form-control" name="booking_date" value="{{ booking_date_value }}" onchange="this.form.submit()">
+    </div>
+    <div class="booking-search-filter">
+      <label class="form-label fw-bold">البحث</label>
+      <input class="form-control search-box" name="q" value="{{ q }}" placeholder="بحث باسم العميل أو رقم الموبايل أو المكان">
+    </div>
+    <button class="btn btn-primary">عرض</button>
+    {% if booking_date_value or q %}<a class="btn btn-outline-secondary" href="{% url 'booking_list' %}">كل الحجوزات</a>{% endif %}
+  </div>
+</form>
+<div class="card p-3 booking-table-card">
+  <div class="table-responsive booking-table-wrap">
+  <table class="table table-hover align-middle booking-list-table">
+    <thead><tr><th>كود العميل</th><th>العميل</th><th>الموبايل</th><th>الرقم القومي</th><th>عدد اللاعبين</th><th>المكان</th><th>التاريخ</th><th>من</th><th>إلى</th><th>إيجار الساعة</th><th>الإجمالي</th><th></th></tr></thead>
+    <tbody>
     {% for b in bookings %}
       <tr>
-        <td>{{ b.customer_code }}</td><td>{{ b.customer_name }}</td><td>{{ b.customer_phone }}</td><td>{{ b.national_id }}</td><td>{{ b.players_count }}</td><td>{{ b.venue }}</td><td>{{ b.booking_date }}</td><td>{{ b.start_time }}</td><td>{{ b.end_time }}</td><td>{{ b.amount }}</td><td>{{ b.total_amount }}</td><td>{{ b.advance_payment }}</td><td>{{ b.remaining_amount }}</td>
+        <td>{{ b.customer_code }}</td><td>{{ b.customer_name }}</td><td>{{ b.customer_phone }}</td><td>{{ b.national_id }}</td><td>{{ b.players_count }}</td><td>{{ b.venue }}</td><td>{{ b.booking_date|date:'d/m/Y' }}</td><td>{{ b.start_time }}</td><td>{{ b.end_time }}</td><td>{{ b.amount }}</td><td>{{ b.total_amount }}</td>
         <td><a class="btn btn-sm btn-outline-primary" href="{% url 'booking_update' b.pk %}">تعديل</a> <a class="btn btn-sm btn-outline-danger" href="{% url 'booking_delete' b.pk %}">حذف</a></td>
       </tr>
     {% empty %}
-      <tr><td colspan="14">لا توجد حجوزات</td></tr>
+      <tr><td colspan="12">لا توجد حجوزات</td></tr>
     {% endfor %}
-  </table>
+    </tbody>
+  </table></div>
 </div>
+<style>
+.booking-date-filter{width:210px}.booking-search-filter{flex:1 1 420px;max-width:620px}
+.booking-table-card{width:100%;max-width:none;overflow:hidden}
+.booking-table-wrap{width:100%;max-width:none;overflow-x:auto}
+.booking-list-table{width:100%;min-width:1650px;table-layout:auto}
+.booking-list-table th,.booking-list-table td{white-space:nowrap!important;vertical-align:middle}
+.booking-list-table td:last-child{min-width:280px}
+@media(max-width:768px){.booking-date-filter,.booking-search-filter{width:100%;max-width:none;flex-basis:100%}}
+</style>
 {% endblock %}

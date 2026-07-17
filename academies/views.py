@@ -255,12 +255,25 @@ def _customers_lookup_context():
 @login_required
 def booking_list(request):
     q = request.GET.get('q', '').strip()
+    booking_date_value = request.GET.get('booking_date', '').strip()
     bookings = DailyBooking.objects.all()
+    if booking_date_value:
+        try:
+            selected_booking_date = date.fromisoformat(booking_date_value)
+            bookings = bookings.filter(booking_date=selected_booking_date)
+        except ValueError:
+            booking_date_value = ''
     if q:
-        bookings = (DailyBooking.objects.filter(customer_name__icontains=q) |
-                    DailyBooking.objects.filter(customer_phone__icontains=q) |
-                    DailyBooking.objects.filter(venue__icontains=q))
-    return render(request, 'academies/booking_list.html', {'bookings': bookings, 'q': q})
+        bookings = bookings.filter(
+            Q(customer_name__icontains=q) |
+            Q(customer_phone__icontains=q) |
+            Q(venue__icontains=q)
+        )
+    return render(request, 'academies/booking_list.html', {
+        'bookings': bookings,
+        'q': q,
+        'booking_date_value': booking_date_value,
+    })
 
 
 @login_required

@@ -89,6 +89,7 @@ class ApplicationFlowsTests(TestCase):
         rent_url = reverse('academy_rent_payments') + f'?month={today:%Y-%m}'
         response = self.client.get(rent_url)
         self.assertContains(response, 'إعداد الخطة')
+        self.assertNotContains(response, 'رجوع للإعدادات')
         self.assertEqual(response.context['deposit_totals']['expected'], 1000)
 
         plan_url = reverse('academy_deposit_plan', args=[academy.pk])
@@ -639,6 +640,36 @@ class ApplicationFlowsTests(TestCase):
             500,
         )
 
+    def test_daily_booking_list_filters_by_calendar_date_and_uses_single_line_rows(self):
+        selected_date = date.today()
+        other_date = selected_date + timedelta(days=1)
+        common = {
+            'venue': OPERATION_PLACE_CHOICES[0][0],
+            'start_time': TIME_CHOICES[0][0],
+            'end_time': TIME_CHOICES[2][0],
+            'customer_phone': '01000000111',
+            'total_amount': 500,
+            'advance_payment': 100,
+            'remaining_amount': 400,
+        }
+        DailyBooking.objects.create(
+            **common, booking_date=selected_date, customer_name='حجز اليوم المختار',
+        )
+        DailyBooking.objects.create(
+            **{**common, 'customer_phone': '01000000222'},
+            booking_date=other_date, customer_name='حجز يوم آخر',
+        )
+        response = self.client.get(reverse('booking_list'), {
+            'booking_date': selected_date.isoformat(),
+        })
+        self.assertContains(response, 'حجز اليوم المختار')
+        self.assertNotContains(response, 'حجز يوم آخر')
+        self.assertContains(response, f'value="{selected_date.isoformat()}"')
+        self.assertContains(response, 'white-space:nowrap!important')
+        self.assertContains(response, 'min-width:1650px')
+        self.assertNotContains(response, '<th>المقدم</th>', html=True)
+        self.assertNotContains(response, '<th>المتبقي</th>', html=True)
+
     def test_morning_operation_period_and_booking_prefill_from_available_slot(self):
         selected_date = date.today()
         place = OPERATION_PLACE_CHOICES[0][0]
@@ -654,6 +685,10 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'إضافة حجز')
         self.assertContains(response, 'openSingleAvailableCard')
         self.assertContains(response, 'openSelectedAvailableSlots')
+        self.assertContains(response, 'operation-filter-date')
+        self.assertContains(response, 'width:175px!important')
+        self.assertContains(response, 'operation-filter-period')
+        self.assertContains(response, 'width:310px!important')
 
         booking_response = self.client.get(reverse('booking_create'), {
             'date': selected_date.isoformat(),

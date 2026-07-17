@@ -5,9 +5,9 @@
     <h3 class="mb-1">شاشة التشغيل</h3>
     <div class="text-muted">اليوم: {{ selected_day_ar }}</div>
   </div>
-  <form class="d-flex gap-2 flex-wrap" method="get">
-    <input type="date" class="form-control" name="date" value="{{ selected_date|date:'Y-m-d' }}">
-    <select class="form-select" name="period" style="min-width:260px">
+  <form class="d-flex gap-2 flex-wrap operation-toolbar-form" method="get">
+    <input type="date" class="form-control operation-filter-date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+    <select class="form-select operation-filter-period" name="period">
       {% for value, label in period_choices %}
         <option value="{{ value }}" {% if selected_period == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
@@ -18,6 +18,12 @@
     <button type="submit" form="cancelDayForm" class="btn btn-danger" onclick="return confirm('سيتم إلغاء كل حجوزات اليوم المختار، هل أنت متأكد؟')">إلغاء حجوزات اليوم</button>
   </form>
 </div>
+<style>
+.operation-toolbar-form{align-items:center}
+.operation-filter-date{width:175px!important;min-width:175px!important;flex:0 0 175px!important}
+.operation-filter-period{width:310px!important;min-width:310px!important;flex:0 0 310px!important}
+@media(max-width:768px){.operation-filter-date,.operation-filter-period{width:100%!important;min-width:100%!important;flex-basis:100%!important}}
+</style>
 <form id="cancelDayForm" method="post" action="{% url 'cancel_operation_day' %}" style="display:none">
   {% csrf_token %}
   <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
