@@ -12,20 +12,21 @@
 
 <article class="financial-voucher-sheet {% if voucher.voucher_type == 'disbursement' %}voucher-disbursement{% else %}voucher-supply{% endif %}">
   <header class="voucher-header">
-    <div class="voucher-brand">
+    <div class="voucher-number-block">
       <div class="voucher-number">رقم الأمر: {{ voucher.voucher_number }}</div>
-      {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
-      <div class="company-en">{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
-      <div class="company-ar">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</div>
     </div>
     <div class="voucher-heading">
       <h1>{{ voucher.get_voucher_type_display }}</h1>
     </div>
-    <div class="voucher-header-spacer" aria-hidden="true"></div>
+    <div class="voucher-brand">
+      {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
+      <div class="company-en">{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
+      <div class="company-ar">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</div>
+    </div>
   </header>
 
   <section class="voucher-date-line">
-    {% if voucher.voucher_type == 'disbursement' %}تم صرف{% else %}تم استلام{% endif %}
+    {% if voucher.voucher_type == 'disbursement' %}يتم صرف{% else %}يتم استلام{% endif %}
     المبلغ المالي الموضح أدناه اليوم <strong>{{ voucher.day_name }}</strong> الموافق <strong>{{ voucher.voucher_date|date:'d/m/Y' }}</strong>
   </section>
 
@@ -52,7 +53,8 @@
 .financial-voucher-sheet{direction:rtl;background:#fff;color:#172033;width:148mm;max-width:100%;min-height:210mm;margin:0 auto;padding:10mm;border:1px solid #cad5e3;border-top:5px solid #1d4ed8;border-radius:10px;box-shadow:0 14px 35px rgba(15,23,42,.12);box-sizing:border-box;font-size:13px}
 .voucher-disbursement{border-top-color:#b45309}.voucher-supply{border-top-color:#047857}
 .voucher-header{direction:ltr;display:grid;grid-template-columns:31% 38% 31%;align-items:start;padding-bottom:5mm;border-bottom:2px solid #dbe4f0;min-height:34mm}
-.voucher-brand{text-align:center;direction:ltr;font-size:8.5px;line-height:1.35}.voucher-brand img{display:block;max-width:17mm;max-height:15mm;object-fit:contain;margin:2mm auto 1mm}.company-en,.company-ar{font-weight:800}.company-ar{direction:rtl}.voucher-number{direction:rtl;text-align:center;font-weight:800;font-size:11px;white-space:nowrap}
+.voucher-number-block{display:flex;align-items:flex-start;justify-content:center;padding-top:4mm}.voucher-number{direction:rtl;text-align:center;font-weight:800;font-size:11px;white-space:nowrap}
+.voucher-brand{text-align:center;direction:ltr;font-size:8.5px;line-height:1.35}.voucher-brand img{display:block;max-width:17mm;max-height:15mm;object-fit:contain;margin:2mm auto 1mm}.company-en,.company-ar{font-weight:800}.company-ar{direction:rtl}
 .voucher-heading{direction:rtl;text-align:center;padding-top:8mm;align-self:start}.voucher-heading h1{font-size:21px;font-weight:900;line-height:1.35;margin:0;white-space:nowrap}
 .voucher-date-line{text-align:center;font-size:13px;line-height:1.8;margin:6mm 0;padding:3mm 2mm;background:#f1f5f9;border-radius:6px}
 .voucher-row{display:grid;grid-template-columns:34mm 1fr;border:1px solid #cbd5e1;border-bottom:0;min-height:13mm}.voucher-row:last-child{border-bottom:1px solid #cbd5e1}.voucher-label{background:#e8eef7;font-weight:800;padding:3.5mm 3mm}.voucher-value{padding:3.5mm 3mm;font-size:12.5px}.amount-number{font-size:16px;font-weight:900}.amount-words{font-weight:800}.statement-row{min-height:28mm}
