@@ -95,6 +95,50 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, academy.website_description)
         self.assertContains(detail, 'Public Coach')
 
+    def test_board_member_photo_upload_and_chairman_position_in_both_languages(self):
+        Shareholder.objects.create(
+            name='خالد العضو',
+            name_en='Khaled Member',
+            job_title='عضو مجلس الإدارة',
+            job_title_en='Board Member',
+        )
+        photo = SimpleUploadedFile(
+            'chairman.png',
+            b'chairman-photo-bytes',
+            content_type='image/png',
+        )
+        response = self.client.post(reverse('shareholder_create'), {
+            'name': 'أحمد الرئيس',
+            'name_en': 'Ahmed Chairman',
+            'share_percentage': 0,
+            'job_title': 'رئيس مجلس الإدارة',
+            'job_title_en': 'Chairman',
+            'is_published_on_website': 'on',
+            'photo': photo,
+        })
+        self.assertRedirects(response, reverse('shareholder_list'))
+        chairman = Shareholder.objects.get(name='أحمد الرئيس')
+        self.assertEqual(bytes(chairman.photo_data), b'chairman-photo-bytes')
+
+        self.client.logout()
+        arabic_response = self.client.get(reverse('public_website'), {'lang': 'ar'})
+        arabic_html = arabic_response.content.decode()
+        self.assertLess(
+            arabic_html.index('أحمد الرئيس'),
+            arabic_html.index('خالد العضو'),
+        )
+        self.assertContains(arabic_response, chairman.photo_data_uri)
+        self.assertContains(arabic_response, '<html lang="ar" dir="rtl">')
+
+        english_response = self.client.get(reverse('public_website'), {'lang': 'en'})
+        english_html = english_response.content.decode()
+        self.assertLess(
+            english_html.index('Ahmed Chairman'),
+            english_html.index('Khaled Member'),
+        )
+        self.assertContains(english_response, chairman.photo_data_uri)
+        self.assertContains(english_response, '<html lang="en" dir="ltr">')
+
     def test_public_website_switches_all_public_content_to_english_and_remembers_language(self):
         branch = Branch.objects.create(
             name='فرع القاهرة',

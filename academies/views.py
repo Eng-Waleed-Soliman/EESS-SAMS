@@ -230,6 +230,18 @@ def _can_manage_users(user):
         return False
 
 
+def _board_member_display_rank(member):
+    """Keep the chairman first while preserving the saved order for everyone else."""
+    arabic_title = (member.job_title or '').strip().casefold()
+    english_title = (member.job_title_en or '').strip().casefold()
+    combined_title = f'{arabic_title} {english_title}'
+    if 'نائب رئيس' in combined_title or 'vice chairman' in combined_title:
+        return 1
+    if 'رئيس مجلس الإدارة' in combined_title or 'chairman' in combined_title:
+        return 0
+    return 2
+
+
 def public_website(request):
     language_context = _public_language_context(request)
     language = language_context['site_lang']
@@ -286,6 +298,7 @@ def public_website(request):
     board_members = list(
         Shareholder.objects.filter(is_published_on_website=True).order_by('name')
     )
+    board_members.sort(key=_board_member_display_rank)
     _prepare_public_objects(
         language, branding, website, branches, academies, coaches, board_members,
     )
@@ -1333,7 +1346,7 @@ def shareholder_list(request):
 
 @login_required
 def shareholder_create(request):
-    form = ShareholderForm(request.POST or None)
+    form = ShareholderForm(request.POST or None, request.FILES or None)
     if form.is_valid():
         form.save()
         return redirect('shareholder_list')
@@ -1342,7 +1355,7 @@ def shareholder_create(request):
 @login_required
 def shareholder_update(request, pk):
     shareholder = get_object_or_404(Shareholder, pk=pk)
-    form = ShareholderForm(request.POST or None, instance=shareholder)
+    form = ShareholderForm(request.POST or None, request.FILES or None, instance=shareholder)
     if form.is_valid():
         form.save()
         return redirect('shareholder_list')
