@@ -1007,8 +1007,9 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, reverse('academy_member_qr', args=[academy.pk, coach.pk]))
         self.assertContains(response, branch.logo.url)
         self.assertContains(response, 'BICC')
-        self.assertContains(response, 'background:#fff')
-        self.assertContains(response, 'border:1.2mm solid #135c91')
+        self.assertContains(response, 'background-color:#fff')
+        self.assertContains(response, 'border:1.15mm solid #082d61')
+        self.assertContains(response, 'linear-gradient(132deg')
         self.assertContains(response, 'تصدير PDF')
         self.assertContains(response, 'طباعة')
 

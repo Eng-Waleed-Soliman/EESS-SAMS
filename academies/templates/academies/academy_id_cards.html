@@ -91,8 +91,12 @@
 .training-year-select{direction:ltr;text-align:center}.fallback-logo{display:none!important}.fallback-logo[style*="display: grid"]{display:grid!important}
 .identity-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(390px,1fr));gap:26px;align-items:start}
 .identity-card-pair{display:flex;gap:14px;justify-content:center;break-inside:avoid;page-break-inside:avoid}
-.identity-card{width:54mm;height:86mm;box-sizing:border-box;border:1.2mm solid #135c91;border-radius:4mm;overflow:hidden;background:#fff;position:relative;text-align:center;box-shadow:0 8px 24px rgba(15,23,42,.12);font-family:Tahoma,Arial,sans-serif}
-.identity-card-front{padding:3mm 3mm 3mm;background:#fff;display:flex;flex-direction:column;align-items:center}
+.identity-card{width:54mm;height:86mm;box-sizing:border-box;border:1.15mm solid #082d61;border-radius:4mm;overflow:hidden;background-color:#fff;background-image:radial-gradient(circle at 88% 18%,rgba(19,92,145,.11) 0 .35mm,transparent .4mm);background-size:3mm 3mm;position:relative;text-align:center;box-shadow:inset 0 0 0 .55mm #fff,inset 0 0 0 .9mm #2b75b6,0 8px 24px rgba(15,23,42,.14);font-family:Tahoma,Arial,sans-serif;isolation:isolate;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.identity-card::before,.identity-card::after{content:"";position:absolute;pointer-events:none;z-index:0}
+.identity-card>*{position:relative;z-index:2}
+.identity-card-front{padding:3mm 3mm 3mm;display:flex;flex-direction:column;align-items:center}
+.identity-card-front::before{right:-9mm;bottom:-10mm;width:34mm;height:31mm;clip-path:polygon(38% 100%,100% 15%,100% 100%);background:linear-gradient(132deg,transparent 0 45%,#d7aa2b 46% 47.5%,transparent 48.5%),linear-gradient(132deg,transparent 0 32%,#32b8ef 33% 44%,#1679c8 45% 61%,#082d61 62% 100%);opacity:.98}
+.identity-card-front::after{right:-2mm;top:31mm;width:22mm;height:35mm;transform:skewY(-43deg);background:repeating-linear-gradient(90deg,transparent 0 3mm,rgba(19,92,145,.055) 3.2mm 4mm);opacity:.75}
 .card-brand-header{width:100%;height:20mm;display:grid;grid-template-columns:1fr 1fr;align-items:start;direction:ltr}
 .card-company-brand,.card-branch-brand{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;color:#0b2d55;font-size:7.5pt;line-height:1.15;min-width:0}
 .card-company-brand{grid-column:1;direction:ltr}
@@ -103,7 +107,9 @@
 .member-photo-wrap{width:29mm;height:30mm;border:1px solid #bdd1e7;border-radius:3mm;overflow:hidden;background:#f3f6fa;margin:1.5mm 0}.member-photo-wrap img{width:100%;height:100%;object-fit:cover}.photo-placeholder{height:100%;display:grid;place-items:center;color:#789;font-size:8pt}
 .member-name{font-weight:800;color:#102a43;font-size:9pt;line-height:1.25;min-height:7mm;display:grid;place-items:center}.member-role{font-size:7pt;color:#486581;min-height:5mm}
 .academy-brand{margin-top:auto;display:flex;flex-direction:column;align-items:center;font-size:7pt;color:#102a43;line-height:1.15;max-width:100%}.academy-brand img,.academy-logo-placeholder{width:8mm;height:8mm;object-fit:contain;margin-bottom:.5mm}.academy-logo-placeholder{display:grid;place-items:center;border-radius:50%;background:#d8eafb;font-weight:800}.academy-brand strong{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.identity-card-back{padding:6mm 5mm;background:#fff;color:#0b2d55;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.identity-card-back{padding:6mm 5mm;color:#0b2d55;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.identity-card-back::before{left:-10mm;top:-11mm;width:37mm;height:33mm;clip-path:polygon(0 0,100% 0,0 100%);background:linear-gradient(135deg,#082d61 0 38%,#146fba 39% 56%,#31b9ef 57% 66%,transparent 67%),linear-gradient(135deg,transparent 0 68%,#d7aa2b 69% 71%,transparent 72%);opacity:.98}
+.identity-card-back::after{right:-9mm;bottom:-10mm;width:34mm;height:31mm;clip-path:polygon(38% 100%,100% 15%,100% 100%);background:linear-gradient(132deg,transparent 0 45%,#d7aa2b 46% 47.5%,transparent 48.5%),linear-gradient(132deg,transparent 0 32%,#32b8ef 33% 44%,#1679c8 45% 61%,#082d61 62% 100%);opacity:.98}
 .back-company{font-size:15pt;font-weight:900;letter-spacing:.8px;margin-bottom:7mm;direction:ltr}.training-year-label{font-size:10pt;font-weight:700}.training-year-value{font-size:16pt;font-weight:900;margin:2mm 0 6mm;direction:ltr}.identity-qr{width:34mm;height:34mm;background:#fff;border:1px solid #bdd1e7;border-radius:2mm;padding:1.5mm}
 @media print{
   @page{size:A4 portrait;margin:8mm}
