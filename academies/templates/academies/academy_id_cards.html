@@ -46,6 +46,7 @@
       <div class="card-brand-header">
         <div class="card-company-brand">
           {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="لوجو الشركة" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="logo-placeholder fallback-logo">{{ company_short_name }}</div>{% else %}<div class="logo-placeholder">{{ company_short_name }}</div>{% endif %}
+          <strong>{{ company_short_name }}</strong>
         </div>
         <div class="card-branch-brand">
           {% if academy.branch and academy.branch.logo %}
@@ -91,12 +92,13 @@
 .identity-card-pair{display:flex;gap:14px;justify-content:center;break-inside:avoid;page-break-inside:avoid}
 .identity-card{width:54mm;height:86mm;box-sizing:border-box;border:1.2mm solid #135c91;border-radius:4mm;overflow:hidden;background:#fff;position:relative;text-align:center;box-shadow:0 8px 24px rgba(15,23,42,.12);font-family:Tahoma,Arial,sans-serif}
 .identity-card-front{padding:3mm 3mm 3mm;background:#fff;display:flex;flex-direction:column;align-items:center}
-.card-brand-header{width:100%;height:16mm;display:grid;grid-template-columns:1fr 1fr;align-items:start;direction:ltr}
-.card-company-brand{grid-column:1;display:flex;align-items:flex-start;justify-content:flex-start}
-.card-company-brand img{width:16mm;height:13mm;object-fit:contain;object-position:left top}.logo-placeholder{width:16mm;height:13mm;display:grid;place-items:center;border-radius:2mm;background:#0b2d55;color:#fff;font-size:7pt}
-.card-branch-brand{grid-column:2;display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;color:#0b2d55;font-size:7.5pt;line-height:1.2;direction:rtl}
-.card-branch-brand img,.branch-logo-placeholder{width:13mm;height:10mm;object-fit:contain;object-position:right top;margin-bottom:.5mm}.branch-logo-placeholder{display:grid;place-items:center;border-radius:2mm;background:#d8eafb;font-weight:800}
-.card-branch-brand strong{display:block;width:100%;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-brand-header{width:100%;height:17mm;display:grid;grid-template-columns:1fr 1fr;align-items:start;direction:ltr}
+.card-company-brand,.card-branch-brand{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;color:#0b2d55;font-size:7.5pt;line-height:1.15;min-width:0}
+.card-company-brand{grid-column:1;direction:ltr}
+.card-branch-brand{grid-column:2;direction:rtl}
+.card-company-brand img,.logo-placeholder{width:15mm;height:11mm;object-fit:contain;object-position:center top;margin-bottom:.7mm}.logo-placeholder{display:grid;place-items:center;border-radius:2mm;background:#0b2d55;color:#fff;font-size:7pt}
+.card-branch-brand img,.branch-logo-placeholder{width:13mm;height:10mm;object-fit:contain;object-position:center top;margin-bottom:.7mm}.branch-logo-placeholder{display:grid;place-items:center;border-radius:2mm;background:#d8eafb;font-weight:800}
+.card-company-brand strong,.card-branch-brand strong{display:block;width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .member-photo-wrap{width:29mm;height:30mm;border:1px solid #bdd1e7;border-radius:3mm;overflow:hidden;background:#f3f6fa;margin:1.5mm 0}.member-photo-wrap img{width:100%;height:100%;object-fit:cover}.photo-placeholder{height:100%;display:grid;place-items:center;color:#789;font-size:8pt}
 .member-name{font-weight:800;color:#102a43;font-size:9pt;line-height:1.25;min-height:7mm;display:grid;place-items:center}.member-role{font-size:7pt;color:#486581;min-height:5mm}
 .academy-brand{margin-top:auto;display:flex;flex-direction:column;align-items:center;font-size:7pt;color:#102a43;line-height:1.15;max-width:100%}.academy-brand img,.academy-logo-placeholder{width:8mm;height:8mm;object-fit:contain;margin-bottom:.5mm}.academy-logo-placeholder{display:grid;place-items:center;border-radius:50%;background:#d8eafb;font-weight:800}.academy-brand strong{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
