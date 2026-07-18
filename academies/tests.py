@@ -928,7 +928,13 @@ class ApplicationFlowsTests(TestCase):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_reports = True
         profile.save()
+        branch = Branch.objects.create(
+            name='British International College of Cairo',
+            short_name='BICC',
+            logo='branches/logos/test-branch-logo.png',
+        )
         academy = Academy.objects.create(
+            branch=branch,
             name='أكاديمية البطاقات', sport_activity='كرة قدم', company_name='Card Academy Company',
             manager_name='مدير البطاقات', manager_phone='01000000003',
             operation_place=OPERATION_PLACE_CHOICES[0][0],
@@ -970,7 +976,10 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'height:86mm')
         self.assertContains(response, '2027-2028')
         self.assertContains(response, reverse('academy_member_qr', args=[academy.pk, coach.pk]))
-        self.assertContains(response, 'data:image/png;base64,')
+        self.assertContains(response, branch.logo.url)
+        self.assertContains(response, 'BICC')
+        self.assertContains(response, 'background:#fff')
+        self.assertContains(response, 'border:1.2mm solid #135c91')
         self.assertContains(response, 'تصدير PDF')
         self.assertContains(response, 'طباعة')
 

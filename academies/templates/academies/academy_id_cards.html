@@ -43,9 +43,18 @@
   {% for member in members %}
   <article class="identity-card-pair">
     <section class="identity-card identity-card-front">
-      <div class="card-company-brand">
-        {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="لوجو الشركة" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="logo-placeholder fallback-logo">{{ company_short_name }}</div>{% else %}<div class="logo-placeholder">{{ company_short_name }}</div>{% endif %}
-        <strong>{{ company_short_name }}</strong>
+      <div class="card-brand-header">
+        <div class="card-company-brand">
+          {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="لوجو الشركة" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="logo-placeholder fallback-logo">{{ company_short_name }}</div>{% else %}<div class="logo-placeholder">{{ company_short_name }}</div>{% endif %}
+        </div>
+        <div class="card-branch-brand">
+          {% if academy.branch and academy.branch.logo %}
+            <img src="{{ academy.branch.logo.url }}" alt="لوجو {{ academy.branch.display_name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="branch-logo-placeholder fallback-logo">{{ academy.branch.display_name|slice:":2" }}</div>
+          {% else %}
+            <div class="branch-logo-placeholder">{{ academy.branch.display_name|default:"-"|slice:":2" }}</div>
+          {% endif %}
+          <strong>{{ academy.branch.display_name|default:"-" }}</strong>
+        </div>
       </div>
       <div class="member-photo-wrap">
         {% if member.photo_data_uri %}<img src="{{ member.photo_data_uri }}" alt="صورة {{ member.name }}">{% else %}<div class="photo-placeholder">صورة العضو</div>{% endif %}
@@ -55,8 +64,6 @@
       <div class="academy-brand">
         {% if academy.logo_data_uri %}
           <img src="{{ academy.logo_data_uri }}" alt="لوجو {{ academy.name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="academy-logo-placeholder fallback-logo">{{ academy.name|slice:":2" }}</div>
-        {% elif academy.branch and academy.branch.logo %}
-          <img src="{{ academy.branch.logo.url }}" alt="لوجو {{ academy.name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="academy-logo-placeholder fallback-logo">{{ academy.name|slice:":2" }}</div>
         {% else %}
           <div class="academy-logo-placeholder">{{ academy.name|slice:":2" }}</div>
         {% endif %}
@@ -64,12 +71,9 @@
       </div>
     </section>
     <section class="identity-card identity-card-back">
-      <div class="back-company">{{ company_short_name }}</div>
       <div class="training-year-label">العام التدريبي</div>
       <div class="training-year-value">{{ training_year }}</div>
       <img class="identity-qr" src="{% url 'academy_member_qr' academy.pk member.pk %}" alt="QR {{ member.name }}">
-      <div class="back-member-name">{{ member.name }}</div>
-      <div class="back-academy">{{ academy.name }}</div>
     </section>
   </article>
   {% empty %}
@@ -85,19 +89,23 @@
 .training-year-select{direction:ltr;text-align:center}.fallback-logo{display:none!important}.fallback-logo[style*="display: grid"]{display:grid!important}
 .identity-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(390px,1fr));gap:26px;align-items:start}
 .identity-card-pair{display:flex;gap:14px;justify-content:center;break-inside:avoid;page-break-inside:avoid}
-.identity-card{width:54mm;height:86mm;box-sizing:border-box;border:1px solid #b8c8da;border-radius:4mm;overflow:hidden;background:#fff;position:relative;text-align:center;box-shadow:0 8px 24px rgba(15,23,42,.12);font-family:Tahoma,Arial,sans-serif}
-.identity-card-front{padding:4mm 4mm 3mm;background:linear-gradient(180deg,#eef7ff 0,#fff 28%,#fff 78%,#eaf5ff 100%);display:flex;flex-direction:column;align-items:center}
-.card-company-brand{height:15mm;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#0b2d55;font-size:9pt}
-.card-company-brand img{width:12mm;height:9mm;object-fit:contain}.logo-placeholder{width:12mm;height:9mm;display:grid;place-items:center;border-radius:2mm;background:#0b2d55;color:#fff;font-size:7pt}
-.member-photo-wrap{width:31mm;height:34mm;border:1px solid #bdd1e7;border-radius:3mm;overflow:hidden;background:#f3f6fa;margin:2mm 0}.member-photo-wrap img{width:100%;height:100%;object-fit:cover}.photo-placeholder{height:100%;display:grid;place-items:center;color:#789;font-size:8pt}
-.member-name{font-weight:800;color:#102a43;font-size:10pt;line-height:1.35;min-height:8mm;display:grid;place-items:center}.member-role{font-size:7.5pt;color:#486581;min-height:6mm}
-.academy-brand{margin-top:auto;display:flex;flex-direction:column;align-items:center;font-size:8pt;color:#102a43}.academy-brand img,.academy-logo-placeholder{width:10mm;height:10mm;object-fit:contain;margin-bottom:1mm}.academy-logo-placeholder{display:grid;place-items:center;border-radius:50%;background:#d8eafb;font-weight:800}
-.identity-card-back{padding:6mm 5mm;background:linear-gradient(145deg,#0b2d55,#135c91);color:#fff;display:flex;flex-direction:column;align-items:center}
-.back-company{font-size:12pt;font-weight:900;letter-spacing:1px}.training-year-label{font-size:9pt;margin-top:8mm}.training-year-value{font-size:15pt;font-weight:900;margin:1mm 0 4mm;direction:ltr}.identity-qr{width:31mm;height:31mm;background:#fff;border-radius:2mm;padding:1.5mm}.back-member-name{font-size:9pt;font-weight:800;margin-top:4mm}.back-academy{font-size:7.5pt;margin-top:1.5mm;color:#d8ebff}
+.identity-card{width:54mm;height:86mm;box-sizing:border-box;border:1.2mm solid #135c91;border-radius:4mm;overflow:hidden;background:#fff;position:relative;text-align:center;box-shadow:0 8px 24px rgba(15,23,42,.12);font-family:Tahoma,Arial,sans-serif}
+.identity-card-front{padding:3mm 3mm 3mm;background:#fff;display:flex;flex-direction:column;align-items:center}
+.card-brand-header{width:100%;height:16mm;display:grid;grid-template-columns:1fr 1fr;align-items:start;direction:ltr}
+.card-company-brand{grid-column:1;display:flex;align-items:flex-start;justify-content:flex-start}
+.card-company-brand img{width:16mm;height:13mm;object-fit:contain;object-position:left top}.logo-placeholder{width:16mm;height:13mm;display:grid;place-items:center;border-radius:2mm;background:#0b2d55;color:#fff;font-size:7pt}
+.card-branch-brand{grid-column:2;display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;color:#0b2d55;font-size:7.5pt;line-height:1.2;direction:rtl}
+.card-branch-brand img,.branch-logo-placeholder{width:13mm;height:10mm;object-fit:contain;object-position:right top;margin-bottom:.5mm}.branch-logo-placeholder{display:grid;place-items:center;border-radius:2mm;background:#d8eafb;font-weight:800}
+.card-branch-brand strong{display:block;width:100%;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.member-photo-wrap{width:29mm;height:30mm;border:1px solid #bdd1e7;border-radius:3mm;overflow:hidden;background:#f3f6fa;margin:1.5mm 0}.member-photo-wrap img{width:100%;height:100%;object-fit:cover}.photo-placeholder{height:100%;display:grid;place-items:center;color:#789;font-size:8pt}
+.member-name{font-weight:800;color:#102a43;font-size:9pt;line-height:1.25;min-height:7mm;display:grid;place-items:center}.member-role{font-size:7pt;color:#486581;min-height:5mm}
+.academy-brand{margin-top:auto;display:flex;flex-direction:column;align-items:center;font-size:7pt;color:#102a43;line-height:1.15;max-width:100%}.academy-brand img,.academy-logo-placeholder{width:8mm;height:8mm;object-fit:contain;margin-bottom:.5mm}.academy-logo-placeholder{display:grid;place-items:center;border-radius:50%;background:#d8eafb;font-weight:800}.academy-brand strong{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.identity-card-back{padding:6mm 5mm;background:#fff;color:#0b2d55;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.training-year-label{font-size:10pt;font-weight:700}.training-year-value{font-size:16pt;font-weight:900;margin:2mm 0 6mm;direction:ltr}.identity-qr{width:34mm;height:34mm;background:#fff;border:1px solid #bdd1e7;border-radius:2mm;padding:1.5mm}
 @media print{
   @page{size:A4 portrait;margin:8mm}
   body{background:#fff!important}.sidebar,.no-print,.page-title,.navbar{display:none!important}.main-content,.content-wrapper{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
-  .cards-print-heading{display:block}.identity-cards-grid{grid-template-columns:111mm;gap:5mm;justify-content:center}.identity-card-pair{gap:3mm}.identity-card{box-shadow:none;border-color:#91a7bd}
+  .cards-print-heading{display:block}.identity-cards-grid{grid-template-columns:111mm;gap:5mm;justify-content:center}.identity-card-pair{gap:3mm}.identity-card{box-shadow:none;border-color:#135c91}
 }
 </style>
 <script>
