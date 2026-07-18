@@ -14,7 +14,7 @@
       <label class="form-label fw-bold">الفرع</label>
       <select name="branch_id" class="form-select">
         <option value="all" {% if active_branch_is_all %}selected{% endif %}>كل الفروع</option>
-        {% for branch in available_branches %}<option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>{% endfor %}
+        {% for branch in available_branches %}<option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.display_name }}</option>{% endfor %}
       </select>
     </div>
     <div class="col-md-3">
@@ -55,7 +55,7 @@
           {% for row in rows %}
           <tr>
             <td>{{ row.academy.name }}</td>
-            <td>{{ row.academy.branch.name|default:'-' }}</td>
+            <td>{{ row.academy.branch.display_name|default:'-' }}</td>
             <td>{{ row.expected }}</td>
             <td><input class="form-control money-input" type="number" min="0" name="payment_{{ row.payment.id }}_paid_amount" value="{{ row.paid }}"></td>
             <td><input class="form-control" type="date" name="payment_{{ row.payment.id }}_payment_date" value="{{ row.payment.payment_date|date:'Y-m-d' }}"></td>
@@ -113,7 +113,7 @@
         {% for row in deposit_rows %}
         <tr class="{% if row.status_class == 'danger' %}table-danger{% elif row.status_class == 'warning' %}table-warning{% elif row.status_class == 'success' %}table-success{% elif row.status_class == 'info' %}table-info{% endif %}">
           <td>{{ row.academy.name }}</td>
-          <td>{{ row.academy.branch.name|default:'-' }}</td>
+          <td>{{ row.academy.branch.display_name|default:'-' }}</td>
           <td>{{ row.total }}</td>
           <td>{% if row.plan %}{{ row.installments_count }}{% else %}-{% endif %}</td>
           <td>{{ row.due_this_month }}</td>

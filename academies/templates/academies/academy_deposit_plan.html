@@ -3,7 +3,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <div>
     <h3 class="mb-1">تأمين أكاديمية {{ academy.name }}</h3>
-    <div class="text-muted">{{ academy.branch.name|default:'بدون فرع' }} — بداية التعاقد {{ academy.contract_start_date|date:'d/m/Y' }}</div>
+    <div class="text-muted">{{ academy.branch.display_name|default:'بدون فرع' }} — بداية التعاقد {{ academy.contract_start_date|date:'d/m/Y' }}</div>
   </div>
   <a class="btn btn-secondary" href="{% url 'academy_rent_payments' %}{% if back_month %}?month={{ back_month }}{% endif %}">رجوع لإيجارات الأكاديميات</a>
 </div>

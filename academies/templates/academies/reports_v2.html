@@ -69,7 +69,7 @@
   <h4 class="text-center fw-bold mb-3">بيانات أكاديمية {{ academy.name }}</h4>
   <div class="table-responsive"><table class="table table-bordered text-center align-middle">
     <tbody>
-      <tr><th>الأكاديمية</th><td>{{ academy.name }}</td><th>الفرع</th><td>{{ academy.branch.name|default:'-' }}</td><th>النشاط</th><td>{{ academy.sport_activity }}</td></tr>
+      <tr><th>الأكاديمية</th><td>{{ academy.name }}</td><th>الفرع</th><td>{{ academy.branch.display_name|default:'-' }}</td><th>النشاط</th><td>{{ academy.sport_activity }}</td></tr>
       <tr><th>الشركة</th><td>{{ academy.company_name }}</td><th>مدير الأكاديمية</th><td>{{ academy.manager_name }}</td><th>رقم الهاتف</th><td>{{ academy.manager_phone }}</td></tr>
       <tr><th>الرقم القومي للمدير</th><td>{{ academy.manager_national_id|default:'-' }}</td><th>بداية التعاقد</th><td>{{ academy.contract_start_date|date:'d/m/Y' }}</td><th>نهاية التعاقد</th><td>{{ academy.contract_end_date|date:'d/m/Y' }}</td></tr>
       <tr><th>نوع الاشتراك</th><td>{{ selected_academy_row.subscription_label }}</td><th>القيمة الثابتة</th><td>{{ academy.monthly_subscription }}</td><th>القيمة المتغيرة</th><td>{{ academy.variable_rent_value }}</td></tr>
@@ -148,7 +148,7 @@
     <input type="hidden" name="month" value="{{ month_value }}">
     <input type="hidden" name="date_from" value="{{ date_from }}">
     <input type="hidden" name="date_to" value="{{ date_to }}">
-    <div><label class="form-label fw-bold">نوع الحركة</label><select name="movement" class="form-select" onchange="this.form.submit()"><option value="">الدخول والخروج</option>{% for value,label in security_movement_choices %}<option value="{{ value }}" {% if security_movement_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="security-movement-filter"><label class="form-label fw-bold">نوع الحركة</label><select name="movement" class="form-select security-movement-select" onchange="this.form.submit()"><option value="">الدخول والخروج</option>{% for value,label in security_movement_choices %}<option value="{{ value }}" {% if security_movement_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
   </form>
 </div>
 <div class="card p-3">
@@ -157,7 +157,7 @@
     <thead><tr><th>م</th><th>الحركة</th><th>اليوم</th><th>التاريخ</th><th>التوقيت</th><th>الاسم</th><th>الفئة</th><th>الأكاديمية</th><th>الفرع</th><th>طريقة التسجيل</th><th>سجل بواسطة</th><th>ملاحظات</th></tr></thead>
     <tbody>
       {% for row in security_rows %}
-      <tr><td>{{ forloop.counter }}</td><td class="fw-bold {% if row.movement_type == 'entry' %}text-success{% else %}text-danger{% endif %}">{{ row.get_movement_type_display }}</td><td>{{ row.day_name }}</td><td>{{ row.recorded_at|date:'d/m/Y' }}</td><td>{{ row.recorded_at|date:'h:i A' }}</td><td>{{ row.person_name }}</td><td>{{ row.get_person_type_display }}</td><td>{{ row.academy_name|default:'-' }}</td><td>{{ row.branch.name|default:'-' }}</td><td>{{ row.get_source_display }}</td><td>{{ row.recorded_by.first_name|default:row.recorded_by.username|default:'-' }}</td><td>{{ row.notes|default:'-' }}</td></tr>
+      <tr><td>{{ forloop.counter }}</td><td class="fw-bold {% if row.movement_type == 'entry' %}text-success{% else %}text-danger{% endif %}">{{ row.get_movement_type_display }}</td><td>{{ row.day_name }}</td><td>{{ row.recorded_at|date:'d/m/Y' }}</td><td>{{ row.recorded_at|date:'h:i A' }}</td><td>{{ row.person_name }}</td><td>{{ row.get_person_type_display }}</td><td>{{ row.academy_name|default:'-' }}</td><td>{{ row.branch.display_name|default:'-' }}</td><td>{{ row.get_source_display }}</td><td>{{ row.recorded_by.first_name|default:row.recorded_by.username|default:'-' }}</td><td>{{ row.notes|default:'-' }}</td></tr>
       {% empty %}<tr><td colspan="12">لا توجد حركات أمن خلال الفترة المختارة.</td></tr>{% endfor %}
     </tbody>
   </table></div>
@@ -178,6 +178,10 @@
   .report-filter-grid{display:flex!important;flex-wrap:nowrap!important;gap:12px!important;min-width:990px;width:100%;margin:0!important}
   .report-filter-grid>div{width:auto!important;max-width:none!important;flex-shrink:0}
   .report-filter-grid .report-name-field{flex:1.45 1 240px}
+  .security-movement-filter{width:290px;max-width:100%}
+  .security-movement-select{width:100%!important;min-width:290px;padding-right:1rem!important;padding-left:3rem!important;background-position:left .85rem center!important;white-space:nowrap}
+  .security-report-table{min-width:1900px!important;width:100%!important}
+  .security-report-table th,.security-report-table td{white-space:nowrap!important;vertical-align:middle!important}
   .report-filter-grid .report-range-field{flex:1.2 1 190px}
   .report-filter-grid .report-date-field{flex:1 1 170px}
   .report-filter-grid .report-signature-field{flex:1.25 1 210px}

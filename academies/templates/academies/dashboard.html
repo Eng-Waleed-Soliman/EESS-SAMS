@@ -17,7 +17,7 @@
       <select name="branch_id" id="branch_id" class="form-select">
         <option value="all" {% if active_branch_is_all %}selected{% endif %}>عرض كل الفروع</option>
         {% for branch in available_branches %}
-          <option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>
+          <option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.display_name }}</option>
         {% endfor %}
       </select>
     </div>
@@ -35,7 +35,7 @@
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
   <h3 class="page-title mb-0">لوحة التحكم</h3>
   <span class="context-badge">
-    {% if active_branch_is_all %}كل الفروع{% elif active_branch %}{{ active_branch.name }}{% endif %}
+    {% if active_branch_is_all %}كل الفروع{% elif active_branch %}{{ active_branch.display_name }}{% endif %}
     — {{ training_year }}
   </span>
 </div>

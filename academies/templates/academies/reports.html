@@ -57,7 +57,7 @@
         {% for row in company_income_rows %}
         <tr>
           <td>{{ row.academy.name }}</td>
-          <td>{{ row.academy.branch.name|default:'-' }}</td>
+          <td>{{ row.academy.branch.display_name|default:'-' }}</td>
           <td>{{ row.academy.sport_activity }}</td>
           <td>{{ row.expected }}</td>
           <td>{{ row.paid }}</td>
@@ -133,7 +133,7 @@
         {% for row in academy_rent_rows %}
         <tr>
           <td>{{ row.academy.name }}</td>
-          <td>{{ row.academy.branch.name|default:'-' }}</td>
+          <td>{{ row.academy.branch.display_name|default:'-' }}</td>
           <td>{{ row.academy.sport_activity }}</td>
           <td>{{ row.expected }}</td>
           <td>{{ row.paid }}</td>

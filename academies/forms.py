@@ -664,7 +664,7 @@ class DailyIncomeSupplyForm(forms.ModelForm):
 class BranchForm(forms.ModelForm):
     class Meta:
         model = Branch
-        fields = ['name', 'location', 'logo', 'image', 'notes']
+        fields = ['name', 'short_name', 'location', 'logo', 'image', 'notes']
         widgets = {
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }

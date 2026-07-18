@@ -37,6 +37,7 @@ class AppSetting(models.Model):
 
 class Branch(models.Model):
     name = models.CharField(max_length=200, verbose_name='اسم الفرع')
+    short_name = models.CharField(max_length=100, blank=True, verbose_name='الاسم المختصر للفرع')
     location = models.CharField(max_length=250, blank=True, verbose_name='الموقع')
     logo = models.FileField(upload_to='branches/logos/', blank=True, verbose_name='لوجو الفرع')
     image = models.FileField(upload_to='branches/images/', blank=True, verbose_name='صورة الفرع')
@@ -49,7 +50,11 @@ class Branch(models.Model):
         verbose_name_plural = 'الأفرع'
 
     def __str__(self):
-        return self.name
+        return self.display_name
+
+    @property
+    def display_name(self):
+        return self.short_name.strip() if self.short_name and self.short_name.strip() else self.name
 
 
 class Facility(models.Model):

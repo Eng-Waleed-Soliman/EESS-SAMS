@@ -30,8 +30,8 @@ class AppSettingAdmin(admin.ModelAdmin):
 
 @admin.register(Branch)
 class BranchAdmin(admin.ModelAdmin):
-    list_display = ('name', 'location', 'created_at')
-    search_fields = ('name', 'location', 'notes')
+    list_display = ('name', 'short_name', 'location', 'created_at')
+    search_fields = ('name', 'short_name', 'location', 'notes')
 
 
 @admin.register(Facility)

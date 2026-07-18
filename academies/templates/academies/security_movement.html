@@ -16,7 +16,7 @@
       <select name="academy_id" class="form-select" onchange="this.form.submit()">
         <option value="">اختر الأكاديمية</option>
         {% for academy in academies %}
-          <option value="{{ academy.pk }}" {% if selected_academy.pk == academy.pk %}selected{% endif %}>{{ academy.name }} — {{ academy.sport_activity }}{% if academy.branch %} — {{ academy.branch.name }}{% endif %}</option>
+          <option value="{{ academy.pk }}" {% if selected_academy.pk == academy.pk %}selected{% endif %}>{{ academy.name }} — {{ academy.sport_activity }}{% if academy.branch %} — {{ academy.branch.display_name }}{% endif %}</option>
         {% endfor %}
       </select>
     </div>

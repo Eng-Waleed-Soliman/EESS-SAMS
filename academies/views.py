@@ -1770,7 +1770,7 @@ def _academy_rent_rows(year, month, start, end, branch=None):
             'is_supplied': payment.is_supplied,
             'is_ball_field_academy': _is_ball_field_academy(academy),
         })
-    rows.sort(key=lambda row: (row['academy'].branch.name if row['academy'].branch_id else '', row['academy'].name))
+    rows.sort(key=lambda row: (row['academy'].branch.display_name if row['academy'].branch_id else '', row['academy'].name))
     return rows
 
 
@@ -1833,7 +1833,7 @@ def _academy_deposit_rows(rent_rows, month_start):
             'status_label': status_label,
             'status_class': status_class,
         })
-    rows.sort(key=lambda row: (row['academy'].branch.name if row['academy'].branch_id else '', row['academy'].name))
+    rows.sort(key=lambda row: (row['academy'].branch.display_name if row['academy'].branch_id else '', row['academy'].name))
     return rows
 
 

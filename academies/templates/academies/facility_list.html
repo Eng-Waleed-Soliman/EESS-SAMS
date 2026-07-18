@@ -14,7 +14,7 @@
         <tr>
           <td>{% if facility.image %}<img class="media-thumb" src="{{ facility.image.url }}" alt="{{ facility.name }}">{% else %}-{% endif %}</td>
           <td>{{ facility.name }}</td>
-          <td>{{ facility.branch.name }}</td>
+          <td>{{ facility.branch.display_name }}</td>
           <td>{{ facility.get_facility_type_display }}</td>
           <td>{{ facility.hourly_rent }}</td>
           <td>{{ facility.daily_rent }}</td>

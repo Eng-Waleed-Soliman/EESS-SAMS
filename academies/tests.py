@@ -11,7 +11,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
-from .forms import AcademyForm, DailyBookingForm, EESSUserUpdateForm
+from .forms import AcademyForm, BranchForm, DailyBookingForm, EESSUserUpdateForm
 from .middleware import DatabaseRetryMiddleware
 from .views import _academy_schedule_occurrences_for_date, _calculate_variable_income_by_facility
 from .models import (
@@ -66,11 +66,23 @@ class ApplicationFlowsTests(TestCase):
             middleware(RequestFactory().post('/save/'))
         self.assertEqual(calls['count'], 1)
 
+    def test_branch_short_name_is_used_as_the_display_label(self):
+        branch = Branch.objects.create(
+            name='British International College of Cairo',
+            short_name='BICC',
+        )
+        self.assertEqual(str(branch), 'BICC')
+        self.assertEqual(branch.display_name, 'BICC')
+        self.assertIn('short_name', BranchForm().fields)
+
+        branch.short_name = ''
+        self.assertEqual(branch.display_name, branch.name)
+
     def test_security_entry_exit_visitors_qr_and_report(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_security = True
         profile.save()
-        branch = Branch.objects.create(name='Security branch')
+        branch = Branch.objects.create(name='Security branch full name', short_name='SEC')
         academy = Academy.objects.create(
             branch=branch, name='Security Academy', sport_activity='Football',
             company_name='Security Company', manager_name='Manager',
@@ -125,6 +137,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'سجل الدخول والخروج')
         self.assertContains(response, member.name)
         self.assertContains(response, 'Visitor Parent')
+        self.assertContains(response, 'SEC')
 
     @override_settings(DEBUG=False)
     def test_django_admin_renders_without_a_static_manifest(self):

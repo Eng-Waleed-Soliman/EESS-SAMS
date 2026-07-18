@@ -8,7 +8,7 @@
   <form class="d-flex gap-2 flex-wrap operation-toolbar-form" method="get">
     <select class="form-select operation-filter-branch" name="branch_id">
       <option value="all" {% if active_branch_is_all %}selected{% endif %}>كل الفروع</option>
-      {% for branch in available_branches %}<option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>{% endfor %}
+      {% for branch in available_branches %}<option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.display_name }}</option>{% endfor %}
     </select>
     <input type="date" class="form-control operation-filter-date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
     <select class="form-select operation-filter-period" name="period">
