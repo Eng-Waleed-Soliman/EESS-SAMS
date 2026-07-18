@@ -1,0 +1,28 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h3 class="mb-0">الأمن</h3>
+  <a class="btn btn-outline-primary" href="{% url 'reports_home' %}?report_type=security_log">سجل الأمن في التقارير</a>
+</div>
+
+<div class="security-choice-grid">
+  <a class="security-choice entry" href="{% url 'security_movement' 'entry' %}">
+    <span class="security-choice-icon">↪</span>
+    <h2>الدخول</h2>
+    <p>تسجيل دخول عضو أو زائر</p>
+  </a>
+  <a class="security-choice exit" href="{% url 'security_movement' 'exit' %}">
+    <span class="security-choice-icon">↩</span>
+    <h2>الخروج</h2>
+    <p>تسجيل خروج عضو أو زائر</p>
+  </a>
+</div>
+
+<style>
+.security-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:24px;max-width:850px;margin:55px auto}
+.security-choice{min-height:260px;border-radius:24px;text-decoration:none;color:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 18px 45px rgba(15,23,42,.12);transition:.2s;border:3px solid transparent}
+.security-choice.entry{background:linear-gradient(145deg,#dcfce7,#f0fdf4);border-color:#22c55e}.security-choice.exit{background:linear-gradient(145deg,#fee2e2,#fff1f2);border-color:#ef4444}
+.security-choice:hover{transform:translateY(-6px);color:#0f172a}.security-choice-icon{font-size:76px;line-height:1}.security-choice h2{font-weight:900;margin:12px 0 4px}.security-choice p{color:#475569}
+@media(max-width:700px){.security-choice-grid{grid-template-columns:1fr;margin-top:25px}.security-choice{min-height:190px}}
+</style>
+{% endblock %}

@@ -1,0 +1,141 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3 class="mb-0">تسجيل {{ movement_label }}</h3>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn {% if movement_type == 'entry' %}btn-success{% else %}btn-outline-success{% endif %}" href="{% url 'security_movement' 'entry' %}">الدخول</a>
+    <a class="btn {% if movement_type == 'exit' %}btn-danger{% else %}btn-outline-danger{% endif %}" href="{% url 'security_movement' 'exit' %}">الخروج</a>
+    <a class="btn btn-outline-primary" href="{% url 'security_home' %}">الرئيسية</a>
+  </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <form method="get" class="row g-3 align-items-end" id="securityFilterForm">
+    <div class="col-lg-7">
+      <label class="form-label fw-bold">الأكاديمية</label>
+      <select name="academy_id" class="form-select" onchange="this.form.submit()">
+        <option value="">اختر الأكاديمية</option>
+        {% for academy in academies %}
+          <option value="{{ academy.pk }}" {% if selected_academy.pk == academy.pk %}selected{% endif %}>{{ academy.name }} — {{ academy.sport_activity }}{% if academy.branch %} — {{ academy.branch.name }}{% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-lg-5">
+      <label class="form-label fw-bold">الفئة</label>
+      <select name="group" class="form-select" onchange="this.form.submit()">
+        <option value="staff" {% if group == 'staff' %}selected{% endif %}>المدربون والإداريون</option>
+        <option value="player" {% if group == 'player' %}selected{% endif %}>اللاعبون</option>
+      </select>
+    </div>
+  </form>
+</div>
+
+<div class="card p-3 mb-3 qr-panel">
+  <h5 class="fw-bold">مسح QR Code</h5>
+  <form method="post" id="qrLookupForm" class="d-flex gap-2 flex-wrap">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="lookup_qr">
+    <input type="hidden" name="academy_id" value="{{ selected_academy.pk|default:'' }}">
+    <input type="hidden" name="group" value="{{ group }}">
+    <input id="qrValueInput" class="form-control flex-grow-1" name="qr_value" placeholder="امسح الكود أو الصق محتواه هنا" autocomplete="off" autofocus>
+    <button class="btn btn-primary">إظهار البيانات</button>
+    <button type="button" class="btn btn-outline-primary" id="cameraButton">فتح الكاميرا</button>
+  </form>
+  <div id="cameraArea" class="camera-area d-none mt-3">
+    <video id="qrCamera" playsinline></video>
+    <button type="button" class="btn btn-secondary mt-2" id="stopCameraButton">إغلاق الكاميرا</button>
+  </div>
+</div>
+
+{% if scanned_member %}
+<div class="alert alert-success p-0 scanned-result">
+  <div class="security-person-card" ondblclick="recordMember('{{ scanned_member.pk }}','qr')" title="دبل كليك لتسجيل {{ movement_label }}">
+    {% if scanned_member.photo_data_uri %}<img src="{{ scanned_member.photo_data_uri }}" alt="{{ scanned_member.name }}">{% else %}<div class="person-placeholder">👤</div>{% endif %}
+    <div><h4>{{ scanned_member.name }}</h4><b>{{ scanned_member.get_role_display }}</b><div>{{ scanned_member.academy.name }} — {{ scanned_member.academy.sport_activity }}</div><small>دبل كليك لتسجيل {{ movement_label }}</small></div>
+  </div>
+</div>
+{% endif %}
+
+{% if selected_academy %}
+<div class="card p-3 mb-3">
+  <h5 class="fw-bold mb-3">{{ selected_academy.name }} — {% if group == 'player' %}اللاعبون{% else %}المدربون والإداريون{% endif %}</h5>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle security-members-table">
+      <thead><tr><th>الصورة</th><th>الاسم</th><th>الفئة</th><th>الوظيفة</th><th>رقم الهاتف</th><th>التسجيل</th></tr></thead>
+      <tbody>
+      {% for member in members %}
+        <tr ondblclick="recordMember('{{ member.pk }}','manual')" title="دبل كليك لتسجيل {{ movement_label }}">
+          <td>{% if member.photo_data_uri %}<img class="member-thumb" src="{{ member.photo_data_uri }}" alt="{{ member.name }}">{% else %}<span class="member-placeholder">👤</span>{% endif %}</td>
+          <td class="fw-bold">{{ member.name }}</td><td>{{ member.get_role_display }}</td><td>{{ member.job_title|default:'-' }}</td><td>{{ member.phone|default:'-' }}</td><td><span class="badge text-bg-primary">دبل كليك</span></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted">لا توجد أسماء مسجلة في هذه الفئة.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card p-3 visitor-card">
+  <h5 class="fw-bold mb-3">تسجيل زائر</h5>
+  <form method="post" class="row g-3 align-items-end">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="record_visitor">
+    <input type="hidden" name="academy_id" value="{{ selected_academy.pk }}">
+    <input type="hidden" name="group" value="{{ group }}">
+    <div class="col-md-4"><label class="form-label">اسم الزائر</label><input class="form-control" name="visitor_name" required></div>
+    <div class="col-md-3"><label class="form-label">الفئة</label><select class="form-select" name="visitor_type" required><option value="">اختر الفئة</option>{% for value,label in visitor_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label class="form-label">ملاحظات</label><input class="form-control" name="notes"></div>
+    <div class="col-md-2"><button class="btn btn-primary w-100">تسجيل {{ movement_label }}</button></div>
+  </form>
+</div>
+{% else %}
+<div class="alert alert-info text-center">اختر الأكاديمية لعرض الأسماء أو تسجيل زائر.</div>
+{% endif %}
+
+<form method="post" id="recordMemberForm" class="d-none">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="record_member">
+  <input type="hidden" name="member_id" id="recordMemberId">
+  <input type="hidden" name="source" id="recordMemberSource">
+  <input type="hidden" name="academy_id" value="{{ selected_academy.pk|default:'' }}">
+  <input type="hidden" name="group" value="{{ group }}">
+</form>
+
+<style>
+.security-members-table tbody tr{cursor:pointer}.security-members-table tbody tr:hover{background:#dbeafe!important}.member-thumb{width:56px;height:56px;object-fit:cover;border-radius:10px}.member-placeholder{font-size:34px}.security-person-card{display:flex;align-items:center;gap:18px;padding:16px;cursor:pointer}.security-person-card img,.person-placeholder{width:88px;height:88px;object-fit:cover;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:48px}.security-person-card h4{font-weight:900;margin:0}.security-person-card small{display:block;margin-top:7px}.camera-area{text-align:center}.camera-area video{width:min(520px,100%);border-radius:14px;background:#111;max-height:360px}
+</style>
+<script>
+function recordMember(id, source){
+  document.getElementById('recordMemberId').value=id;
+  document.getElementById('recordMemberSource').value=source;
+  document.getElementById('recordMemberForm').submit();
+}
+(function(){
+  const input=document.getElementById('qrValueInput'), form=document.getElementById('qrLookupForm');
+  const button=document.getElementById('cameraButton'), stopButton=document.getElementById('stopCameraButton');
+  const area=document.getElementById('cameraArea'), video=document.getElementById('qrCamera');
+  let stream=null, timer=null;
+  function stop(){
+    if(timer){cancelAnimationFrame(timer);timer=null}
+    if(stream){stream.getTracks().forEach(track=>track.stop());stream=null}
+    area.classList.add('d-none');
+  }
+  button.addEventListener('click', async function(){
+    if(!('BarcodeDetector' in window)){alert('الكاميرا غير مدعومة في هذا المتصفح. استخدم قارئ QR أو الصق الكود في الخانة.');return}
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+      video.srcObject=stream; await video.play(); area.classList.remove('d-none');
+      const detector=new BarcodeDetector({formats:['qr_code']});
+      async function scan(){
+        if(!stream)return;
+        try{const codes=await detector.detect(video);if(codes.length){input.value=codes[0].rawValue;stop();form.submit();return}}catch(e){}
+        timer=requestAnimationFrame(scan);
+      }
+      scan();
+    }catch(e){alert('تعذر فتح الكاميرا. تأكد من السماح باستخدامها.')}
+  });
+  stopButton.addEventListener('click',stop);
+})();
+</script>
+{% endblock %}

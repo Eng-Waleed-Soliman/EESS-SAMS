@@ -12,8 +12,9 @@ from django.urls import reverse
 from django.db import transaction
 from django.db.models import Sum, Q, Count
 from django.http import HttpResponse
+from django.utils import timezone
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
@@ -78,6 +79,7 @@ REPORT_PERMISSION_FIELDS = {
     'monthly_income': 'can_report_income',
     'expenses': 'can_report_expenses',
     'cafeteria': 'can_report_cafeteria',
+    'security_log': 'can_security',
 }
 
 SIDEBAR_PERMISSION_MODULES = [
@@ -85,6 +87,7 @@ SIDEBAR_PERMISSION_MODULES = [
     {'key': 'daily_booking', 'field': 'can_daily_booking', 'label': 'الحجز اليومي', 'buttons': ['إضافة حجز', 'تعديل حجز', 'حذف حجز', 'Checkout', 'إلغاء يوم تشغيل']},
     {'key': 'academy_rent', 'field': 'can_academy_rent', 'label': 'إيجارات الأكاديميات', 'buttons': ['عرض', 'تعديل المسدد', 'تعديل التوريد للشركة', 'تصدير PDF']},
     {'key': 'operation', 'field': 'can_operation', 'label': 'التشغيل', 'buttons': ['تعديل موعد', 'حذف من التشغيل', 'نقل مكان التدريب', 'إرجاع للحالة الأصلية']},
+    {'key': 'security', 'field': 'can_security', 'label': 'الأمن', 'buttons': ['الدخول', 'الخروج', 'مسح QR Code', 'تسجيل زائر']},
     {'key': 'shareholders', 'field': 'can_shareholders', 'label': 'المساهمين', 'buttons': ['إضافة مساهم', 'تعديل مساهم', 'حذف مساهم']},
     {'key': 'employees', 'field': 'can_employees', 'label': 'الموظفين', 'buttons': ['إضافة موظف', 'تعديل موظف', 'حذف موظف']},
     {'key': 'general_expenses', 'field': 'can_general_expenses', 'label': 'المصروفات العامة', 'buttons': ['مصروف شهري', 'مصروف يومي', 'مصروف تشغيل', 'تعديل', 'حذف']},
@@ -100,6 +103,7 @@ REPORT_TYPE_OPTIONS = [
     ('monthly_income', 'الدخل الشهري'),
     ('expenses', 'المصروفات'),
     ('cafeteria', 'الكافيتريا'),
+    ('security_log', 'سجل الأمن'),
 ]
 
 ARABIC_MONTH_NAMES = {
@@ -151,6 +155,155 @@ def _user_allowed_report_types(user):
 
 def _can_access_reports(user):
     return bool(_user_allowed_report_types(user))
+
+
+def _can_access_security(user):
+    if user.is_superuser or user.is_staff:
+        return True
+    try:
+        return bool(user.eess_permissions.can_security)
+    except Exception:
+        return False
+
+
+def _security_member_type(member):
+    return (
+        SecurityMovement.PERSON_PLAYER
+        if member.role == AcademyMember.ROLE_PLAYER
+        else SecurityMovement.PERSON_STAFF
+    )
+
+
+def _security_member_from_qr(raw_value, academy_queryset):
+    token_match = re.search(
+        r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}',
+        raw_value or '',
+    )
+    if not token_match:
+        return None
+    return (
+        AcademyMember.objects.select_related('academy', 'academy__branch')
+        .filter(qr_token=token_match.group(0), academy__in=academy_queryset, is_active=True)
+        .first()
+    )
+
+
+@login_required
+def security_home(request):
+    if not _can_access_security(request.user):
+        messages.error(request, 'ليس لديك صلاحية الدخول إلى موديول الأمن.')
+        return redirect('dashboard')
+    return render(request, 'academies/security_home.html')
+
+
+@login_required
+def security_movement(request, movement_type):
+    if not _can_access_security(request.user):
+        messages.error(request, 'ليس لديك صلاحية الدخول إلى موديول الأمن.')
+        return redirect('dashboard')
+    if movement_type not in {SecurityMovement.MOVEMENT_ENTRY, SecurityMovement.MOVEMENT_EXIT}:
+        return redirect('security_home')
+
+    active_branch, all_branches = selected_branch(request)
+    academies = Academy.objects.select_related('branch').order_by('sport_activity', 'name')
+    if not all_branches:
+        academies = academies.filter(branch=active_branch)
+
+    academy_id = request.GET.get('academy_id') or request.POST.get('academy_id')
+    group = request.GET.get('group') or request.POST.get('group') or 'staff'
+    if group not in {'staff', 'player'}:
+        group = 'staff'
+    try:
+        selected_academy = academies.filter(pk=int(academy_id)).first() if academy_id else None
+    except (TypeError, ValueError):
+        selected_academy = None
+
+    scanned_member = None
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'lookup_qr':
+            scanned_member = _security_member_from_qr(request.POST.get('qr_value', ''), academies)
+            if not scanned_member:
+                messages.error(request, 'لم يتم العثور على شخص مسجل بهذا الـ QR Code.')
+            else:
+                selected_academy = scanned_member.academy
+                group = 'player' if scanned_member.role == AcademyMember.ROLE_PLAYER else 'staff'
+
+        elif action == 'record_member':
+            member = get_object_or_404(
+                AcademyMember.objects.select_related('academy', 'academy__branch').filter(
+                    academy__in=academies, is_active=True,
+                ),
+                pk=request.POST.get('member_id'),
+            )
+            source = (
+                SecurityMovement.SOURCE_QR
+                if request.POST.get('source') == SecurityMovement.SOURCE_QR
+                else SecurityMovement.SOURCE_MANUAL
+            )
+            SecurityMovement.objects.create(
+                branch=member.academy.branch,
+                academy=member.academy,
+                member=member,
+                academy_name=member.academy.name,
+                person_name=member.name,
+                person_type=_security_member_type(member),
+                movement_type=movement_type,
+                source=source,
+                recorded_by=request.user,
+            )
+            messages.success(request, f'تم تسجيل {dict(SecurityMovement.MOVEMENT_CHOICES)[movement_type]} {member.name} بنجاح.')
+            return redirect(
+                f'{reverse("security_movement", args=[movement_type])}?academy_id={member.academy_id}&group='
+                f'{"player" if member.role == AcademyMember.ROLE_PLAYER else "staff"}'
+            )
+
+        elif action == 'record_visitor':
+            visitor_name = request.POST.get('visitor_name', '').strip()
+            visitor_type = request.POST.get('visitor_type', '')
+            notes = request.POST.get('notes', '').strip()
+            if not selected_academy:
+                messages.error(request, 'اختر الأكاديمية أولًا.')
+            elif not visitor_name:
+                messages.error(request, 'اكتب اسم الزائر.')
+            elif visitor_type not in dict(SecurityMovement.PERSON_CHOICES):
+                messages.error(request, 'اختر فئة الزائر.')
+            else:
+                SecurityMovement.objects.create(
+                    branch=selected_academy.branch,
+                    academy=selected_academy,
+                    academy_name=selected_academy.name,
+                    person_name=visitor_name,
+                    person_type=visitor_type,
+                    movement_type=movement_type,
+                    source=SecurityMovement.SOURCE_VISITOR,
+                    recorded_by=request.user,
+                    notes=notes,
+                )
+                messages.success(request, f'تم تسجيل {dict(SecurityMovement.MOVEMENT_CHOICES)[movement_type]} الزائر {visitor_name} بنجاح.')
+                return redirect(
+                    f'{reverse("security_movement", args=[movement_type])}?academy_id={selected_academy.pk}&group={group}'
+                )
+
+    members = AcademyMember.objects.none()
+    if selected_academy:
+        members = selected_academy.members.filter(is_active=True)
+        if group == 'player':
+            members = members.filter(role=AcademyMember.ROLE_PLAYER)
+        else:
+            members = members.filter(role__in=[AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN])
+        members = members.order_by('name')
+
+    return render(request, 'academies/security_movement.html', {
+        'movement_type': movement_type,
+        'movement_label': dict(SecurityMovement.MOVEMENT_CHOICES)[movement_type],
+        'academies': academies,
+        'selected_academy': selected_academy,
+        'group': group,
+        'members': members,
+        'scanned_member': scanned_member,
+        'visitor_types': SecurityMovement.PERSON_CHOICES,
+    })
 
 
 def login_view(request):
@@ -2252,6 +2405,7 @@ def reports_home_v2(request):
         'daily_expense_rows': [],
         'cafeteria_rows': [],
         'cafeteria_statistics': [],
+        'security_rows': [],
     }
     employee_qs = Employee.objects.all()
     booking_checkout_qs = DailyBookingCheckout.objects.all()
@@ -2442,6 +2596,24 @@ def reports_home_v2(request):
             'cafeteria_net_profit': sales_total - purchase_total,
             'cafeteria_rows': cafeteria_rows,
             'cafeteria_statistics': sorted(cafeteria_rows, key=lambda row: (-row['sold'], row['item'].name)),
+        })
+
+    elif report_type == 'security_log':
+        security_rows = SecurityMovement.objects.select_related(
+            'branch', 'academy', 'member', 'recorded_by'
+        ).filter(recorded_at__date__range=(start, end))
+        if not all_branches:
+            security_rows = security_rows.filter(branch=active_branch)
+        movement_filter = request.GET.get('movement', '')
+        if movement_filter in {SecurityMovement.MOVEMENT_ENTRY, SecurityMovement.MOVEMENT_EXIT}:
+            security_rows = security_rows.filter(movement_type=movement_filter)
+        security_rows = list(security_rows)
+        for row in security_rows:
+            row.day_name = WEEKDAY_AR[timezone.localtime(row.recorded_at).weekday()]
+        context.update({
+            'security_rows': security_rows,
+            'security_movement_filter': movement_filter,
+            'security_movement_choices': SecurityMovement.MOVEMENT_CHOICES,
         })
 
     return render(request, 'academies/reports_v2.html', context)

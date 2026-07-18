@@ -6,7 +6,7 @@ from .models import (
     OperationDayCancellation, AcademyOperationOverride, UserPermission, DailyBookingCheckout,
     DailyIncomeSupply, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment,
     AcademyDepositPlan, AcademyDepositInstallment,
-    FinancialVoucher,
+    FinancialVoucher, SecurityMovement,
 )
 
 
@@ -14,6 +14,13 @@ from .models import (
 class AcademyAdmin(admin.ModelAdmin):
     list_display = ('name', 'branch', 'sport_activity', 'manager_name', 'manager_phone', 'contract_end_date', 'subscription_type', 'security_deposit')
     search_fields = ('name', 'sport_activity', 'manager_name', 'manager_phone', 'branch__name')
+
+
+@admin.register(SecurityMovement)
+class SecurityMovementAdmin(admin.ModelAdmin):
+    list_display = ('recorded_at', 'movement_type', 'person_name', 'person_type', 'academy_name', 'branch', 'source', 'recorded_by')
+    list_filter = ('movement_type', 'person_type', 'source', 'branch')
+    search_fields = ('person_name', 'academy_name', 'academy__name')
 
 
 @admin.register(AppSetting)

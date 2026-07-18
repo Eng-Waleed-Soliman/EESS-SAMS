@@ -276,6 +276,63 @@ class AcademyMember(models.Model):
         return f'data:{content_type};base64,{encoded}'
 
 
+class SecurityMovement(models.Model):
+    MOVEMENT_ENTRY = 'entry'
+    MOVEMENT_EXIT = 'exit'
+    MOVEMENT_CHOICES = [
+        (MOVEMENT_ENTRY, 'دخول'),
+        (MOVEMENT_EXIT, 'خروج'),
+    ]
+    PERSON_STAFF = 'staff'
+    PERSON_PLAYER = 'player'
+    PERSON_PARENT = 'parent'
+    PERSON_CHOICES = [
+        (PERSON_PLAYER, 'لاعب'),
+        (PERSON_STAFF, 'مدرب / إداري'),
+        (PERSON_PARENT, 'ولي أمر'),
+    ]
+    SOURCE_MANUAL = 'manual'
+    SOURCE_QR = 'qr'
+    SOURCE_VISITOR = 'visitor'
+    SOURCE_CHOICES = [
+        (SOURCE_MANUAL, 'اختيار من القائمة'),
+        (SOURCE_QR, 'QR Code'),
+        (SOURCE_VISITOR, 'زائر'),
+    ]
+
+    branch = models.ForeignKey(
+        Branch, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='security_movements', verbose_name='الفرع',
+    )
+    academy = models.ForeignKey(
+        Academy, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='security_movements', verbose_name='الأكاديمية',
+    )
+    member = models.ForeignKey(
+        AcademyMember, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='security_movements', verbose_name='الشخص المسجل',
+    )
+    academy_name = models.CharField(max_length=200, blank=True, verbose_name='اسم الأكاديمية وقت التسجيل')
+    person_name = models.CharField(max_length=200, verbose_name='الاسم')
+    person_type = models.CharField(max_length=20, choices=PERSON_CHOICES, verbose_name='الفئة')
+    movement_type = models.CharField(max_length=10, choices=MOVEMENT_CHOICES, verbose_name='الحركة')
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default=SOURCE_MANUAL, verbose_name='طريقة التسجيل')
+    recorded_at = models.DateTimeField(auto_now_add=True, verbose_name='وقت التسجيل')
+    recorded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='security_movements_recorded', verbose_name='سجل بواسطة',
+    )
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+
+    class Meta:
+        ordering = ['-recorded_at', '-id']
+        verbose_name = 'حركة أمن'
+        verbose_name_plural = 'سجل الأمن'
+
+    def __str__(self):
+        return f'{self.get_movement_type_display()} - {self.person_name}'
+
+
 class Customer(models.Model):
     customer_code = models.CharField(max_length=50, unique=True, verbose_name='كود العميل')
     customer_name = models.CharField(max_length=200, verbose_name='اسم العميل')
@@ -590,6 +647,7 @@ class UserPermission(models.Model):
     can_daily_income = models.BooleanField(default=False, verbose_name='الدخل اليومي / الشهري')
     can_academy_rent = models.BooleanField(default=False, verbose_name='إيجارات الأكاديميات')
     can_operation = models.BooleanField(default=False, verbose_name='التشغيل')
+    can_security = models.BooleanField(default=False, verbose_name='الأمن')
     can_shareholders = models.BooleanField(default=False, verbose_name='المساهمين')
     can_employees = models.BooleanField(default=False, verbose_name='الموظفين')
     can_general_expenses = models.BooleanField(default=False, verbose_name='المصروفات العامة')
@@ -611,7 +669,7 @@ class UserPermission(models.Model):
     def can_access_any_report(self):
         return bool(
             any((self.report_permissions or {}).values()) or
-            self.can_reports or self.can_report_income or self.can_report_shareholders or
+            self.can_reports or self.can_security or self.can_report_income or self.can_report_shareholders or
             self.can_report_employees or self.can_report_payroll or self.can_report_expenses or
             self.can_report_cafeteria or self.can_report_deposits
         )

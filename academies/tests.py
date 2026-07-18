@@ -36,6 +36,7 @@ from .models import (
     MonthlyExpense,
     OperatingExpense,
     Shareholder,
+    SecurityMovement,
     UserPermission,
 )
 
@@ -64,6 +65,66 @@ class ApplicationFlowsTests(TestCase):
         with self.assertRaises(OperationalError):
             middleware(RequestFactory().post('/save/'))
         self.assertEqual(calls['count'], 1)
+
+    def test_security_entry_exit_visitors_qr_and_report(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_security = True
+        profile.save()
+        branch = Branch.objects.create(name='Security branch')
+        academy = Academy.objects.create(
+            branch=branch, name='Security Academy', sport_activity='Football',
+            company_name='Security Company', manager_name='Manager',
+            manager_phone='01012345678', operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=30),
+        )
+        member = AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_PLAYER, name='Security Player',
+        )
+
+        response = self.client.get(reverse('security_home'))
+        self.assertContains(response, 'الدخول')
+        self.assertContains(response, 'الخروج')
+
+        response = self.client.post(reverse('security_movement', args=['entry']), {
+            'action': 'record_member',
+            'member_id': member.pk,
+            'academy_id': academy.pk,
+            'group': 'player',
+            'source': 'manual',
+        })
+        self.assertEqual(response.status_code, 302)
+        movement = SecurityMovement.objects.get(member=member, movement_type='entry')
+        self.assertEqual(movement.person_name, member.name)
+        self.assertEqual(movement.academy, academy)
+        self.assertEqual(movement.recorded_by, self.user)
+
+        response = self.client.post(reverse('security_movement', args=['exit']), {
+            'action': 'lookup_qr',
+            'qr_value': f'المعرف: {member.qr_token}',
+        })
+        self.assertContains(response, member.name)
+        self.assertContains(response, academy.name)
+
+        response = self.client.post(reverse('security_movement', args=['entry']), {
+            'action': 'record_visitor',
+            'academy_id': academy.pk,
+            'group': 'staff',
+            'visitor_name': 'Visitor Parent',
+            'visitor_type': 'parent',
+            'notes': 'Test visitor',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(SecurityMovement.objects.filter(
+            person_name='Visitor Parent', source='visitor', person_type='parent',
+        ).exists())
+
+        response = self.client.get(reverse('reports_home'), {
+            'report_type': 'security_log',
+            'month': date.today().strftime('%Y-%m'),
+        })
+        self.assertContains(response, 'سجل الدخول والخروج')
+        self.assertContains(response, member.name)
+        self.assertContains(response, 'Visitor Parent')
 
     @override_settings(DEBUG=False)
     def test_django_admin_renders_without_a_static_manifest(self):
@@ -497,7 +558,7 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.get(reverse('reports_home'), {'report_type': 'board_members'})
         self.assertNotContains(response, 'أعضاء مجلس الإدارة')
         self.assertEqual(response.context['report_type'], 'academies')
-        self.assertEqual(len(response.context['allowed_report_options']), 5)
+        self.assertEqual(len(response.context['allowed_report_options']), 6)
         for label in ['بيانات الموظفين', 'بيانات الأكاديميات', 'الدخل الشهري', 'المصروفات', 'الكافيتريا']:
             self.assertContains(response, label)
         self.assertNotContains(response, 'تقرير المرتبات الشهرية والبونص')
