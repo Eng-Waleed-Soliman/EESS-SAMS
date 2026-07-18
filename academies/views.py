@@ -2978,10 +2978,11 @@ def academy_id_cards(request):
         members = academy.members.filter(role=AcademyMember.ROLE_PLAYER).order_by('name')
 
     app_settings = AppSetting.objects.first()
-    company_name = (
-        app_settings.company_name
-        if app_settings and app_settings.company_name
-        else 'Egyptian English Sports Services'
+    company_name = app_settings.company_name if app_settings else 'Egyptian English Sports Services'
+    company_short_name = (
+        app_settings.company_short_name.strip()
+        if app_settings and app_settings.company_short_name and app_settings.company_short_name.strip()
+        else _company_short_name(company_name)
     )
     return render(request, 'academies/academy_id_cards.html', {
         'academy_choices': academy_choices,
@@ -2990,7 +2991,7 @@ def academy_id_cards(request):
         'card_group': card_group,
         'training_year_choices': TRAINING_YEAR_CHOICES,
         'training_year': _selected_training_year(request),
-        'company_short_name': _company_short_name(company_name),
+        'company_short_name': company_short_name,
         'app_settings': app_settings,
     })
 

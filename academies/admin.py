@@ -25,7 +25,7 @@ class SecurityMovementAdmin(admin.ModelAdmin):
 
 @admin.register(AppSetting)
 class AppSettingAdmin(admin.ModelAdmin):
-    list_display = ('program_name', 'company_name', 'updated_at')
+    list_display = ('program_name', 'company_name', 'company_short_name', 'updated_at')
 
 
 @admin.register(Branch)

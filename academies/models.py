@@ -17,6 +17,7 @@ def split_values(value):
 class AppSetting(models.Model):
     program_name = models.CharField(max_length=200, default='EESS Management System', verbose_name='اسم البرنامج')
     company_name = models.CharField(max_length=250, default='Egyptian English Sports Services', verbose_name='اسم الشركة باللغة الإنجليزية')
+    company_short_name = models.CharField(max_length=100, blank=True, default='EESS', verbose_name='الاسم المختصر للشركة')
     company_name_ar = models.CharField(max_length=250, blank=True, default='', verbose_name='اسم الشركة باللغة العربية')
     company_logo = models.FileField(upload_to='branding/', blank=True, verbose_name='لوجو الشركة')
     main_screen_image = models.FileField(upload_to='branding/', blank=True, verbose_name='صورة الشاشة الرئيسية')

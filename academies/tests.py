@@ -97,12 +97,15 @@ class ApplicationFlowsTests(TestCase):
         setting_form = AppSettingForm(data={
             'program_name': setting.program_name,
             'company_name': setting.company_name,
+            'company_short_name': 'EESS TEST',
             'company_name_ar': setting.company_name_ar,
         }, instance=setting)
         self.assertTrue(setting_form.is_valid(), setting_form.errors)
         saved_setting = setting_form.save()
         self.assertEqual(saved_setting.company_logo.name, 'branding/company.png')
         self.assertEqual(saved_setting.main_screen_image.name, 'branding/main.jpg')
+        self.assertEqual(saved_setting.company_short_name, 'EESS TEST')
+        self.assertIn('company_short_name', setting_form.fields)
 
         branch.short_name = ''
         self.assertEqual(branch.display_name, branch.name)
@@ -982,6 +985,9 @@ class ApplicationFlowsTests(TestCase):
             academy=academy, role=AcademyMember.ROLE_PLAYER,
             name='لاعب البطاقة', birth_date=date(2010, 1, 1),
         )
+        app_setting = AppSetting.current()
+        app_setting.company_short_name = 'EESS CARD'
+        app_setting.save(update_fields=['company_short_name'])
 
         response = self.client.get(reverse('academy_list'), {'training_year': '2099-2100'})
         self.assertContains(response, '2026 - 2027')
@@ -1007,6 +1013,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, reverse('academy_member_qr', args=[academy.pk, coach.pk]))
         self.assertContains(response, branch.logo.url)
         self.assertContains(response, 'BICC')
+        self.assertContains(response, 'EESS CARD')
         self.assertContains(response, 'background-color:#fff')
         self.assertContains(response, 'border:1.15mm solid #082d61')
         self.assertContains(response, 'linear-gradient(132deg')

@@ -630,10 +630,11 @@ class AcademyMemberForm(forms.ModelForm):
 class AppSettingForm(forms.ModelForm):
     class Meta:
         model = AppSetting
-        fields = ['program_name', 'company_name', 'company_name_ar', 'company_logo', 'main_screen_image']
+        fields = ['program_name', 'company_name', 'company_short_name', 'company_name_ar', 'company_logo', 'main_screen_image']
         widgets = {
             'program_name': forms.TextInput(attrs={'class': 'form-control'}),
             'company_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'company_short_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'مثال: EESS'}),
             'company_name_ar': forms.TextInput(attrs={'class': 'form-control'}),
             'company_logo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'main_screen_image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
