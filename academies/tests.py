@@ -91,6 +91,72 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, academy.website_description)
         self.assertContains(detail, 'Public Coach')
 
+    def test_public_website_switches_all_public_content_to_english_and_remembers_language(self):
+        branch = Branch.objects.create(
+            name='فرع القاهرة',
+            name_en='Cairo Branch',
+            short_name='CAI',
+            location='القاهرة',
+            location_en='Cairo',
+            website_description='وصف الفرع',
+            website_description_en='Cairo branch description',
+        )
+        academy = Academy.objects.create(
+            branch=branch,
+            name='أكاديمية الأبطال',
+            name_en='Champions Academy',
+            sport_activity='كرة قدم',
+            sport_activity_en='Football',
+            company_name='Champions',
+            manager_name='Manager',
+            manager_phone='01000000000',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(),
+            contract_end_date=date.today() + timedelta(days=30),
+            website_description='نبذة عربية',
+            website_description_en='English academy introduction',
+        )
+        AcademyMember.objects.create(
+            academy=academy,
+            role=AcademyMember.ROLE_COACH,
+            name='مدرب عربي',
+            name_en='English Coach',
+            job_title='مدرب رئيسي',
+            job_title_en='Head Coach',
+            website_bio='نبذة عربية',
+            website_bio_en='English coach biography',
+        )
+        website = WebsiteSetting.current()
+        website.hero_text_en = 'A complete professional sports ecosystem.'
+        website.about_title_en = 'Sport Without Limits'
+        website.about_text_en = 'English company profile.'
+        website.address_en = 'Cairo, Egypt'
+        website.footer_text_en = 'EESS official website'
+        website.save()
+
+        self.client.logout()
+        response = self.client.get(reverse('public_website'), {'lang': 'en'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<html lang="en" dir="ltr">')
+        self.assertContains(response, 'About')
+        self.assertContains(response, 'Management Login')
+        self.assertContains(response, 'Cairo Branch')
+        self.assertContains(response, 'Champions Academy')
+        self.assertContains(response, 'Football')
+        self.assertContains(response, 'English Coach')
+        self.assertContains(response, 'Head Coach')
+        self.assertNotContains(response, 'عن الشركة')
+
+        detail = self.client.get(reverse('public_academy_detail', args=[academy.pk]))
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, '<html lang="en" dir="ltr">')
+        self.assertContains(detail, 'Back to Academies')
+        self.assertContains(detail, 'English academy introduction')
+
+        arabic = self.client.get(reverse('public_website'), {'lang': 'ar'})
+        self.assertContains(arabic, '<html lang="ar" dir="rtl">')
+        self.assertContains(arabic, 'عن الشركة')
+
     def test_database_retry_middleware_retries_reads_but_not_writes(self):
         calls = {'count': 0}
 

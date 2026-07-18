@@ -334,11 +334,11 @@ class AcademyForm(forms.ModelForm):
     class Meta:
         model = Academy
         fields = [
-            'branch', 'name', 'logo', 'sport_activity', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone',
+            'branch', 'name', 'name_en', 'logo', 'sport_activity', 'sport_activity_en', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone',
             'operation_place', 'contract_start_date', 'contract_end_date', 'subscription_type', 'monthly_subscription',
             'variable_rent_type', 'variable_rent_value', 'eess_share_percentage', 'security_deposit', 'training_days', 'training_hours',
             'has_extra_hours', 'extra_training_days', 'extra_training_place', 'extra_training_hours', 'notes',
-            'website_description', 'is_published_on_website'
+            'website_description', 'website_description_en', 'is_published_on_website'
         ]
         widgets = {
             'branch': forms.Select(attrs={'class': 'form-select'}),
@@ -346,6 +346,7 @@ class AcademyForm(forms.ModelForm):
             'contract_end_date': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'website_description': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'website_description_en': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'dir': 'ltr'}),
             'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control fixed-field', 'step': '1'}),
             'eess_share_percentage': forms.NumberInput(attrs={'class': 'form-control share-field', 'step': '1', 'min': '0', 'max': '100'}),
@@ -561,7 +562,7 @@ class AcademyMemberForm(forms.ModelForm):
 
     class Meta:
         model = AcademyMember
-        fields = ['role', 'name', 'phone', 'national_id', 'job_title', 'birth_date', 'monthly_subscription', 'photo', 'is_active', 'notes', 'website_bio', 'is_published_on_website']
+        fields = ['role', 'name', 'name_en', 'phone', 'national_id', 'job_title', 'job_title_en', 'birth_date', 'monthly_subscription', 'photo', 'is_active', 'notes', 'website_bio', 'website_bio_en', 'is_published_on_website']
         widgets = {
             'role': forms.Select(attrs={'class': 'form-select'}),
             'birth_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
@@ -569,6 +570,7 @@ class AcademyMemberForm(forms.ModelForm):
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'website_bio': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'website_bio_en': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'dir': 'ltr'}),
             'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -590,6 +592,7 @@ class AcademyMemberForm(forms.ModelForm):
         )
         if effective_role == AcademyMember.ROLE_PLAYER:
             self.fields.pop('job_title', None)
+            self.fields.pop('job_title_en', None)
         else:
             self.fields.pop('birth_date', None)
             self.fields.pop('monthly_subscription', None)
@@ -664,15 +667,17 @@ class WebsiteSettingForm(forms.ModelForm):
     class Meta:
         model = WebsiteSetting
         fields = [
-            'hero_title_ar', 'hero_title_en', 'hero_text', 'hero_image',
-            'about_title', 'about_text', 'about_image',
-            'phone', 'email', 'address', 'whatsapp',
+            'hero_title_ar', 'hero_title_en', 'hero_text', 'hero_text_en', 'hero_image',
+            'about_title', 'about_title_en', 'about_text', 'about_text_en', 'about_image',
+            'phone', 'email', 'address', 'address_en', 'whatsapp',
             'facebook_url', 'instagram_url', 'youtube_url',
-            'footer_text', 'is_published',
+            'footer_text', 'footer_text_en', 'is_published',
         ]
         widgets = {
             'hero_text': forms.Textarea(attrs={'rows': 4}),
+            'hero_text_en': forms.Textarea(attrs={'rows': 4, 'dir': 'ltr'}),
             'about_text': forms.Textarea(attrs={'rows': 6}),
+            'about_text_en': forms.Textarea(attrs={'rows': 6, 'dir': 'ltr'}),
             'hero_image': forms.FileInput(attrs={'accept': 'image/*'}),
             'about_image': forms.FileInput(attrs={'accept': 'image/*'}),
             'is_published': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -710,12 +715,13 @@ class DailyIncomeSupplyForm(forms.ModelForm):
 class BranchForm(forms.ModelForm):
     class Meta:
         model = Branch
-        fields = ['name', 'short_name', 'location', 'logo', 'image', 'notes', 'website_description', 'is_published_on_website']
+        fields = ['name', 'name_en', 'short_name', 'location', 'location_en', 'logo', 'image', 'notes', 'website_description', 'website_description_en', 'is_published_on_website']
         widgets = {
             'logo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'website_description': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'website_description_en': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'dir': 'ltr'}),
             'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -759,9 +765,10 @@ class FacilityForm(forms.ModelForm):
 class SportActivityMediaForm(forms.ModelForm):
     class Meta:
         model = SportActivityMedia
-        fields = ['name', 'image', 'description', 'is_active']
+        fields = ['name', 'name_en', 'image', 'description', 'description_en', 'is_active']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+            'description_en': forms.Textarea(attrs={'rows': 3, 'class': 'form-control', 'dir': 'ltr'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -1112,10 +1119,11 @@ class ShareholderForm(forms.ModelForm):
 
     class Meta:
         model = Shareholder
-        fields = ['name', 'national_id', 'phone', 'email', 'share_percentage', 'address', 'job_title', 'photo', 'website_bio', 'is_published_on_website', 'notes']
+        fields = ['name', 'name_en', 'national_id', 'phone', 'email', 'share_percentage', 'address', 'job_title', 'job_title_en', 'photo', 'website_bio', 'website_bio_en', 'is_published_on_website', 'notes']
         widgets = {
             'address': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
             'website_bio': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'website_bio_en': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'dir': 'ltr'}),
             'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'share_percentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),

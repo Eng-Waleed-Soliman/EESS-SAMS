@@ -60,6 +60,167 @@ def _company_short_name(company_name):
     return 'EESS'
 
 
+PUBLIC_TEXT = {
+    'ar': {
+        'menu': 'القائمة',
+        'nav_about': 'عن الشركة', 'nav_activities': 'الأنشطة', 'nav_branches': 'الفروع',
+        'nav_academies': 'الأكاديميات', 'nav_team': 'فريقنا', 'nav_contact': 'تواصل معنا',
+        'admin_login': 'دخول الإدارة', 'rights': 'جميع الحقوق محفوظة',
+        'hero_default': 'نقدم منظومة رياضية متكاملة تجمع بين الإدارة الاحترافية، التدريب المتخصص، وصناعة بيئة آمنة ومحفزة لبناء أجيال أقوى.',
+        'explore_academies': 'استكشف الأكاديميات', 'contact_us': 'تواصل معنا',
+        'stat_branches': 'فرع رياضي', 'stat_activities': 'لعبة ونشاط',
+        'stat_academies': 'أكاديمية متخصصة', 'stat_coaches': 'مدرب محترف',
+        'about_kicker': 'من نحن', 'about_default_title': 'رياضة باحترافية.. مستقبل بلا حدود',
+        'about_default': 'نحوّل الرياضة إلى تجربة متكاملة واحترافية. ندير الفروع والأكاديميات ونطوّر البرامج التدريبية وفق أعلى معايير الجودة، لنمنح كل لاعب مساحة حقيقية للنمو والتفوق.',
+        'value_1_title': 'احترافية', 'value_1_text': 'معايير واضحة في الإدارة والتدريب',
+        'value_2_title': 'تطوير مستمر', 'value_2_text': 'برامج تناسب كل مستوى ومرحلة',
+        'value_3_title': 'بيئة آمنة', 'value_3_text': 'تجربة موثوقة للاعب والأسرة',
+        'value_4_title': 'نتائج قابلة للقياس', 'value_4_text': 'نحو أهداف رياضية حقيقية',
+        'activities_kicker': 'اكتشف شغفك', 'activities_title': 'الألعاب والأنشطة',
+        'activities_intro': 'مجموعة متنوعة من الأنشطة الرياضية بإشراف فرق تدريب متخصصة داخل فروعنا.',
+        'academy_singular': 'أكاديمية', 'activity_default': 'برامج تدريبية متخصصة لجميع المستويات.',
+        'activities_empty': 'سيتم إضافة الأنشطة قريبًا.',
+        'branches_kicker': 'أقرب إليك', 'branches_title': 'فروعنا',
+        'branches_intro': 'منشآت رياضية مجهزة لتقديم تجربة تدريب وتشغيل عالية الجودة.',
+        'branch_default': 'فرع متكامل لخدمة مختلف الألعاب والأنشطة الرياضية.',
+        'branches_empty': 'سيتم الإعلان عن الفروع قريبًا.',
+        'academies_kicker': 'تدريب يصنع الفارق', 'academies_title': 'أكاديمياتنا الرياضية',
+        'academies_intro': 'اختر الأكاديمية المناسبة وابدأ رحلتك مع تدريب منظم وخبرة احترافية.',
+        'academy_default': 'أكاديمية متخصصة تقدم تجربة تدريبية احترافية.',
+        'learn_more': 'اعرف المزيد', 'academies_empty': 'سيتم إضافة الأكاديميات قريبًا.',
+        'team_kicker': 'خبرة وشغف', 'team_title': 'مدربونا',
+        'team_intro': 'طاقم تدريبي يضع تطوير اللاعب وسلامته في مقدمة الأولويات.',
+        'coach': 'مدرب', 'board_kicker': 'قيادة برؤية', 'board_title': 'مجلس الإدارة',
+        'board_intro': 'فريق يقود نمو الشركة ويطوّر أثرها في القطاع الرياضي.',
+        'board_member': 'عضو مجلس الإدارة', 'contact_kicker': 'ابدأ الآن',
+        'contact_title': 'جاهز تبدأ رحلتك الرياضية؟',
+        'contact_intro': 'تواصل معنا لمعرفة البرامج المتاحة، مواعيد التدريب، وأقرب فرع إليك.',
+        'phone': 'الهاتف', 'email': 'البريد الإلكتروني', 'address': 'العنوان',
+        'whatsapp': 'تواصل عبر واتساب',
+        'back_academies': 'العودة إلى الأكاديميات', 'about_academy': 'عن الأكاديمية',
+        'professional_training': 'تدريب احترافي في', 'activity': 'النشاط', 'branch': 'الفرع',
+        'academy_detail_default': 'أكاديمية متخصصة تعمل ضمن منظومة EESS لتقديم تدريب رياضي منظم وآمن وفعّال.',
+        'training_team': 'فريق التدريب', 'academy_coaches': 'مدربو الأكاديمية',
+        'join': 'انضم إلى', 'join_intro': 'تواصل معنا لمعرفة المواعيد والبرامج المتاحة.',
+    },
+    'en': {
+        'menu': 'Menu',
+        'nav_about': 'About', 'nav_activities': 'Activities', 'nav_branches': 'Branches',
+        'nav_academies': 'Academies', 'nav_team': 'Our Team', 'nav_contact': 'Contact',
+        'admin_login': 'Management Login', 'rights': 'All rights reserved',
+        'hero_default': 'We deliver an integrated sports ecosystem combining professional management, specialist coaching, and a safe, inspiring environment for stronger generations.',
+        'explore_academies': 'Explore Academies', 'contact_us': 'Contact Us',
+        'stat_branches': 'Sports Branches', 'stat_activities': 'Sports & Activities',
+        'stat_academies': 'Specialist Academies', 'stat_coaches': 'Professional Coaches',
+        'about_kicker': 'Who We Are', 'about_default_title': 'Professional Sport. Limitless Potential.',
+        'about_default': 'We turn sport into a complete professional experience. We manage branches and academies and develop training programmes to high quality standards, giving every athlete a real opportunity to grow and excel.',
+        'value_1_title': 'Professionalism', 'value_1_text': 'Clear standards in management and coaching',
+        'value_2_title': 'Continuous Growth', 'value_2_text': 'Programmes for every level and stage',
+        'value_3_title': 'Safe Environment', 'value_3_text': 'A trusted experience for athletes and families',
+        'value_4_title': 'Measurable Results', 'value_4_text': 'Progress towards real sporting goals',
+        'activities_kicker': 'Discover Your Passion', 'activities_title': 'Sports & Activities',
+        'activities_intro': 'A diverse selection of sports led by specialist coaching teams across our branches.',
+        'academy_singular': 'Academies', 'activity_default': 'Specialist training programmes for every level.',
+        'activities_empty': 'Activities will be added soon.',
+        'branches_kicker': 'Closer to You', 'branches_title': 'Our Branches',
+        'branches_intro': 'Well-equipped sports facilities delivering high-quality training and operations.',
+        'branch_default': 'A fully equipped branch serving a wide range of sports and activities.',
+        'branches_empty': 'Our branches will be announced soon.',
+        'academies_kicker': 'Training That Makes a Difference', 'academies_title': 'Our Sports Academies',
+        'academies_intro': 'Choose the right academy and begin your journey with structured training and professional expertise.',
+        'academy_default': 'A specialist academy delivering a professional training experience.',
+        'learn_more': 'Learn More', 'academies_empty': 'Academies will be added soon.',
+        'team_kicker': 'Experience & Passion', 'team_title': 'Our Coaches',
+        'team_intro': 'A coaching team committed to athlete development, wellbeing, and safety.',
+        'coach': 'Coach', 'board_kicker': 'Leadership with Vision', 'board_title': 'Board of Directors',
+        'board_intro': 'A leadership team driving the company’s growth and impact across the sports sector.',
+        'board_member': 'Board Member', 'contact_kicker': 'Start Today',
+        'contact_title': 'Ready to Begin Your Sporting Journey?',
+        'contact_intro': 'Contact us to learn about available programmes, training schedules, and your nearest branch.',
+        'phone': 'Phone', 'email': 'Email', 'address': 'Address',
+        'whatsapp': 'Contact Us on WhatsApp',
+        'back_academies': 'Back to Academies', 'about_academy': 'About the Academy',
+        'professional_training': 'Professional Training in', 'activity': 'Activity', 'branch': 'Branch',
+        'academy_detail_default': 'A specialist academy within the EESS ecosystem, delivering structured, safe, and effective sports training.',
+        'training_team': 'Coaching Team', 'academy_coaches': 'Academy Coaches',
+        'join': 'Join', 'join_intro': 'Contact us to learn about schedules and available programmes.',
+    },
+}
+
+
+def _public_language_context(request):
+    requested = request.GET.get('lang')
+    if requested in PUBLIC_TEXT:
+        request.session['public_language'] = requested
+    language = request.session.get('public_language', 'ar')
+    if language not in PUBLIC_TEXT:
+        language = 'ar'
+    return {
+        'site_lang': language,
+        'is_english': language == 'en',
+        't': PUBLIC_TEXT[language],
+        'language_switch_label': 'العربية' if language == 'en' else 'English',
+        'language_switch_url': f'{request.path}?lang={"ar" if language == "en" else "en"}',
+    }
+
+
+def _localized_value(obj, arabic_field, english_field, language, fallback=''):
+    if language == 'en':
+        value = getattr(obj, english_field, '')
+        if value and str(value).strip():
+            return value
+    value = getattr(obj, arabic_field, '')
+    return value if value and str(value).strip() else fallback
+
+
+def _prepare_public_objects(language, branding, website, branches, academies, coaches, board_members):
+    branding.public_company_name = (
+        branding.company_name
+        if language == 'en'
+        else (branding.company_name_ar or branding.company_name)
+    )
+    website.public_hero_title = website.hero_title_en if language == 'en' else website.hero_title_ar
+    website.public_hero_text = _localized_value(website, 'hero_text', 'hero_text_en', language)
+    website.public_about_title = _localized_value(website, 'about_title', 'about_title_en', language)
+    website.public_about_text = _localized_value(website, 'about_text', 'about_text_en', language)
+    website.public_address = _localized_value(website, 'address', 'address_en', language)
+    website.public_footer_text = _localized_value(website, 'footer_text', 'footer_text_en', language)
+    def prepare_branch(branch):
+        if not branch:
+            return
+        branch.public_name = _localized_value(branch, 'display_name', 'name_en', language, branch.display_name)
+        branch.public_location = _localized_value(branch, 'location', 'location_en', language)
+        branch.public_description = _localized_value(
+            branch, 'website_description', 'website_description_en', language,
+        )
+
+    def prepare_academy(academy):
+        if not academy:
+            return
+        academy.public_name = _localized_value(academy, 'name', 'name_en', language, academy.name)
+        academy.public_activity = _localized_value(
+            academy, 'sport_activity', 'sport_activity_en', language, academy.sport_activity,
+        )
+        academy.public_description = _localized_value(
+            academy, 'website_description', 'website_description_en', language,
+        )
+        prepare_branch(getattr(academy, 'branch', None))
+
+    for branch in branches:
+        prepare_branch(branch)
+    for academy in academies:
+        prepare_academy(academy)
+    for person in coaches:
+        person.public_name = _localized_value(person, 'name', 'name_en', language, person.name)
+        person.public_job_title = _localized_value(person, 'job_title', 'job_title_en', language)
+        person.public_bio = _localized_value(person, 'website_bio', 'website_bio_en', language)
+        prepare_academy(getattr(person, 'academy', None))
+    for person in board_members:
+        person.public_name = _localized_value(person, 'name', 'name_en', language, person.name)
+        person.public_job_title = _localized_value(person, 'job_title', 'job_title_en', language)
+        person.public_bio = _localized_value(person, 'website_bio', 'website_bio_en', language)
+
+
 def _can_manage_users(user):
     if user.is_superuser or user.is_staff:
         return True
@@ -70,6 +231,8 @@ def _can_manage_users(user):
 
 
 def public_website(request):
+    language_context = _public_language_context(request)
+    language = language_context['site_lang']
     branding = AppSetting.current()
     website = WebsiteSetting.current()
     branches = list(Branch.objects.filter(is_published_on_website=True).order_by('name'))
@@ -88,9 +251,27 @@ def public_website(request):
             activity_names.append(name)
     activities = [
         {
-            'name': name,
+            'name': (
+                activity_media.get(name.casefold()).name_en
+                if language == 'en' and activity_media.get(name.casefold()) and activity_media.get(name.casefold()).name_en
+                else (
+                    next(
+                        (
+                            academy.sport_activity_en for academy in academies
+                            if (academy.sport_activity or '').strip() == name and academy.sport_activity_en
+                        ),
+                        name,
+                    )
+                    if language == 'en' else name
+                )
+            ),
             'media': activity_media.get(name.casefold()),
             'academy_count': sum(1 for academy in academies if (academy.sport_activity or '').strip() == name),
+            'description': (
+                activity_media.get(name.casefold()).description_en
+                if language == 'en' and activity_media.get(name.casefold()) and activity_media.get(name.casefold()).description_en
+                else (activity_media.get(name.casefold()).description if activity_media.get(name.casefold()) else '')
+            ),
         }
         for name in activity_names
     ]
@@ -105,6 +286,9 @@ def public_website(request):
     board_members = list(
         Shareholder.objects.filter(is_published_on_website=True).order_by('name')
     )
+    _prepare_public_objects(
+        language, branding, website, branches, academies, coaches, board_members,
+    )
     return render(request, 'public/home.html', {
         'branding': branding,
         'website': website,
@@ -113,10 +297,13 @@ def public_website(request):
         'activities': activities,
         'coaches': coaches,
         'board_members': board_members,
+        **language_context,
     })
 
 
 def public_academy_detail(request, pk):
+    language_context = _public_language_context(request)
+    language = language_context['site_lang']
     branding = AppSetting.current()
     website = WebsiteSetting.current()
     academy = get_object_or_404(
@@ -129,11 +316,16 @@ def public_academy_detail(request, pk):
         is_active=True,
         is_published_on_website=True,
     ).order_by('name')
+    branches = [academy.branch] if academy.branch else []
+    _prepare_public_objects(
+        language, branding, website, branches, [academy], list(coaches), [],
+    )
     return render(request, 'public/academy_detail.html', {
         'branding': branding,
         'website': website,
         'academy': academy,
         'coaches': coaches,
+        **language_context,
     })
 
 def _ensure_user_profile(user):

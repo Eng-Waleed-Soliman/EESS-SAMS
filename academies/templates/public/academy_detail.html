@@ -1,8 +1,48 @@
 {% extends 'public/base_public.html' %}
-{% block title %}{{ academy.name }} | {{ branding.company_short_name }}{% endblock %}
+{% block title %}{{ academy.public_name }} | {{ branding.company_short_name }}{% endblock %}
 {% block content %}
-<header class="detail-hero"><div class="container detail-head">{% if academy.logo_data_uri %}<img class="detail-logo" src="{{ academy.logo_data_uri }}" alt="{{ academy.name }}">{% endif %}<div><a class="back-link" href="{% url 'public_website' %}#academies">العودة إلى الأكاديميات</a><h1>{{ academy.name }}</h1><p>{{ academy.sport_activity }}{% if academy.branch %} · {{ academy.branch.display_name }}{% endif %}</p></div></div></header>
-<section><div class="container about-grid"><div class="about-copy"><div class="section-kicker">عن الأكاديمية</div><h2>تدريب احترافي في {{ academy.sport_activity }}</h2><p>{{ academy.website_description|default:academy.notes|default:"أكاديمية متخصصة تعمل ضمن منظومة EESS لتقديم تدريب رياضي منظم وآمن وفعّال." }}</p><div class="values"><div class="value"><b>النشاط</b><span>{{ academy.sport_activity }}</span></div>{% if academy.branch %}<div class="value"><b>الفرع</b><span>{{ academy.branch.display_name }}</span></div>{% endif %}</div></div><div class="about-media">{% if academy.branch and academy.branch.image %}<img src="{{ academy.branch.image.url }}" alt="{{ academy.branch.display_name }}">{% elif website.about_image %}<img src="{{ website.about_image.url }}" alt="{{ academy.name }}">{% endif %}</div></div></section>
-{% if coaches %}<section class="soft"><div class="container"><div class="section-head"><div><div class="section-kicker">فريق التدريب</div><h2>مدربو الأكاديمية</h2></div></div><div class="people-grid">{% for coach in coaches %}<article class="person-card">{% if coach.photo_data_uri %}<img class="portrait" src="{{ coach.photo_data_uri }}" alt="{{ coach.name }}">{% else %}<div class="portrait portrait-fallback">{{ coach.name|slice:":1" }}</div>{% endif %}<h3>{{ coach.name }}</h3><div class="role">{{ coach.job_title|default:"مدرب" }}</div><p>{{ coach.website_bio|default:coach.notes|truncatechars:150 }}</p></article>{% endfor %}</div></div></section>{% endif %}
-<section class="contact"><div class="container" style="text-align:center"><h2>انضم إلى {{ academy.name }}</h2><p>تواصل معنا لمعرفة المواعيد والبرامج المتاحة.</p><a class="button button-primary" href="{% url 'public_website' %}#contact">تواصل معنا</a></div></section>
+<header class="detail-hero">
+  <div class="container detail-head">
+    {% if academy.logo_data_uri %}<img class="detail-logo" src="{{ academy.logo_data_uri }}" alt="{{ academy.public_name }}">{% endif %}
+    <div>
+      <a class="back-link" href="{% url 'public_website' %}?lang={{ site_lang }}#academies">{{ t.back_academies }}</a>
+      <h1>{{ academy.public_name }}</h1>
+      <p>{{ academy.public_activity }}{% if academy.branch %} · {{ academy.branch.public_name }}{% endif %}</p>
+    </div>
+  </div>
+</header>
+<section><div class="container about-grid">
+  <div class="about-copy">
+    <div class="section-kicker">{{ t.about_academy }}</div>
+    <h2>{{ t.professional_training }} {{ academy.public_activity }}</h2>
+    <p>{{ academy.public_description|default:t.academy_detail_default }}</p>
+    <div class="values">
+      <div class="value"><b>{{ t.activity }}</b><span>{{ academy.public_activity }}</span></div>
+      {% if academy.branch %}<div class="value"><b>{{ t.branch }}</b><span>{{ academy.branch.public_name }}</span></div>{% endif %}
+    </div>
+  </div>
+  <div class="about-media">
+    {% if academy.branch and academy.branch.image %}<img src="{{ academy.branch.image.url }}" alt="{{ academy.branch.public_name }}">
+    {% elif website.about_image %}<img src="{{ website.about_image.url }}" alt="{{ academy.public_name }}">{% endif %}
+  </div>
+</div></section>
+{% if coaches %}<section class="soft"><div class="container">
+  <div class="section-head"><div><div class="section-kicker">{{ t.training_team }}</div><h2>{{ t.academy_coaches }}</h2></div></div>
+  <div class="people-grid">
+    {% for coach in coaches %}<article class="person-card">
+      {% if coach.photo_data_uri %}<img class="portrait" src="{{ coach.photo_data_uri }}" alt="{{ coach.public_name }}">
+      {% else %}<div class="portrait portrait-fallback">{{ coach.public_name|slice:":1" }}</div>{% endif %}
+      <h3>{{ coach.public_name }}</h3>
+      <div class="role">{{ coach.public_job_title|default:t.coach }}</div>
+      <p>{{ coach.public_bio|truncatechars:150 }}</p>
+    </article>{% endfor %}
+  </div>
+</div></section>{% endif %}
+<section class="contact">
+  <div class="container" style="text-align:center">
+    <h2>{{ t.join }} {{ academy.public_name }}</h2>
+    <p>{{ t.join_intro }}</p>
+    <a class="button button-primary" href="{% url 'public_website' %}?lang={{ site_lang }}#contact">{{ t.contact_us }}</a>
+  </div>
+</section>
 {% endblock %}
