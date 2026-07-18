@@ -36,6 +36,38 @@ class AppSetting(models.Model):
         return obj
 
 
+class WebsiteSetting(models.Model):
+    hero_title_ar = models.CharField(max_length=250, default='نصنع أبطال المستقبل', verbose_name='العنوان الرئيسي بالعربية')
+    hero_title_en = models.CharField(max_length=250, default="Building Tomorrow's Champions", verbose_name='العنوان الرئيسي بالإنجليزية')
+    hero_text = models.TextField(blank=True, verbose_name='النص التعريفي الرئيسي')
+    about_title = models.CharField(max_length=250, default='رياضة باحترافية.. مستقبل بلا حدود', verbose_name='عنوان نبذة الشركة')
+    about_text = models.TextField(blank=True, verbose_name='نبذة عن الشركة')
+    hero_image = models.FileField(upload_to='website/', blank=True, verbose_name='صورة الواجهة الرئيسية')
+    about_image = models.FileField(upload_to='website/', blank=True, verbose_name='صورة قسم نبذة عنا')
+    phone = models.CharField(max_length=60, blank=True, verbose_name='رقم الهاتف')
+    email = models.EmailField(blank=True, verbose_name='البريد الإلكتروني')
+    address = models.CharField(max_length=300, blank=True, verbose_name='العنوان')
+    whatsapp = models.CharField(max_length=60, blank=True, verbose_name='رقم واتساب')
+    facebook_url = models.URLField(blank=True, verbose_name='رابط فيسبوك')
+    instagram_url = models.URLField(blank=True, verbose_name='رابط إنستجرام')
+    youtube_url = models.URLField(blank=True, verbose_name='رابط يوتيوب')
+    footer_text = models.CharField(max_length=300, blank=True, verbose_name='نص أسفل الموقع')
+    is_published = models.BooleanField(default=True, verbose_name='نشر الموقع للزوار')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'إعدادات الموقع الإلكتروني'
+        verbose_name_plural = 'إعدادات الموقع الإلكتروني'
+
+    def __str__(self):
+        return 'إعدادات الموقع الإلكتروني'
+
+    @classmethod
+    def current(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class Branch(models.Model):
     name = models.CharField(max_length=200, verbose_name='اسم الفرع')
     short_name = models.CharField(max_length=100, blank=True, verbose_name='الاسم المختصر للفرع')
@@ -43,6 +75,8 @@ class Branch(models.Model):
     logo = models.FileField(upload_to='branches/logos/', blank=True, verbose_name='لوجو الفرع')
     image = models.FileField(upload_to='branches/images/', blank=True, verbose_name='صورة الفرع')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    website_description = models.TextField(blank=True, verbose_name='نبذة الفرع على الموقع')
+    is_published_on_website = models.BooleanField(default=True, verbose_name='إظهار الفرع على الموقع')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -156,6 +190,8 @@ class Academy(models.Model):
     extra_training_place = models.CharField(max_length=500, blank=True, verbose_name='مكان التدريب الإضافي')
     extra_training_hours = models.TextField(blank=True, verbose_name='ساعات التدريب الإضافية')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    website_description = models.TextField(blank=True, verbose_name='نبذة الأكاديمية على الموقع')
+    is_published_on_website = models.BooleanField(default=True, verbose_name='إظهار الأكاديمية على الموقع')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -263,6 +299,8 @@ class AcademyMember(models.Model):
     qr_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name='معرف QR')
     is_active = models.BooleanField(default=True, verbose_name='نشط')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    website_bio = models.TextField(blank=True, verbose_name='نبذة المدرب على الموقع')
+    is_published_on_website = models.BooleanField(default=True, verbose_name='إظهار العضو على الموقع')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -695,6 +733,12 @@ class Shareholder(models.Model):
     email = models.EmailField(blank=True, verbose_name='البريد الإلكتروني')
     share_percentage = models.PositiveIntegerField(default=0, verbose_name='نسبة المساهمة %')
     address = models.TextField(blank=True, verbose_name='العنوان')
+    job_title = models.CharField(max_length=200, blank=True, verbose_name='الوظيفة / الصفة بمجلس الإدارة')
+    website_bio = models.TextField(blank=True, verbose_name='نبذة عضو مجلس الإدارة')
+    photo_data = models.BinaryField(null=True, blank=True, editable=False, verbose_name='بيانات الصورة')
+    photo_content_type = models.CharField(max_length=100, blank=True, editable=False, verbose_name='نوع ملف الصورة')
+    photo_name = models.CharField(max_length=255, blank=True, editable=False, verbose_name='اسم ملف الصورة')
+    is_published_on_website = models.BooleanField(default=True, verbose_name='إظهار العضو على الموقع')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -705,6 +749,14 @@ class Shareholder(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def photo_data_uri(self):
+        if not self.photo_data:
+            return ''
+        content_type = self.photo_content_type or 'image/jpeg'
+        encoded = base64.b64encode(bytes(self.photo_data)).decode('ascii')
+        return f'data:{content_type};base64,{encoded}'
 
 
 

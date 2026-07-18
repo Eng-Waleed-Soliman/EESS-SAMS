@@ -39,6 +39,7 @@ from .models import (
     Shareholder,
     SecurityMovement,
     UserPermission,
+    WebsiteSetting,
 )
 
 
@@ -47,6 +48,48 @@ class ApplicationFlowsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='tester', password='test-password')
         self.client.force_login(self.user)
+
+    def test_public_website_uses_published_management_data(self):
+        branch = Branch.objects.create(
+            name='Public Branch', short_name='PB',
+            website_description='Public branch introduction',
+        )
+        hidden_branch = Branch.objects.create(
+            name='Hidden Branch', is_published_on_website=False,
+        )
+        academy = Academy.objects.create(
+            branch=branch, name='Champions Academy', sport_activity='Football',
+            company_name='Champions', manager_name='Manager', manager_phone='01000000000',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=30),
+            website_description='A professional public academy.',
+        )
+        AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_COACH, name='Public Coach',
+            job_title='Head Coach', website_bio='Professional coach biography.',
+        )
+        Shareholder.objects.create(
+            name='Board Leader', job_title='Chairman',
+            website_bio='Board member biography.',
+        )
+        website = WebsiteSetting.current()
+        website.hero_title_ar = 'عنوان الموقع الاحترافي'
+        website.save()
+
+        self.client.logout()
+        response = self.client.get(reverse('public_website'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'عنوان الموقع الاحترافي')
+        self.assertContains(response, branch.display_name)
+        self.assertContains(response, academy.name)
+        self.assertContains(response, 'Public Coach')
+        self.assertContains(response, 'Board Leader')
+        self.assertNotContains(response, hidden_branch.name)
+
+        detail = self.client.get(reverse('public_academy_detail', args=[academy.pk]))
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, academy.website_description)
+        self.assertContains(detail, 'Public Coach')
 
     def test_database_retry_middleware_retries_reads_but_not_writes(self):
         calls = {'count': 0}

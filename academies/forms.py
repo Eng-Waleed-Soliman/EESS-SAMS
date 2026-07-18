@@ -4,7 +4,7 @@ from django import forms
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -337,13 +337,16 @@ class AcademyForm(forms.ModelForm):
             'branch', 'name', 'logo', 'sport_activity', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone',
             'operation_place', 'contract_start_date', 'contract_end_date', 'subscription_type', 'monthly_subscription',
             'variable_rent_type', 'variable_rent_value', 'eess_share_percentage', 'security_deposit', 'training_days', 'training_hours',
-            'has_extra_hours', 'extra_training_days', 'extra_training_place', 'extra_training_hours', 'notes'
+            'has_extra_hours', 'extra_training_days', 'extra_training_place', 'extra_training_hours', 'notes',
+            'website_description', 'is_published_on_website'
         ]
         widgets = {
             'branch': forms.Select(attrs={'class': 'form-select'}),
             'contract_start_date': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
             'contract_end_date': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+            'website_description': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control fixed-field', 'step': '1'}),
             'eess_share_percentage': forms.NumberInput(attrs={'class': 'form-control share-field', 'step': '1', 'min': '0', 'max': '100'}),
             'security_deposit': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
@@ -363,7 +366,7 @@ class AcademyForm(forms.ModelForm):
         self.fields['sport_activity'].choices = [('', 'اختر النشاط الرياضي')] + choices
         for name, field in self.fields.items():
             css_class = field.widget.attrs.get('class', '')
-            if name == 'has_extra_hours':
+            if name in {'has_extra_hours', 'is_published_on_website'}:
                 continue
             if 'form-control' not in css_class and 'form-select' not in css_class:
                 field.widget.attrs['class'] = (css_class + ' form-control').strip()
@@ -532,7 +535,7 @@ class ActivityForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields['training_places'].initial = split_values(self.instance.training_places)
         for name, field in self.fields.items():
-            if name == 'is_active':
+            if name in {'is_active', 'is_published_on_website'}:
                 continue
             css = field.widget.attrs.get('class', '')
             if field.widget.__class__.__name__ == 'Select':
@@ -558,13 +561,15 @@ class AcademyMemberForm(forms.ModelForm):
 
     class Meta:
         model = AcademyMember
-        fields = ['role', 'name', 'phone', 'national_id', 'job_title', 'birth_date', 'monthly_subscription', 'photo', 'is_active', 'notes']
+        fields = ['role', 'name', 'phone', 'national_id', 'job_title', 'birth_date', 'monthly_subscription', 'photo', 'is_active', 'notes', 'website_bio', 'is_published_on_website']
         widgets = {
             'role': forms.Select(attrs={'class': 'form-select'}),
             'birth_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '1'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+            'website_bio': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
     def __init__(self, *args, fixed_role=None, **kwargs):
@@ -589,7 +594,7 @@ class AcademyMemberForm(forms.ModelForm):
             self.fields.pop('birth_date', None)
             self.fields.pop('monthly_subscription', None)
         for name, field in self.fields.items():
-            if name == 'is_active':
+            if name in {'is_active', 'is_published_on_website'}:
                 continue
             css = field.widget.attrs.get('class', '')
             if field.widget.__class__.__name__ == 'Select':
@@ -642,7 +647,9 @@ class AppSettingForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for name, field in self.fields.items():
+            if name == 'is_published_on_website':
+                continue
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
@@ -651,6 +658,37 @@ class AppSettingForm(forms.ModelForm):
                 self.fields['company_logo'].help_text = 'لوجو الشركة الحالي محفوظ تلقائيًا. اختر ملفًا فقط إذا أردت استبداله.'
             if self.instance.main_screen_image:
                 self.fields['main_screen_image'].help_text = 'الصورة الحالية محفوظة تلقائيًا. اختر ملفًا فقط إذا أردت استبدالها.'
+
+
+class WebsiteSettingForm(forms.ModelForm):
+    class Meta:
+        model = WebsiteSetting
+        fields = [
+            'hero_title_ar', 'hero_title_en', 'hero_text', 'hero_image',
+            'about_title', 'about_text', 'about_image',
+            'phone', 'email', 'address', 'whatsapp',
+            'facebook_url', 'instagram_url', 'youtube_url',
+            'footer_text', 'is_published',
+        ]
+        widgets = {
+            'hero_text': forms.Textarea(attrs={'rows': 4}),
+            'about_text': forms.Textarea(attrs={'rows': 6}),
+            'hero_image': forms.FileInput(attrs={'accept': 'image/*'}),
+            'about_image': forms.FileInput(attrs={'accept': 'image/*'}),
+            'is_published': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if name == 'is_published':
+                continue
+            field.widget.attrs['class'] = 'form-control'
+        if self.instance and self.instance.pk:
+            if self.instance.hero_image:
+                self.fields['hero_image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
+            if self.instance.about_image:
+                self.fields['about_image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
 
 
 class DailyIncomeSupplyForm(forms.ModelForm):
@@ -672,16 +710,20 @@ class DailyIncomeSupplyForm(forms.ModelForm):
 class BranchForm(forms.ModelForm):
     class Meta:
         model = Branch
-        fields = ['name', 'short_name', 'location', 'logo', 'image', 'notes']
+        fields = ['name', 'short_name', 'location', 'logo', 'image', 'notes', 'website_description', 'is_published_on_website']
         widgets = {
             'logo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
+            'website_description': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for name, field in self.fields.items():
+            if name == 'is_published_on_website':
+                continue
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
@@ -1062,21 +1104,50 @@ class DailyBookingForm(forms.ModelForm):
 
 
 class ShareholderForm(forms.ModelForm):
+    photo = forms.FileField(
+        label='صورة عضو مجلس الإدارة',
+        required=False,
+        widget=forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/jpeg,image/png,image/webp'}),
+    )
+
     class Meta:
         model = Shareholder
-        fields = ['name', 'national_id', 'phone', 'email', 'share_percentage', 'address', 'notes']
+        fields = ['name', 'national_id', 'phone', 'email', 'share_percentage', 'address', 'job_title', 'photo', 'website_bio', 'is_published_on_website', 'notes']
         widgets = {
             'address': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
+            'website_bio': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'share_percentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for name, field in self.fields.items():
+            if name == 'is_published_on_website':
+                continue
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
+        if self.instance and self.instance.pk and self.instance.photo_data:
+            self.fields['photo'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
+
+    def clean_photo(self):
+        photo = self.cleaned_data.get('photo')
+        if photo and photo.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('حجم الصورة يجب ألا يتجاوز 5 ميجابايت.')
+        return photo
+
+    def save(self, commit=True):
+        shareholder = super().save(commit=False)
+        photo = self.cleaned_data.get('photo')
+        if photo:
+            shareholder.photo_data = photo.read()
+            shareholder.photo_content_type = getattr(photo, 'content_type', '') or 'image/jpeg'
+            shareholder.photo_name = photo.name
+        if commit:
+            shareholder.save()
+        return shareholder
 
 
 class EmployeeForm(forms.ModelForm):

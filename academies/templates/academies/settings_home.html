@@ -2,6 +2,7 @@
 {% block content %}
 <h3 class="mb-4">الإعدادات</h3>
 <div class="row g-3">
+  <div class="col-md-4"><div class="card p-4 h-100 border-primary"><h5>الموقع الإلكتروني الرسمي</h5><p>إدارة واجهة الموقع، نبذة الشركة، بيانات التواصل وروابط السوشيال ميديا. بيانات الفروع والأكاديميات والمدربين تُدار من شاشاتها الحالية.</p><a class="btn btn-primary" href="{% url 'website_settings' %}">إدارة محتوى الموقع</a><a class="btn btn-outline-primary mt-2" href="{% url 'public_website' %}" target="_blank">معاينة الموقع</a></div></div>
   <div class="col-md-4"><div class="card p-4 h-100"><h5>المستخدمين والصلاحيات</h5><p>إضافة المستخدمين وتحديد صلاحيات كل موديول وكل تقرير.</p><a class="btn btn-primary" href="{% url 'user_list' %}">فتح القسم</a></div></div>
   <div class="col-md-4"><div class="card p-4 h-100"><h5>الوظائف والمرتبات</h5><p>تسجيل الوظائف التي تظهر في شاشة إضافة موظف مع أساسي المرتب.</p><a class="btn btn-primary" href="{% url 'job_title_list' %}">فتح القسم</a></div></div>
   <div class="col-md-4"><div class="card p-4 h-100"><h5>شرائح البونص</h5><p>إضافة وتعديل وحذف شرائح البونص حسب الوظيفة ونوع الدخل.</p><a class="btn btn-primary" href="{% url 'bonus_tier_list' %}">فتح القسم</a></div></div>

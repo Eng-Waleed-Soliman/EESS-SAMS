@@ -4,7 +4,7 @@ from .models import (
     FoundingExpense, MonthlyExpense, DailyExpense,
     CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale,
     OperationDayCancellation, AcademyOperationOverride, UserPermission, DailyBookingCheckout,
-    DailyIncomeSupply, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment,
+    DailyIncomeSupply, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment,
     AcademyDepositPlan, AcademyDepositInstallment,
     FinancialVoucher, SecurityMovement,
 )
@@ -26,6 +26,11 @@ class SecurityMovementAdmin(admin.ModelAdmin):
 @admin.register(AppSetting)
 class AppSettingAdmin(admin.ModelAdmin):
     list_display = ('program_name', 'company_name', 'company_short_name', 'updated_at')
+
+
+@admin.register(WebsiteSetting)
+class WebsiteSettingAdmin(admin.ModelAdmin):
+    list_display = ('hero_title_ar', 'phone', 'email', 'is_published', 'updated_at')
 
 
 @admin.register(Branch)

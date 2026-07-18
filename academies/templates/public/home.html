@@ -1,0 +1,54 @@
+{% extends 'public/base_public.html' %}
+{% block title %}{{ branding.company_name }} | EESS{% endblock %}
+{% block content %}
+<header class="hero" style="--hero-image:url('{% if website.hero_image %}{{ website.hero_image.url }}{% elif branding.main_screen_image %}{{ branding.main_screen_image.url }}{% endif %}')">
+  <div class="container hero-content">
+    <div class="eyebrow">{{ branding.company_name }}</div>
+    <h1>{{ website.hero_title_ar }}<span>{{ website.hero_title_en }}</span></h1>
+    <p>{{ website.hero_text|default:"نقدم منظومة رياضية متكاملة تجمع بين الإدارة الاحترافية، التدريب المتخصص، وصناعة بيئة آمنة ومحفزة لبناء أجيال أقوى." }}</p>
+    <div class="hero-actions"><a class="button button-primary" href="#academies">استكشف الأكاديميات</a><a class="button button-ghost" href="#contact">تواصل معنا</a></div>
+  </div>
+</header>
+<div class="stats"><div class="container stats-grid">
+  <div class="stat"><strong>{{ branches|length }}</strong><span>فرع رياضي</span></div>
+  <div class="stat"><strong>{{ activities|length }}</strong><span>لعبة ونشاط</span></div>
+  <div class="stat"><strong>{{ academies|length }}</strong><span>أكاديمية متخصصة</span></div>
+  <div class="stat"><strong>{{ coaches|length }}</strong><span>مدرب محترف</span></div>
+</div></div>
+<section id="about"><div class="container about-grid">
+  <div class="about-media">{% if website.about_image %}<img src="{{ website.about_image.url }}" alt="{{ website.about_title }}">{% elif branding.main_screen_image %}<img src="{{ branding.main_screen_image.url }}" alt="{{ branding.company_name }}">{% endif %}</div>
+  <div class="about-copy"><div class="section-kicker">من نحن</div><h2>{{ website.about_title }}</h2><p>{{ website.about_text|default:"نحوّل الرياضة إلى تجربة متكاملة واحترافية. ندير الفروع والأكاديميات ونطوّر البرامج التدريبية وفق أعلى معايير الجودة، لنمنح كل لاعب مساحة حقيقية للنمو والتفوق." }}</p>
+    <div class="values"><div class="value"><b>احترافية</b><span>معايير واضحة في الإدارة والتدريب</span></div><div class="value"><b>تطوير مستمر</b><span>برامج تناسب كل مستوى ومرحلة</span></div><div class="value"><b>بيئة آمنة</b><span>تجربة موثوقة للاعب والأسرة</span></div><div class="value"><b>نتائج قابلة للقياس</b><span>نحو أهداف رياضية حقيقية</span></div></div>
+  </div>
+</div></section>
+<section class="soft" id="activities"><div class="container">
+  <div class="section-head"><div><div class="section-kicker">اكتشف شغفك</div><h2>الألعاب والأنشطة</h2></div><p>مجموعة متنوعة من الأنشطة الرياضية بإشراف فرق تدريب متخصصة داخل فروعنا.</p></div>
+  <div class="card-grid">{% for item in activities %}<article class="activity-card">
+    <div class="activity-image">{% if item.media and item.media.image %}<img src="{{ item.media.image.url }}" alt="{{ item.name }}">{% else %}<div class="fallback">◈</div>{% endif %}</div>
+    <div class="card-body"><span class="card-meta">{{ item.academy_count }} أكاديمية</span><h3>{{ item.name }}</h3><p>{% if item.media %}{{ item.media.description|default:"برامج تدريبية متخصصة لجميع المستويات." }}{% else %}برامج تدريبية متخصصة لجميع المستويات.{% endif %}</p></div>
+  </article>{% empty %}<div class="empty">سيتم إضافة الأنشطة قريبًا.</div>{% endfor %}</div>
+</div></section>
+<section id="branches"><div class="container">
+  <div class="section-head"><div><div class="section-kicker">أقرب إليك</div><h2>فروعنا</h2></div><p>منشآت رياضية مجهزة لتقديم تجربة تدريب وتشغيل عالية الجودة.</p></div>
+  <div class="card-grid">{% for branch in branches %}<article class="branch-card">
+    <div class="branch-image">{% if branch.image %}<img src="{{ branch.image.url }}" alt="{{ branch.display_name }}">{% elif branch.logo %}<img src="{{ branch.logo.url }}" alt="{{ branch.display_name }}" style="object-fit:contain;padding:45px">{% endif %}</div>
+    <div class="card-body"><span class="card-meta">{{ branch.location|default:"EESS" }}</span><h3>{{ branch.display_name }}</h3><p>{{ branch.website_description|default:branch.notes|default:"فرع متكامل لخدمة مختلف الألعاب والأنشطة الرياضية." }}</p></div>
+  </article>{% empty %}<div class="empty">سيتم الإعلان عن الفروع قريبًا.</div>{% endfor %}</div>
+</div></section>
+<section class="soft" id="academies"><div class="container">
+  <div class="section-head"><div><div class="section-kicker">تدريب يصنع الفارق</div><h2>أكاديمياتنا الرياضية</h2></div><p>اختر الأكاديمية المناسبة وابدأ رحلتك مع تدريب منظم وخبرة احترافية.</p></div>
+  <div class="card-grid">{% for academy in academies %}<article class="academy-card">
+    <div class="academy-image">{% if academy.logo_data_uri %}<img src="{{ academy.logo_data_uri }}" alt="{{ academy.name }}">{% else %}<span class="academy-letter">{{ academy.name|slice:":1" }}</span>{% endif %}</div>
+    <div class="card-body"><span class="card-meta">{{ academy.sport_activity }}{% if academy.branch %} · {{ academy.branch.display_name }}{% endif %}</span><h3>{{ academy.name }}</h3><p>{{ academy.website_description|default:academy.notes|default:"أكاديمية متخصصة تقدم تجربة تدريبية احترافية."|truncatechars:145 }}</p><a class="inline-link" href="{% url 'public_academy_detail' academy.pk %}">اعرف المزيد ←</a></div>
+  </article>{% empty %}<div class="empty">سيتم إضافة الأكاديميات قريبًا.</div>{% endfor %}</div>
+</div></section>
+{% if coaches %}<section id="team"><div class="container">
+  <div class="section-head"><div><div class="section-kicker">خبرة وشغف</div><h2>مدربونا</h2></div><p>طاقم تدريبي يضع تطوير اللاعب وسلامته في مقدمة الأولويات.</p></div>
+  <div class="people-grid">{% for coach in coaches %}<article class="person-card">{% if coach.photo_data_uri %}<img class="portrait" src="{{ coach.photo_data_uri }}" alt="{{ coach.name }}">{% else %}<div class="portrait portrait-fallback">{{ coach.name|slice:":1" }}</div>{% endif %}<h3>{{ coach.name }}</h3><div class="role">{{ coach.job_title|default:"مدرب" }} · {{ coach.academy.name }}</div><p>{{ coach.website_bio|default:coach.notes|truncatechars:120 }}</p></article>{% endfor %}</div>
+</div></section>{% endif %}
+{% if board_members %}<section class="soft" id="board"><div class="container">
+  <div class="section-head"><div><div class="section-kicker">قيادة برؤية</div><h2>مجلس الإدارة</h2></div><p>فريق يقود نمو الشركة ويطوّر أثرها في القطاع الرياضي.</p></div>
+  <div class="people-grid">{% for member in board_members %}<article class="person-card">{% if member.photo_data_uri %}<img class="portrait" src="{{ member.photo_data_uri }}" alt="{{ member.name }}">{% else %}<div class="portrait portrait-fallback">{{ member.name|slice:":1" }}</div>{% endif %}<h3>{{ member.name }}</h3><div class="role">{{ member.job_title|default:"عضو مجلس الإدارة" }}</div><p>{{ member.website_bio|truncatechars:130 }}</p></article>{% endfor %}</div>
+</div></section>{% endif %}
+<section class="contact" id="contact"><div class="container contact-grid"><div><div class="eyebrow">ابدأ الآن</div><h2>جاهز تبدأ رحلتك الرياضية؟</h2><p>تواصل معنا لمعرفة البرامج المتاحة، مواعيد التدريب، وأقرب فرع إليك.</p><div class="socials">{% if website.facebook_url %}<a href="{{ website.facebook_url }}" target="_blank" rel="noopener">Facebook</a>{% endif %}{% if website.instagram_url %}<a href="{{ website.instagram_url }}" target="_blank" rel="noopener">Instagram</a>{% endif %}{% if website.youtube_url %}<a href="{{ website.youtube_url }}" target="_blank" rel="noopener">YouTube</a>{% endif %}</div></div><div class="contact-list">{% if website.phone %}<div class="contact-item"><small>الهاتف</small><b dir="ltr">{{ website.phone }}</b></div>{% endif %}{% if website.email %}<div class="contact-item"><small>البريد الإلكتروني</small><b>{{ website.email }}</b></div>{% endif %}{% if website.address %}<div class="contact-item"><small>العنوان</small><b>{{ website.address }}</b></div>{% endif %}{% if website.whatsapp %}<a class="button button-primary" href="https://wa.me/{{ website.whatsapp }}" target="_blank" rel="noopener">تواصل عبر واتساب</a>{% endif %}</div></div></section>
+{% endblock %}

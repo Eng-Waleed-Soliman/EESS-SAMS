@@ -66,6 +66,8 @@
       </div>
 
       <div class="col-12 mb-3"><label class="form-label fw-bold">{{ form.notes.label }}</label>{{ form.notes }}<div class="text-danger small">{{ form.notes.errors }}</div></div>
+      <div class="col-12 mb-3"><label class="form-label fw-bold">{{ form.website_description.label }}</label>{{ form.website_description }}<div class="form-text">تظهر هذه النبذة للزوار في الموقع الرسمي.</div><div class="text-danger small">{{ form.website_description.errors }}</div></div>
+      <div class="col-12 mb-3"><div class="form-check">{{ form.is_published_on_website }} <label class="form-check-label fw-bold" for="{{ form.is_published_on_website.id_for_label }}">{{ form.is_published_on_website.label }}</label></div><div class="text-danger small">{{ form.is_published_on_website.errors }}</div></div>
     </div>
 
     <div class="modal fade" id="extraHoursModal" tabindex="-1" aria-hidden="true">

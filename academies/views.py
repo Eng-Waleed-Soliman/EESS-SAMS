@@ -14,8 +14,8 @@ from django.db.models import Sum, Q, Count
 from django.http import HttpResponse
 from django.utils import timezone
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
@@ -67,6 +67,74 @@ def _can_manage_users(user):
         return bool(user.eess_permissions.can_users or user.eess_permissions.can_settings)
     except Exception:
         return False
+
+
+def public_website(request):
+    branding = AppSetting.current()
+    website = WebsiteSetting.current()
+    branches = list(Branch.objects.filter(is_published_on_website=True).order_by('name'))
+    academies = list(
+        Academy.objects.filter(is_published_on_website=True)
+        .select_related('branch').order_by('name')
+    )
+    activity_media = {
+        item.name.strip().casefold(): item
+        for item in SportActivityMedia.objects.filter(is_active=True)
+    }
+    activity_names = []
+    for academy in academies:
+        name = (academy.sport_activity or '').strip()
+        if name and name not in activity_names:
+            activity_names.append(name)
+    activities = [
+        {
+            'name': name,
+            'media': activity_media.get(name.casefold()),
+            'academy_count': sum(1 for academy in academies if (academy.sport_activity or '').strip() == name),
+        }
+        for name in activity_names
+    ]
+    coaches = list(
+        AcademyMember.objects.filter(
+            role=AcademyMember.ROLE_COACH,
+            is_active=True,
+            is_published_on_website=True,
+            academy__is_published_on_website=True,
+        ).select_related('academy', 'academy__branch').order_by('academy__name', 'name')
+    )
+    board_members = list(
+        Shareholder.objects.filter(is_published_on_website=True).order_by('name')
+    )
+    return render(request, 'public/home.html', {
+        'branding': branding,
+        'website': website,
+        'branches': branches,
+        'academies': academies,
+        'activities': activities,
+        'coaches': coaches,
+        'board_members': board_members,
+    })
+
+
+def public_academy_detail(request, pk):
+    branding = AppSetting.current()
+    website = WebsiteSetting.current()
+    academy = get_object_or_404(
+        Academy.objects.select_related('branch'),
+        pk=pk,
+        is_published_on_website=True,
+    )
+    coaches = academy.members.filter(
+        role=AcademyMember.ROLE_COACH,
+        is_active=True,
+        is_published_on_website=True,
+    ).order_by('name')
+    return render(request, 'public/academy_detail.html', {
+        'branding': branding,
+        'website': website,
+        'academy': academy,
+        'coaches': coaches,
+    })
 
 def _ensure_user_profile(user):
     profile, _ = UserPermission.objects.get_or_create(user=user)
@@ -2713,6 +2781,24 @@ def branding_settings(request):
         messages.success(request, 'تم حفظ اسم البرنامج واللوجو.')
         return redirect('settings_home')
     return render(request, 'academies/simple_form.html', {'form': form, 'title': 'هوية البرنامج واللوجو', 'back_url': 'settings_home'})
+
+
+@login_required
+def website_settings(request):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    setting = WebsiteSetting.current()
+    form = WebsiteSettingForm(request.POST or None, request.FILES or None, instance=setting)
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'تم حفظ بيانات الموقع الإلكتروني.')
+        return redirect('website_settings')
+    return render(request, 'academies/simple_form.html', {
+        'form': form,
+        'title': 'إعدادات الموقع الإلكتروني',
+        'back_url': 'settings_home',
+    })
 
 
 @login_required
