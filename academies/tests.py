@@ -139,7 +139,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '<html lang="en" dir="ltr">')
         self.assertContains(response, 'About')
-        self.assertContains(response, 'Management Login')
+        self.assertNotContains(response, 'Management Login')
+        self.assertNotContains(response, 'class="stats"')
         self.assertContains(response, 'Cairo Branch')
         self.assertContains(response, 'Champions Academy')
         self.assertContains(response, 'Football')
@@ -465,6 +466,24 @@ class ApplicationFlowsTests(TestCase):
             'password': 'operator-password',
         })
         self.assertRedirects(response, reverse('dashboard'))
+
+    def test_dashboard_is_the_direct_login_entry_point_for_anonymous_users(self):
+        self.client.logout()
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="username"')
+        self.assertContains(response, 'name="password"')
+        self.assertEqual(response.context['next'], 'dashboard')
+
+        response = self.client.post(reverse('dashboard'), {
+            'username': self.user.username,
+            'password': 'test-password',
+            'next': 'dashboard',
+        })
+        self.assertRedirects(response, reverse('dashboard'))
+        dashboard = self.client.get(reverse('dashboard'))
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertTemplateUsed(dashboard, 'academies/dashboard.html')
 
     def test_admin_can_set_replacement_password_but_hash_is_never_displayed(self):
         target = User.objects.create_user(username='password_reset_user', password='old-secret-password')

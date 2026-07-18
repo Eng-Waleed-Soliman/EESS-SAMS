@@ -596,8 +596,9 @@ def logout_view(request):
     return redirect('login')
 
 
-@login_required
 def dashboard(request):
+    if not request.user.is_authenticated:
+        return login_view(request)
     branch, all_branches = selected_branch(request)
     training_year = _selected_training_year(request)
     academies = Academy.objects.select_related('branch')

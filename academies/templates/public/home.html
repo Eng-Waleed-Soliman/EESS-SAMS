@@ -12,13 +12,6 @@
     </div>
   </div>
 </header>
-<div class="stats"><div class="container stats-grid">
-  <div class="stat"><strong>{{ branches|length }}</strong><span>{{ t.stat_branches }}</span></div>
-  <div class="stat"><strong>{{ activities|length }}</strong><span>{{ t.stat_activities }}</span></div>
-  <div class="stat"><strong>{{ academies|length }}</strong><span>{{ t.stat_academies }}</span></div>
-  <div class="stat"><strong>{{ coaches|length }}</strong><span>{{ t.stat_coaches }}</span></div>
-</div></div>
-
 <section id="about"><div class="container about-grid">
   <div class="about-media">
     {% if website.about_image %}<img src="{{ website.about_image.url }}" alt="{{ website.public_about_title }}">
