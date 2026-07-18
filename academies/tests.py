@@ -11,7 +11,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
-from .forms import AcademyForm, BranchForm, DailyBookingForm, EESSUserUpdateForm
+from .forms import AcademyForm, AppSettingForm, BranchForm, DailyBookingForm, EESSUserUpdateForm
 from .middleware import DatabaseRetryMiddleware
 from .views import _academy_schedule_occurrences_for_date, _calculate_variable_income_by_facility
 from .models import (
@@ -20,6 +20,7 @@ from .models import (
     AcademyDepositPlan,
     AcademyDepositInstallment,
     AcademyMonthlyRentPayment,
+    AppSetting,
     Branch,
     CafeteriaCategory,
     CafeteriaItem,
@@ -70,10 +71,38 @@ class ApplicationFlowsTests(TestCase):
         branch = Branch.objects.create(
             name='British International College of Cairo',
             short_name='BICC',
+            logo='branches/logos/bicc.png',
+            image='branches/images/bicc.jpg',
         )
         self.assertEqual(str(branch), 'BICC')
         self.assertEqual(branch.display_name, 'BICC')
         self.assertIn('short_name', BranchForm().fields)
+
+        form = BranchForm(data={
+            'name': branch.name,
+            'short_name': branch.short_name,
+            'location': 'Cairo',
+            'notes': '',
+        }, instance=branch)
+        self.assertTrue(form.is_valid(), form.errors)
+        saved_branch = form.save()
+        self.assertEqual(saved_branch.logo.name, 'branches/logos/bicc.png')
+        self.assertEqual(saved_branch.image.name, 'branches/images/bicc.jpg')
+
+        setting = AppSetting.objects.create(
+            pk=99,
+            company_logo='branding/company.png',
+            main_screen_image='branding/main.jpg',
+        )
+        setting_form = AppSettingForm(data={
+            'program_name': setting.program_name,
+            'company_name': setting.company_name,
+            'company_name_ar': setting.company_name_ar,
+        }, instance=setting)
+        self.assertTrue(setting_form.is_valid(), setting_form.errors)
+        saved_setting = setting_form.save()
+        self.assertEqual(saved_setting.company_logo.name, 'branding/company.png')
+        self.assertEqual(saved_setting.main_screen_image.name, 'branding/main.jpg')
 
         branch.short_name = ''
         self.assertEqual(branch.display_name, branch.name)

@@ -635,6 +635,8 @@ class AppSettingForm(forms.ModelForm):
             'program_name': forms.TextInput(attrs={'class': 'form-control'}),
             'company_name': forms.TextInput(attrs={'class': 'form-control'}),
             'company_name_ar': forms.TextInput(attrs={'class': 'form-control'}),
+            'company_logo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'main_screen_image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -643,6 +645,11 @@ class AppSettingForm(forms.ModelForm):
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
+        if self.instance and self.instance.pk:
+            if self.instance.company_logo:
+                self.fields['company_logo'].help_text = 'لوجو الشركة الحالي محفوظ تلقائيًا. اختر ملفًا فقط إذا أردت استبداله.'
+            if self.instance.main_screen_image:
+                self.fields['main_screen_image'].help_text = 'الصورة الحالية محفوظة تلقائيًا. اختر ملفًا فقط إذا أردت استبدالها.'
 
 
 class DailyIncomeSupplyForm(forms.ModelForm):
@@ -666,6 +673,8 @@ class BranchForm(forms.ModelForm):
         model = Branch
         fields = ['name', 'short_name', 'location', 'logo', 'image', 'notes']
         widgets = {
+            'logo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
 
@@ -675,6 +684,11 @@ class BranchForm(forms.ModelForm):
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
+        if self.instance and self.instance.pk:
+            if self.instance.logo:
+                self.fields['logo'].help_text = 'لوجو الفرع الحالي محفوظ تلقائيًا. اختر ملفًا فقط إذا أردت استبداله.'
+            if self.instance.image:
+                self.fields['image'].help_text = 'صورة الفرع الحالية محفوظة تلقائيًا. اختر ملفًا فقط إذا أردت استبدالها.'
 
 
 class FacilityForm(forms.ModelForm):
