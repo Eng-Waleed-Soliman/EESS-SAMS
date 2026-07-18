@@ -11,12 +11,16 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
-from .forms import AcademyForm, AppSettingForm, BranchForm, DailyBookingForm, EESSUserUpdateForm
+from .forms import (
+    AcademyForm, AppSettingForm, BranchForm, DailyBookingForm,
+    EESSUserUpdateForm, SportActivityMediaForm,
+)
 from .middleware import DatabaseRetryMiddleware
 from .views import _academy_schedule_occurrences_for_date, _calculate_variable_income_by_facility
 from .models import (
     Academy,
     AcademyMember,
+    Activity,
     AcademyDepositPlan,
     AcademyDepositInstallment,
     AcademyMonthlyRentPayment,
@@ -157,6 +161,34 @@ class ApplicationFlowsTests(TestCase):
         arabic = self.client.get(reverse('public_website'), {'lang': 'ar'})
         self.assertContains(arabic, '<html lang="ar" dir="rtl">')
         self.assertContains(arabic, 'عن الشركة')
+
+    def test_sport_media_form_uses_registered_activities_dropdown_and_prevents_duplicates(self):
+        Activity.objects.create(name='كرة يد', is_active=True)
+        form = SportActivityMediaForm()
+        self.assertEqual(form.fields['name'].widget.__class__.__name__, 'Select')
+        self.assertIn(('كرة يد', 'كرة يد'), form.fields['name'].choices)
+        self.assertEqual(
+            [name for name in form.fields],
+            ['name', 'name_en', 'image', 'description', 'description_en', 'is_active'],
+        )
+
+        form = SportActivityMediaForm(data={
+            'name': 'كرة يد',
+            'name_en': 'Handball',
+            'description': 'وصف مختصر',
+            'description_en': 'Short description',
+            'is_active': True,
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+
+        duplicate = SportActivityMediaForm(data={
+            'name': 'كرة يد',
+            'name_en': 'Handball',
+            'is_active': True,
+        })
+        self.assertFalse(duplicate.is_valid())
+        self.assertIn('name', duplicate.errors)
 
     def test_database_retry_middleware_retries_reads_but_not_writes(self):
         calls = {'count': 0}

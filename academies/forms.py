@@ -763,10 +763,25 @@ class FacilityForm(forms.ModelForm):
 
 
 class SportActivityMediaForm(forms.ModelForm):
+    name = forms.ChoiceField(
+        label='اسم الرياضة / النشاط',
+        choices=[],
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
     class Meta:
         model = SportActivityMedia
         fields = ['name', 'name_en', 'image', 'description', 'description_en', 'is_active']
         widgets = {
+            'name_en': forms.TextInput(attrs={
+                'class': 'form-control',
+                'dir': 'ltr',
+                'placeholder': 'Example: Football',
+            }),
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/jpeg,image/png,image/webp,image/gif',
+            }),
             'description': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'description_en': forms.Textarea(attrs={'rows': 3, 'class': 'form-control', 'dir': 'ltr'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -774,12 +789,58 @@ class SportActivityMediaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        activity_names = set(
+            Activity.objects.filter(is_active=True)
+            .exclude(name='')
+            .values_list('name', flat=True)
+        )
+        activity_names.update(
+            Academy.objects.exclude(sport_activity='')
+            .values_list('sport_activity', flat=True)
+        )
+        activity_names.update(
+            value for value, _label in SPORT_ACTIVITY_CHOICES if value
+        )
+        activity_names.update(
+            SportActivityMedia.objects.exclude(name='')
+            .values_list('name', flat=True)
+        )
+        if self.instance and self.instance.pk and self.instance.name:
+            activity_names.add(self.instance.name)
+        selected_name = (
+            self.data.get('name')
+            if self.is_bound
+            else (self.instance.name if self.instance and self.instance.pk else '')
+        )
+        self.fields['name'].choices = [
+            ('', 'اختر الرياضة / النشاط')
+        ] + [(name, name) for name in sorted(activity_names)]
+        self.fields['name'].initial = selected_name
+        self.fields['image'].help_text = (
+            'اختر صورة بصيغة JPG أو PNG أو WEBP أو GIF.'
+            if not (self.instance and self.instance.pk and self.instance.image)
+            else 'الصورة الحالية محفوظة؛ اختر ملفًا فقط إذا أردت استبدالها.'
+        )
         for name, field in self.fields.items():
             if name == 'is_active':
+                continue
+            if name == 'name':
+                field.widget.attrs['class'] = 'form-select'
                 continue
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
+
+    def clean_name(self):
+        name = self.cleaned_data['name'].strip()
+        duplicate = SportActivityMedia.objects.filter(name__iexact=name)
+        if self.instance and self.instance.pk:
+            duplicate = duplicate.exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise forms.ValidationError(
+                'تم إنشاء قسم صور لهذه الرياضة / النشاط من قبل؛ استخدم زر تعديل.'
+            )
+        return name
 
 
 class AcademyMonthlyRentPaymentForm(forms.ModelForm):
