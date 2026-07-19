@@ -12,8 +12,8 @@
       <tbody>
         {% for branch in branches %}
         <tr>
-          <td>{% if branch.logo %}<img class="media-thumb" src="{{ branch.logo.url }}" alt="{{ branch.name }}">{% else %}-{% endif %}</td>
-          <td>{% if branch.image %}<img class="media-thumb" src="{{ branch.image.url }}" alt="{{ branch.name }}">{% else %}-{% endif %}</td>
+          <td>{% if branch.logo_data_uri %}<img class="media-thumb" src="{{ branch.logo_data_uri }}" alt="{{ branch.name }}">{% elif branch.logo %}<img class="media-thumb" src="{{ branch.logo.url }}" alt="{{ branch.name }}">{% else %}-{% endif %}</td>
+          <td>{% if branch.image_data_uri %}<img class="media-thumb" src="{{ branch.image_data_uri }}" alt="{{ branch.name }}">{% elif branch.image %}<img class="media-thumb" src="{{ branch.image.url }}" alt="{{ branch.name }}">{% else %}-{% endif %}</td>
           <td>{{ branch.name }}</td>
           <td>{{ branch.display_name }}</td>
           <td>{{ branch.location|default:'-' }}</td>

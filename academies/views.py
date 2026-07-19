@@ -11,7 +11,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.db import transaction
 from django.db.models import Sum, Q, Count
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from django.utils import timezone
 from datetime import date, timedelta
 from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
@@ -19,6 +19,32 @@ from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm,
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
+
+
+def persistent_media(request, model_name, pk, field_name):
+    allowed = {
+        'branding': (AppSetting, {'company_logo', 'main_screen_image'}),
+        'website': (WebsiteSetting, {'hero_image', 'about_image'}),
+        'branch': (Branch, {'logo', 'image'}),
+        'sport': (SportActivityMedia, {'image'}),
+        'academy': (Academy, {'logo'}),
+        'member': (AcademyMember, {'photo'}),
+        'shareholder': (Shareholder, {'photo'}),
+    }
+    model_config = allowed.get(model_name)
+    if not model_config or field_name not in model_config[1]:
+        raise Http404
+    instance = get_object_or_404(model_config[0], pk=pk)
+    data = getattr(instance, f'{field_name}_data', None)
+    if not data:
+        raise Http404
+    response = HttpResponse(
+        bytes(data),
+        content_type=getattr(instance, f'{field_name}_content_type', '') or 'image/jpeg',
+    )
+    response['Cache-Control'] = 'public, no-cache'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 def _selected_training_year(request):

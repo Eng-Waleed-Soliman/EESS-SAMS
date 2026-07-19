@@ -20,7 +20,7 @@
     <div class="col-md-5">
       <div class="card login-card">
         <div class="card-body p-4">
-          {% if app_settings and app_settings.company_logo %}<img class="login-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
+          {% if app_settings and app_settings.company_logo_data_uri %}<img class="login-logo" src="{{ app_settings.company_logo_data_uri }}" alt="{{ app_settings.program_name }}">{% elif app_settings and app_settings.company_logo %}<img class="login-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
           <h3 class="mb-1 text-center">{% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</h3>
           <h5 class="mb-4 text-center text-muted">تسجيل الدخول إلى برنامج إدارة الأكاديميات</h5>
           {% if form.errors or login_error %}<div class="alert alert-danger">{{ login_error|default:'اسم المستخدم أو كلمة المرور غير صحيحة.' }}</div>{% endif %}

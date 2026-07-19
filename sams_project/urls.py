@@ -9,6 +9,7 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('', views.public_website, name='public_website'),
+    path('media-db/<slug:model_name>/<int:pk>/<slug:field_name>/', views.persistent_media, name='persistent_media'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('our-academies/<int:pk>/', views.public_academy_detail, name='public_academy_detail'),
     path('academies/', views.academy_list, name='academy_list'),

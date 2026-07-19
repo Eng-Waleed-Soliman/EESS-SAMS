@@ -22,7 +22,7 @@
 <section class="card p-3 voucher-register-sheet">
   <header class="voucher-register-header">
     <div class="voucher-register-brand">
-      {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
+      {% if app_settings and app_settings.company_logo_data_uri %}<img src="{{ app_settings.company_logo_data_uri }}" alt="شعار الشركة">{% elif app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
       <div>{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
       <div class="brand-ar">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</div>
     </div>

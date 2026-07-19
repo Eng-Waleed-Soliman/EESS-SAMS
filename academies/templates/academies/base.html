@@ -24,7 +24,7 @@
   <div class="row">
     <aside class="col-md-2 sidebar p-0">
       <div class="brand-block">
-        {% if app_settings and app_settings.company_logo %}<img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
+        {% if app_settings and app_settings.company_logo_data_uri %}<img class="brand-logo" src="{{ app_settings.company_logo_data_uri }}" alt="{{ app_settings.program_name }}">{% elif app_settings and app_settings.company_logo %}<img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
         <h5 class="text-white p-3 border-bottom">{% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</h5>
       </div>
       {% if is_cafeteria_specialist %}

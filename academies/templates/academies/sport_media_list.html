@@ -12,7 +12,7 @@
       <tbody>
         {% for item in sports_media %}
         <tr>
-          <td>{% if item.image %}<img class="media-thumb" src="{{ item.image.url }}" alt="{{ item.name }}">{% else %}-{% endif %}</td>
+          <td>{% if item.image_data_uri %}<img class="media-thumb" src="{{ item.image_data_uri }}" alt="{{ item.name }}">{% elif item.image %}<img class="media-thumb" src="{{ item.image.url }}" alt="{{ item.name }}">{% else %}-{% endif %}</td>
           <td>{{ item.name }}</td>
           <td>{{ item.description|default:'-' }}</td>
           <td>{% if item.is_active %}نشط{% else %}غير نشط{% endif %}</td>

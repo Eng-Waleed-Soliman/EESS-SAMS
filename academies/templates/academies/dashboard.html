@@ -2,7 +2,9 @@
 {% block content %}
 <section class="dashboard-brand-card mb-4">
   <div class="dashboard-brand">
-    {% if app_settings and app_settings.company_logo %}
+    {% if app_settings and app_settings.company_logo_data_uri %}
+      <img class="brand-logo" src="{{ app_settings.company_logo_data_uri }}" alt="{{ app_settings.program_name }}">
+    {% elif app_settings and app_settings.company_logo %}
       <img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">
     {% endif %}
     <div class="dashboard-brand-copy">
@@ -45,7 +47,9 @@
     {% for activity in activities %}
       <a class="activity-card" href="{% url 'academy_list' %}?activity={{ activity.name|urlencode }}">
         <div class="activity-visual">
-          {% if activity.media and activity.media.image %}
+          {% if activity.media and activity.media.image_data_uri %}
+            <img src="{{ activity.media.image_data_uri }}" alt="{{ activity.name }}">
+          {% elif activity.media and activity.media.image %}
             <img src="{{ activity.media.image.url }}" alt="{{ activity.name }}">
           {% else %}
             <span aria-hidden="true">{{ activity.symbol }}</span>

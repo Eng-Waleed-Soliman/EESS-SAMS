@@ -18,6 +18,16 @@ def split_values(value):
     return [item.strip() for item in str(value).split(',') if item.strip()]
 
 
+def _store_uploaded_image(instance, upload, field_prefix):
+    if not upload:
+        return
+    upload.seek(0)
+    setattr(instance, f'{field_prefix}_data', upload.read())
+    setattr(instance, f'{field_prefix}_content_type', getattr(upload, 'content_type', '') or 'image/jpeg')
+    setattr(instance, f'{field_prefix}_name', upload.name)
+    upload.seek(0)
+
+
 def _norm(value):
     if value is None:
         return ''
@@ -662,6 +672,14 @@ class AppSettingForm(forms.ModelForm):
             if self.instance.main_screen_image:
                 self.fields['main_screen_image'].help_text = 'الصورة الحالية محفوظة تلقائيًا. اختر ملفًا فقط إذا أردت استبدالها.'
 
+    def save(self, commit=True):
+        setting = super().save(commit=False)
+        _store_uploaded_image(setting, self.cleaned_data.get('company_logo'), 'company_logo')
+        _store_uploaded_image(setting, self.cleaned_data.get('main_screen_image'), 'main_screen_image')
+        if commit:
+            setting.save()
+        return setting
+
 
 class WebsiteSettingForm(forms.ModelForm):
     class Meta:
@@ -694,6 +712,14 @@ class WebsiteSettingForm(forms.ModelForm):
                 self.fields['hero_image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
             if self.instance.about_image:
                 self.fields['about_image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
+
+    def save(self, commit=True):
+        setting = super().save(commit=False)
+        _store_uploaded_image(setting, self.cleaned_data.get('hero_image'), 'hero_image')
+        _store_uploaded_image(setting, self.cleaned_data.get('about_image'), 'about_image')
+        if commit:
+            setting.save()
+        return setting
 
 
 class DailyIncomeSupplyForm(forms.ModelForm):
@@ -738,6 +764,14 @@ class BranchForm(forms.ModelForm):
                 self.fields['logo'].help_text = 'لوجو الفرع الحالي محفوظ تلقائيًا. اختر ملفًا فقط إذا أردت استبداله.'
             if self.instance.image:
                 self.fields['image'].help_text = 'صورة الفرع الحالية محفوظة تلقائيًا. اختر ملفًا فقط إذا أردت استبدالها.'
+
+    def save(self, commit=True):
+        branch = super().save(commit=False)
+        _store_uploaded_image(branch, self.cleaned_data.get('logo'), 'logo')
+        _store_uploaded_image(branch, self.cleaned_data.get('image'), 'image')
+        if commit:
+            branch.save()
+        return branch
 
 
 class FacilityForm(forms.ModelForm):
@@ -841,6 +875,13 @@ class SportActivityMediaForm(forms.ModelForm):
                 'تم إنشاء قسم صور لهذه الرياضة / النشاط من قبل؛ استخدم زر تعديل.'
             )
         return name
+
+    def save(self, commit=True):
+        item = super().save(commit=False)
+        _store_uploaded_image(item, self.cleaned_data.get('image'), 'image')
+        if commit:
+            item.save()
+        return item
 
 
 class AcademyMonthlyRentPaymentForm(forms.ModelForm):

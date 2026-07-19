@@ -14,6 +14,13 @@ def split_values(value):
     return [item.strip() for item in str(value).split(',') if item.strip()]
 
 
+def image_data_uri(data, content_type=''):
+    if not data:
+        return ''
+    encoded = base64.b64encode(bytes(data)).decode('ascii')
+    return f'data:{content_type or "image/jpeg"};base64,{encoded}'
+
+
 class AppSetting(models.Model):
     program_name = models.CharField(max_length=200, default='EESS Management System', verbose_name='اسم البرنامج')
     company_name = models.CharField(max_length=250, default='Egyptian English Sports Services', verbose_name='اسم الشركة باللغة الإنجليزية')
@@ -21,6 +28,12 @@ class AppSetting(models.Model):
     company_name_ar = models.CharField(max_length=250, blank=True, default='', verbose_name='اسم الشركة باللغة العربية')
     company_logo = models.FileField(upload_to='branding/', blank=True, verbose_name='لوجو الشركة')
     main_screen_image = models.FileField(upload_to='branding/', blank=True, verbose_name='صورة الشاشة الرئيسية')
+    company_logo_data = models.BinaryField(null=True, blank=True, editable=False)
+    company_logo_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    company_logo_name = models.CharField(max_length=255, blank=True, editable=False)
+    main_screen_image_data = models.BinaryField(null=True, blank=True, editable=False)
+    main_screen_image_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    main_screen_image_name = models.CharField(max_length=255, blank=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -29,6 +42,14 @@ class AppSetting(models.Model):
 
     def __str__(self):
         return self.program_name
+
+    @property
+    def company_logo_data_uri(self):
+        return image_data_uri(self.company_logo_data, self.company_logo_content_type)
+
+    @property
+    def main_screen_image_data_uri(self):
+        return image_data_uri(self.main_screen_image_data, self.main_screen_image_content_type)
 
     @classmethod
     def current(cls):
@@ -58,6 +79,12 @@ class WebsiteSetting(models.Model):
     footer_text = models.CharField(max_length=300, blank=True, verbose_name='نص أسفل الموقع')
     footer_text_en = models.CharField(max_length=300, blank=True, verbose_name='نص أسفل الموقع بالإنجليزية')
     is_published = models.BooleanField(default=True, verbose_name='نشر الموقع للزوار')
+    hero_image_data = models.BinaryField(null=True, blank=True, editable=False)
+    hero_image_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    hero_image_name = models.CharField(max_length=255, blank=True, editable=False)
+    about_image_data = models.BinaryField(null=True, blank=True, editable=False)
+    about_image_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    about_image_name = models.CharField(max_length=255, blank=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -66,6 +93,14 @@ class WebsiteSetting(models.Model):
 
     def __str__(self):
         return 'إعدادات الموقع الإلكتروني'
+
+    @property
+    def hero_image_data_uri(self):
+        return image_data_uri(self.hero_image_data, self.hero_image_content_type)
+
+    @property
+    def about_image_data_uri(self):
+        return image_data_uri(self.about_image_data, self.about_image_content_type)
 
     @classmethod
     def current(cls):
@@ -85,6 +120,12 @@ class Branch(models.Model):
     website_description = models.TextField(blank=True, verbose_name='نبذة الفرع على الموقع')
     website_description_en = models.TextField(blank=True, verbose_name='نبذة الفرع بالإنجليزية على الموقع')
     is_published_on_website = models.BooleanField(default=True, verbose_name='إظهار الفرع على الموقع')
+    logo_data = models.BinaryField(null=True, blank=True, editable=False)
+    logo_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    logo_name = models.CharField(max_length=255, blank=True, editable=False)
+    image_data = models.BinaryField(null=True, blank=True, editable=False)
+    image_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    image_name = models.CharField(max_length=255, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -98,6 +139,14 @@ class Branch(models.Model):
     @property
     def display_name(self):
         return self.short_name.strip() if self.short_name and self.short_name.strip() else self.name
+
+    @property
+    def logo_data_uri(self):
+        return image_data_uri(self.logo_data, self.logo_content_type)
+
+    @property
+    def image_data_uri(self):
+        return image_data_uri(self.image_data, self.image_content_type)
 
 
 class Facility(models.Model):
@@ -131,6 +180,9 @@ class SportActivityMedia(models.Model):
     description = models.TextField(blank=True, verbose_name='وصف مختصر')
     description_en = models.TextField(blank=True, verbose_name='الوصف المختصر بالإنجليزية')
     is_active = models.BooleanField(default=True, verbose_name='نشط')
+    image_data = models.BinaryField(null=True, blank=True, editable=False)
+    image_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    image_name = models.CharField(max_length=255, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -140,6 +192,10 @@ class SportActivityMedia(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def image_data_uri(self):
+        return image_data_uri(self.image_data, self.image_content_type)
 
 
 class Activity(models.Model):

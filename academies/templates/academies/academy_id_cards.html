@@ -45,11 +45,13 @@
     <section class="identity-card identity-card-front">
       <div class="card-brand-header">
         <div class="card-company-brand">
-          {% if app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="لوجو الشركة" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="logo-placeholder fallback-logo">{{ company_short_name }}</div>{% else %}<div class="logo-placeholder">{{ company_short_name }}</div>{% endif %}
+          {% if app_settings and app_settings.company_logo_data_uri %}<img src="{{ app_settings.company_logo_data_uri }}" alt="لوجو الشركة"><div class="logo-placeholder fallback-logo">{{ company_short_name }}</div>{% elif app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="لوجو الشركة" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="logo-placeholder fallback-logo">{{ company_short_name }}</div>{% else %}<div class="logo-placeholder">{{ company_short_name }}</div>{% endif %}
           <strong>{{ company_short_name }}</strong>
         </div>
         <div class="card-branch-brand">
-          {% if academy.branch and academy.branch.logo %}
+          {% if academy.branch and academy.branch.logo_data_uri %}
+            <img src="{{ academy.branch.logo_data_uri }}" alt="لوجو {{ academy.branch.display_name }}"><div class="branch-logo-placeholder fallback-logo">{{ academy.branch.display_name|slice:":2" }}</div>
+          {% elif academy.branch and academy.branch.logo %}
             <img src="{{ academy.branch.logo.url }}" alt="لوجو {{ academy.branch.display_name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"><div class="branch-logo-placeholder fallback-logo">{{ academy.branch.display_name|slice:":2" }}</div>
           {% else %}
             <div class="branch-logo-placeholder">{{ academy.branch.display_name|default:"-"|slice:":2" }}</div>
