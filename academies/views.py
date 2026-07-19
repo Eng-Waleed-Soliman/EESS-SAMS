@@ -1899,27 +1899,124 @@ def _facility_rent_for_place(place, rent_type, fallback_value):
     return int(fallback_value or 0)
 
 
-def _calculate_variable_income_by_facility(academy, year, month):
+def _variable_rent_context(year, month, academy_ids=None):
+    start = date(year, month, 1)
+    end = date(year, month, monthrange(year, month)[1])
+    override_qs = AcademyOperationOverride.objects.filter(booking_date__range=(start, end))
+    if academy_ids is not None:
+        override_qs = override_qs.filter(academy_id__in=academy_ids)
+    overrides = {
+        (
+            item.academy_id,
+            item.booking_date,
+            _norm(item.original_place),
+            item.original_slot_index,
+        ): item
+        for item in override_qs
+    }
+    facilities = {
+        _norm(item.name): {
+            'hour': int(item.hourly_rent or 0),
+            'day': int(item.daily_rent or 0),
+        }
+        for item in Facility.objects.all()
+    }
+    return {
+        'cancelled_dates': set(
+            OperationDayCancellation.objects.filter(
+                cancel_date__range=(start, end)
+            ).values_list('branch_id', 'cancel_date')
+        ),
+        'overrides': overrides,
+        'facilities': facilities,
+    }
+
+
+def _academy_variable_occurrences_for_date(academy, selected_date, context):
+    occurrences = []
+    detailed_occurrences = _academy_schedule_occurrences_for_date(academy, selected_date)
+    if detailed_occurrences:
+        source_occurrences = detailed_occurrences
+    else:
+        selected_day_ar = WEEKDAY_AR[selected_date.weekday()]
+        source_occurrences = []
+        if _contains_value(academy.training_days, selected_day_ar):
+            for place in split_values(academy.operation_place):
+                for slot in split_values(academy.training_hours):
+                    slot_index = _slot_label_to_index(slot)
+                    if slot_index is not None:
+                        source_occurrences.append({
+                            'place': place,
+                            'slot_index': slot_index,
+                            'original_place': place,
+                            'original_slot_index': slot_index,
+                            'hourly_rent': 0,
+                        })
+        extra_days = academy.extra_training_days or academy.training_days
+        if academy.has_extra_hours and _contains_value(extra_days, selected_day_ar):
+            for place in split_values(academy.extra_training_place):
+                for slot in split_values(academy.extra_training_hours):
+                    slot_index = _slot_label_to_index(slot)
+                    if slot_index is not None:
+                        source_occurrences.append({
+                            'place': place,
+                            'slot_index': slot_index,
+                            'original_place': place,
+                            'original_slot_index': slot_index,
+                            'hourly_rent': 0,
+                        })
+
+    for occurrence in source_occurrences:
+        override = context['overrides'].get((
+            academy.id,
+            selected_date,
+            _norm(occurrence['original_place']),
+            occurrence['original_slot_index'],
+        ))
+        if override and override.is_deleted:
+            continue
+        occurrences.append({
+            'place': override.new_place if override and override.new_place else occurrence['place'],
+            'slot_index': (
+                override.new_slot_index
+                if override and override.new_slot_index is not None
+                else occurrence['slot_index']
+            ),
+            'hourly_rent': int(occurrence.get('hourly_rent') or 0),
+        })
+    return occurrences
+
+
+def _calculate_variable_income_by_facility(academy, year, month, context=None):
     if academy.subscription_type != 'variable':
         return int(academy.monthly_subscription or 0)
+    if context is None:
+        context = _variable_rent_context(year, month, [academy.id])
     fallback_value = int(academy.variable_rent_value or 0)
-    total = 0
+    total = Decimal(0)
     for day_number in range(1, monthrange(year, month)[1] + 1):
         current = date(year, month, day_number)
         if not (academy.contract_start_date <= current <= academy.contract_end_date):
             continue
-        if OperationDayCancellation.objects.filter(cancel_date=current).filter(
-            Q(branch=academy.branch) | Q(branch__isnull=True)
-        ).exists():
+        if (
+            (academy.branch_id, current) in context['cancelled_dates']
+            or (None, current) in context['cancelled_dates']
+        ):
             continue
-        occs = [o for o in _academy_occurrences_for_date(current) if o['academy'].id == academy.id]
+        occs = _academy_variable_occurrences_for_date(academy, current, context)
         if academy.variable_rent_type == 'hour':
             for occ in occs:
-                hourly_rate = int(occ.get('hourly_rent') or 0) or _facility_rent_for_place(occ['place'], 'hour', fallback_value)
+                facility = context['facilities'].get(_norm(occ['place']), {})
+                hourly_rate = (
+                    int(occ.get('hourly_rent') or 0)
+                    or int(facility.get('hour') or 0)
+                    or fallback_value
+                )
                 total += Decimal(hourly_rate) / Decimal(2)
         elif academy.variable_rent_type == 'day' and occs:
             for place in sorted({_norm(occ['place']): occ['place'] for occ in occs}.values()):
-                total += _facility_rent_for_place(place, 'day', fallback_value)
+                facility = context['facilities'].get(_norm(place), {})
+                total += int(facility.get('day') or 0) or fallback_value
     return int(total)
 
 
@@ -1984,7 +2081,15 @@ def _monthly_academy_operation_counts(year, month, academies):
     return total_counts, active_counts, active_days
 
 
-def _academy_month_income_from_counts(academy, total_counts, active_counts, active_days, year=None, month=None):
+def _academy_month_income_from_counts(
+    academy,
+    total_counts,
+    active_counts,
+    active_days,
+    year=None,
+    month=None,
+    variable_rent_context=None,
+):
     academy_id = academy.id
     if academy.subscription_type == 'revenue_share':
         players_total = academy.members.filter(role=AcademyMember.ROLE_PLAYER, is_active=True).aggregate(total=Sum('monthly_subscription'))['total'] or 0
@@ -1992,7 +2097,12 @@ def _academy_month_income_from_counts(academy, total_counts, active_counts, acti
     if academy.subscription_type == 'fixed':
         return int(academy.monthly_subscription or 0)
     if year and month:
-        return _calculate_variable_income_by_facility(academy, year, month)
+        return _calculate_variable_income_by_facility(
+            academy,
+            year,
+            month,
+            context=variable_rent_context,
+        )
     rent_value = int(academy.variable_rent_value or 0)
     if academy.variable_rent_type == 'hour':
         return rent_value * active_counts.get(academy_id, 0)
@@ -2020,10 +2130,23 @@ def _academy_rent_rows(year, month, start, end, branch=None):
         queryset = queryset.filter(branch=branch)
     academies = list(queryset)
     total_counts, active_counts, active_days = _monthly_academy_operation_counts(year, month, academies)
+    variable_rent_context = _variable_rent_context(
+        year,
+        month,
+        [academy.id for academy in academies],
+    )
     month_start = date(year, month, 1)
     rows = []
     for academy in academies:
-        expected = _academy_month_income_from_counts(academy, total_counts, active_counts, active_days, year, month)
+        expected = _academy_month_income_from_counts(
+            academy,
+            total_counts,
+            active_counts,
+            active_days,
+            year,
+            month,
+            variable_rent_context=variable_rent_context,
+        )
         payment, _ = AcademyMonthlyRentPayment.objects.get_or_create(
             academy=academy,
             month=month_start,

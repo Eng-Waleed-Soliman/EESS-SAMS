@@ -702,7 +702,13 @@ class ApplicationFlowsTests(TestCase):
         academy = form.save()
         occurrences = _academy_schedule_occurrences_for_date(academy, selected_date)
         self.assertEqual(len(occurrences), 4)
-        self.assertEqual(_calculate_variable_income_by_facility(academy, selected_date.year, selected_date.month), 300)
+        with self.assertNumQueries(3):
+            calculated_income = _calculate_variable_income_by_facility(
+                academy,
+                selected_date.year,
+                selected_date.month,
+            )
+        self.assertEqual(calculated_income, 300)
 
     def test_daily_booking_checkout_from_operation(self):
         booking = DailyBooking.objects.create(
