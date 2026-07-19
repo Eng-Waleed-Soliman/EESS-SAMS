@@ -2882,15 +2882,35 @@ def reports_home_v2(request):
 
     elif report_type == 'monthly_income':
         monthly_rent_rows = []
-        cursor = date(start.year, start.month, 1)
-        last_month = date(end.year, end.month, 1)
-        while cursor <= last_month:
-            cursor_end = date(cursor.year, cursor.month, monthrange(cursor.year, cursor.month)[1])
-            monthly_rent_rows.extend(_academy_rent_rows(
-                cursor.year, cursor.month, cursor, cursor_end,
-                None if all_branches else active_branch,
-            ))
-            cursor = date(cursor.year + (1 if cursor.month == 12 else 0), 1 if cursor.month == 12 else cursor.month + 1, 1)
+        if range_mode == 'custom':
+            payment_qs = AcademyMonthlyRentPayment.objects.select_related(
+                'academy', 'academy__branch',
+            ).filter(
+                paid_amount__gt=0,
+                payment_date__range=(start, end),
+            )
+            if not all_branches:
+                payment_qs = payment_qs.filter(academy__branch=active_branch)
+            for payment in payment_qs:
+                monthly_rent_rows.append({
+                    'academy': payment.academy,
+                    'payment': payment,
+                    'expected': int(payment.expected_amount or 0),
+                    'paid': int(payment.paid_amount or 0),
+                    'remaining': payment.remaining_amount,
+                    'supplied': int(payment.supplied_amount or 0),
+                    'unsupplied': payment.unsupplied_amount,
+                })
+        else:
+            cursor = date(start.year, start.month, 1)
+            last_month = date(end.year, end.month, 1)
+            while cursor <= last_month:
+                cursor_end = date(cursor.year, cursor.month, monthrange(cursor.year, cursor.month)[1])
+                monthly_rent_rows.extend(_academy_rent_rows(
+                    cursor.year, cursor.month, cursor, cursor_end,
+                    None if all_branches else active_branch,
+                ))
+                cursor = date(cursor.year + (1 if cursor.month == 12 else 0), 1 if cursor.month == 12 else cursor.month + 1, 1)
         rows_by_academy = {}
         for monthly_row in monthly_rent_rows:
             academy_id = monthly_row['academy'].id

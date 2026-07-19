@@ -786,6 +786,7 @@ class ApplicationFlowsTests(TestCase):
         AcademyMonthlyRentPayment.objects.create(
             academy=academy, month=date(today.year, today.month, 1),
             expected_amount=1000, paid_amount=700, supplied_amount=500,
+            payment_date=today, supplied_date=today,
         )
         MonthlyExpense.objects.create(title='مصروف شهري تقرير', expense_month=date(today.year, today.month, 1), amount=200)
         DailyExpense.objects.create(title='مصروف يومي تقرير', expense_date=today, amount=100, created_by=self.user)
@@ -865,11 +866,31 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.context['income_total'], 1060)
         self.assertEqual(response.context['income_net_total'], 710)
 
+        outside_academy = Academy.objects.create(
+            name='أكاديمية سداد خارج الفترة', sport_activity='سباحة',
+            company_name='شركة خارج الفترة', manager_name='مدير خارج الفترة',
+            manager_phone='01000000999',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(today.year, 1, 1),
+            contract_end_date=date(today.year, 12, 31),
+            subscription_type='fixed', monthly_subscription=2000,
+        )
+        AcademyMonthlyRentPayment.objects.create(
+            academy=outside_academy, month=date(today.year, today.month, 1),
+            expected_amount=2000, paid_amount=1500, supplied_amount=1500,
+            payment_date=today - timedelta(days=2),
+            supplied_date=today - timedelta(days=2),
+        )
         response = self.client.get(reverse('reports_home'), {
             'report_type': 'monthly_income', 'range_mode': 'custom',
             'date_from': today.isoformat(), 'date_to': today.isoformat(),
         })
         self.assertEqual(response.context['range_mode'], 'custom')
+        self.assertEqual(
+            [row['academy'].pk for row in response.context['income_rows']],
+            [academy.pk],
+        )
+        self.assertEqual(response.context['income_paid_total'], 700)
         self.assertEqual(response.context['income_daily_booking_total'], 300)
         self.assertEqual(response.context['income_cafeteria_total'], 60)
         self.assertContains(response, f'من {today.strftime("%d/%m/%Y")} إلى {today.strftime("%d/%m/%Y")}')
