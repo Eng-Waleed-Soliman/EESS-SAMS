@@ -34,13 +34,20 @@ def persistent_media(request, model_name, pk, field_name):
     model_config = allowed.get(model_name)
     if not model_config or field_name not in model_config[1]:
         raise Http404
-    instance = get_object_or_404(model_config[0], pk=pk)
-    data = getattr(instance, f'{field_name}_data', None)
+    data_field = f'{field_name}_data'
+    content_type_field = f'{field_name}_content_type'
+    # Fetch only the requested image instead of loading every binary image
+    # stored on the same settings/branch record.
+    instance = get_object_or_404(
+        model_config[0].objects.only(data_field, content_type_field),
+        pk=pk,
+    )
+    data = getattr(instance, data_field, None)
     if not data:
         raise Http404
     response = HttpResponse(
         bytes(data),
-        content_type=getattr(instance, f'{field_name}_content_type', '') or 'image/jpeg',
+        content_type=getattr(instance, content_type_field, '') or 'image/jpeg',
     )
     response['Cache-Control'] = 'public, no-cache'
     response['X-Content-Type-Options'] = 'nosniff'
@@ -3143,7 +3150,13 @@ def website_settings(request):
     if not _can_manage_users(request.user):
         messages.error(request, 'ليس لديك صلاحية الإعدادات.')
         return redirect('dashboard')
-    setting = WebsiteSetting.current()
+    # Do not download the full hero/about image blobs just to render their
+    # upload controls.  A save without a new upload also leaves the deferred
+    # image columns untouched, preserving the current files.
+    setting, _ = WebsiteSetting.objects.defer(
+        'hero_image_data',
+        'about_image_data',
+    ).get_or_create(pk=1)
     form = WebsiteSettingForm(request.POST or None, request.FILES or None, instance=setting)
     if form.is_valid():
         form.save()

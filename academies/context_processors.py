@@ -6,8 +6,17 @@ from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training
 def app_settings(request):
     try:
         branch, all_branches = selected_branch(request)
+        # The images themselves can be several megabytes.  The sidebar only
+        # needs their saved names because it serves the bytes through the
+        # persistent-media endpoint.  Deferring the binary columns keeps every
+        # management page small and prevents Render from timing out while
+        # opening settings screens.
+        settings_object, _ = AppSetting.objects.defer(
+            'company_logo_data',
+            'main_screen_image_data',
+        ).get_or_create(pk=1)
         return {
-            'app_settings': AppSetting.current(),
+            'app_settings': settings_object,
             'is_cafeteria_specialist': is_cafeteria_specialist(request.user),
             'available_branches': Branch.objects.all().order_by('name'),
             'active_branch': branch,

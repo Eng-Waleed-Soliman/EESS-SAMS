@@ -2,6 +2,7 @@ import json
 from decimal import Decimal
 from django import forms
 from django.db.models import Q
+from django.core.files.uploadedfile import UploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
@@ -19,7 +20,11 @@ def split_values(value):
 
 
 def _store_uploaded_image(instance, upload, field_prefix):
-    if not upload:
+    # On an edit form Django returns the existing FieldFile when the user did
+    # not choose a replacement.  That old path may no longer exist on Render's
+    # ephemeral disk, while the durable bytes are safely stored in Neon.
+    # Only touch the binary columns for a genuinely new browser upload.
+    if not isinstance(upload, UploadedFile):
         return
     upload.seek(0)
     setattr(instance, f'{field_prefix}_data', upload.read())
