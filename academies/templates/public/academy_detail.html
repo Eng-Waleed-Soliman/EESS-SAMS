@@ -3,7 +3,7 @@
 {% block content %}
 <header class="detail-hero">
   <div class="container detail-head">
-    {% if academy.logo_data %}<img class="detail-logo" src="{% url 'persistent_media' 'academy' academy.pk 'logo' %}" alt="{{ academy.public_name }}">{% endif %}
+    {% if academy.logo_name %}<img class="detail-logo" src="{% url 'persistent_media' 'academy' academy.pk 'logo' %}" alt="{{ academy.public_name }}">{% endif %}
     <div>
       <a class="back-link" href="{% url 'public_website' %}?lang={{ site_lang }}#academies">{{ t.back_academies }}</a>
       <h1>{{ academy.public_name }}</h1>
@@ -22,9 +22,9 @@
     </div>
   </div>
   <div class="about-media">
-    {% if academy.branch and academy.branch.image_data %}<img src="{% url 'persistent_media' 'branch' academy.branch.pk 'image' %}" alt="{{ academy.branch.public_name }}">
+    {% if academy.branch and academy.branch.image_name %}<img src="{% url 'persistent_media' 'branch' academy.branch.pk 'image' %}" alt="{{ academy.branch.public_name }}">
     {% elif academy.branch and academy.branch.image %}<img src="{{ academy.branch.image.url }}" alt="{{ academy.branch.public_name }}">
-    {% elif website.about_image_data %}<img src="{% url 'persistent_media' 'website' website.pk 'about_image' %}" alt="{{ academy.public_name }}">
+    {% elif website.about_image_name %}<img src="{% url 'persistent_media' 'website' website.pk 'about_image' %}" alt="{{ academy.public_name }}">
     {% elif website.about_image %}<img src="{{ website.about_image.url }}" alt="{{ academy.public_name }}">{% endif %}
   </div>
 </div></section>
@@ -32,7 +32,7 @@
   <div class="section-head"><div><div class="section-kicker">{{ t.training_team }}</div><h2>{{ t.academy_coaches }}</h2></div></div>
   <div class="people-grid">
     {% for coach in coaches %}<article class="person-card">
-      {% if coach.photo_data %}<img class="portrait" src="{% url 'persistent_media' 'member' coach.pk 'photo' %}" alt="{{ coach.public_name }}">
+      {% if coach.photo_name %}<img class="portrait" src="{% url 'persistent_media' 'member' coach.pk 'photo' %}" alt="{{ coach.public_name }}">
       {% else %}<div class="portrait portrait-fallback">{{ coach.public_name|slice:":1" }}</div>{% endif %}
       <h3>{{ coach.public_name }}</h3>
       <div class="role">{{ coach.public_job_title|default:t.coach }}</div>

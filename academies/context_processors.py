@@ -18,7 +18,10 @@ def app_settings(request):
         return {
             'app_settings': settings_object,
             'is_cafeteria_specialist': is_cafeteria_specialist(request.user),
-            'available_branches': Branch.objects.all().order_by('name'),
+            'available_branches': Branch.objects.defer(
+                'logo_data',
+                'image_data',
+            ).order_by('name'),
             'active_branch': branch,
             'active_branch_is_all': all_branches,
             'active_branch_value': 'all' if all_branches else str(branch.pk),

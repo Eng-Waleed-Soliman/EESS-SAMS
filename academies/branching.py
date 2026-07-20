@@ -23,7 +23,10 @@ def selected_training_year(request):
 
 def selected_branch(request):
     """Return (branch, all_branches). Selection is persisted per signed-in session."""
-    branches = Branch.objects.all().order_by('name')
+    # Branch logos and photos are stored in the database and can be several
+    # megabytes each.  Branch selection only needs textual fields, so never
+    # pull those blobs into every request.
+    branches = Branch.objects.defer('logo_data', 'image_data').order_by('name')
     requested = request.GET.get('branch_id')
     if requested is None:
         requested = request.POST.get('branch_context')
@@ -49,4 +52,3 @@ def selected_branch(request):
         request.session['active_branch_id'] = branch.pk
         return branch, False
     return None, True
-

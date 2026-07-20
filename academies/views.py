@@ -278,16 +278,28 @@ def _board_member_display_rank(member):
 def public_website(request):
     language_context = _public_language_context(request)
     language = language_context['site_lang']
-    branding = AppSetting.current()
-    website = WebsiteSetting.current()
-    branches = list(Branch.objects.filter(is_published_on_website=True).order_by('name'))
+    branding, _ = AppSetting.objects.defer(
+        'company_logo_data',
+        'main_screen_image_data',
+    ).get_or_create(pk=1)
+    website, _ = WebsiteSetting.objects.defer(
+        'hero_image_data',
+        'about_image_data',
+    ).get_or_create(pk=1)
+    branches = list(
+        Branch.objects.filter(is_published_on_website=True)
+        .defer('logo_data', 'image_data')
+        .order_by('name')
+    )
     academies = list(
         Academy.objects.filter(is_published_on_website=True)
-        .select_related('branch').order_by('name')
+        .select_related('branch')
+        .defer('logo_data', 'branch__logo_data', 'branch__image_data')
+        .order_by('name')
     )
     activity_media = {
         item.name.strip().casefold(): item
-        for item in SportActivityMedia.objects.filter(is_active=True)
+        for item in SportActivityMedia.objects.filter(is_active=True).defer('image_data')
     }
     activity_names = []
     for academy in academies:
@@ -326,10 +338,17 @@ def public_website(request):
             is_active=True,
             is_published_on_website=True,
             academy__is_published_on_website=True,
-        ).select_related('academy', 'academy__branch').order_by('academy__name', 'name')
+        ).select_related('academy', 'academy__branch').defer(
+            'photo_data',
+            'academy__logo_data',
+            'academy__branch__logo_data',
+            'academy__branch__image_data',
+        ).order_by('academy__name', 'name')
     )
     board_members = list(
-        Shareholder.objects.filter(is_published_on_website=True).order_by('name')
+        Shareholder.objects.filter(is_published_on_website=True)
+        .defer('photo_data')
+        .order_by('name')
     )
     board_members.sort(key=_board_member_display_rank)
     _prepare_public_objects(
@@ -350,10 +369,20 @@ def public_website(request):
 def public_academy_detail(request, pk):
     language_context = _public_language_context(request)
     language = language_context['site_lang']
-    branding = AppSetting.current()
-    website = WebsiteSetting.current()
+    branding, _ = AppSetting.objects.defer(
+        'company_logo_data',
+        'main_screen_image_data',
+    ).get_or_create(pk=1)
+    website, _ = WebsiteSetting.objects.defer(
+        'hero_image_data',
+        'about_image_data',
+    ).get_or_create(pk=1)
     academy = get_object_or_404(
-        Academy.objects.select_related('branch'),
+        Academy.objects.select_related('branch').defer(
+            'logo_data',
+            'branch__logo_data',
+            'branch__image_data',
+        ),
         pk=pk,
         is_published_on_website=True,
     )
@@ -361,7 +390,7 @@ def public_academy_detail(request, pk):
         role=AcademyMember.ROLE_COACH,
         is_active=True,
         is_published_on_website=True,
-    ).order_by('name')
+    ).defer('photo_data').order_by('name')
     branches = [academy.branch] if academy.branch else []
     _prepare_public_objects(
         language, branding, website, branches, [academy], list(coaches), [],
@@ -661,7 +690,7 @@ def dashboard(request):
     )
     media_by_name = {
         media.name.strip().casefold(): media
-        for media in SportActivityMedia.objects.filter(is_active=True)
+        for media in SportActivityMedia.objects.filter(is_active=True).defer('image_data')
     }
     activities = []
     for name in activity_names:

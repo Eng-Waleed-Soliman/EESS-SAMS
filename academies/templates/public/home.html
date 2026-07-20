@@ -1,7 +1,7 @@
 {% extends 'public/base_public.html' %}
 {% block title %}{{ branding.public_company_name }} | {{ branding.company_short_name|default:'EESS' }}{% endblock %}
 {% block content %}
-<header class="hero" style="--hero-image:url('{% if website.hero_image_data %}{% url 'persistent_media' 'website' website.pk 'hero_image' %}{% elif website.hero_image %}{{ website.hero_image.url }}{% elif branding.main_screen_image_data %}{% url 'persistent_media' 'branding' branding.pk 'main_screen_image' %}{% elif branding.main_screen_image %}{{ branding.main_screen_image.url }}{% endif %}')">
+<header class="hero" style="--hero-image:url('{% if website.hero_image_name %}{% url 'persistent_media' 'website' website.pk 'hero_image' %}{% elif website.hero_image %}{{ website.hero_image.url }}{% elif branding.main_screen_image_name %}{% url 'persistent_media' 'branding' branding.pk 'main_screen_image' %}{% elif branding.main_screen_image %}{{ branding.main_screen_image.url }}{% endif %}')">
   <div class="container hero-content">
     <div class="eyebrow">{{ branding.public_company_name }}</div>
     <h1>{{ website.public_hero_title }}</h1>
@@ -14,9 +14,9 @@
 </header>
 <section id="about"><div class="container about-grid">
   <div class="about-media">
-    {% if website.about_image_data %}<img src="{% url 'persistent_media' 'website' website.pk 'about_image' %}" alt="{{ website.public_about_title }}">
+    {% if website.about_image_name %}<img src="{% url 'persistent_media' 'website' website.pk 'about_image' %}" alt="{{ website.public_about_title }}">
     {% elif website.about_image %}<img src="{{ website.about_image.url }}" alt="{{ website.public_about_title }}">
-    {% elif branding.main_screen_image_data %}<img src="{% url 'persistent_media' 'branding' branding.pk 'main_screen_image' %}" alt="{{ branding.public_company_name }}">
+    {% elif branding.main_screen_image_name %}<img src="{% url 'persistent_media' 'branding' branding.pk 'main_screen_image' %}" alt="{{ branding.public_company_name }}">
     {% elif branding.main_screen_image %}<img src="{{ branding.main_screen_image.url }}" alt="{{ branding.public_company_name }}">{% endif %}
   </div>
   <div class="about-copy">
@@ -40,7 +40,7 @@
   <div class="card-grid">
     {% for item in activities %}<article class="activity-card">
       <div class="activity-image">
-        {% if item.media and item.media.image_data %}<img src="{% url 'persistent_media' 'sport' item.media.pk 'image' %}" alt="{{ item.name }}">
+        {% if item.media and item.media.image_name %}<img src="{% url 'persistent_media' 'sport' item.media.pk 'image' %}" alt="{{ item.name }}">
         {% elif item.media and item.media.image %}<img src="{{ item.media.image.url }}" alt="{{ item.name }}">
         {% else %}<div class="fallback">◈</div>{% endif %}
       </div>
@@ -61,9 +61,9 @@
   <div class="card-grid">
     {% for branch in branches %}<article class="branch-card">
       <div class="branch-image">
-        {% if branch.image_data %}<img src="{% url 'persistent_media' 'branch' branch.pk 'image' %}" alt="{{ branch.public_name }}">
+        {% if branch.image_name %}<img src="{% url 'persistent_media' 'branch' branch.pk 'image' %}" alt="{{ branch.public_name }}">
         {% elif branch.image %}<img src="{{ branch.image.url }}" alt="{{ branch.public_name }}">
-        {% elif branch.logo_data %}<img src="{% url 'persistent_media' 'branch' branch.pk 'logo' %}" alt="{{ branch.public_name }}" style="object-fit:contain;padding:45px">
+        {% elif branch.logo_name %}<img src="{% url 'persistent_media' 'branch' branch.pk 'logo' %}" alt="{{ branch.public_name }}" style="object-fit:contain;padding:45px">
         {% elif branch.logo %}<img src="{{ branch.logo.url }}" alt="{{ branch.public_name }}" style="object-fit:contain;padding:45px">{% endif %}
       </div>
       <div class="card-body">
@@ -83,7 +83,7 @@
   <div class="card-grid">
     {% for academy in academies %}<article class="academy-card">
       <div class="academy-image">
-        {% if academy.logo_data %}<img src="{% url 'persistent_media' 'academy' academy.pk 'logo' %}" alt="{{ academy.public_name }}">
+        {% if academy.logo_name %}<img src="{% url 'persistent_media' 'academy' academy.pk 'logo' %}" alt="{{ academy.public_name }}">
         {% else %}<span class="academy-letter">{{ academy.public_name|slice:":1" }}</span>{% endif %}
       </div>
       <div class="card-body">
@@ -103,7 +103,7 @@
   </div>
   <div class="people-grid">
     {% for coach in coaches %}<article class="person-card">
-      {% if coach.photo_data %}<img class="portrait" src="{% url 'persistent_media' 'member' coach.pk 'photo' %}" alt="{{ coach.public_name }}">
+      {% if coach.photo_name %}<img class="portrait" src="{% url 'persistent_media' 'member' coach.pk 'photo' %}" alt="{{ coach.public_name }}">
       {% else %}<div class="portrait portrait-fallback">{{ coach.public_name|slice:":1" }}</div>{% endif %}
       <h3>{{ coach.public_name }}</h3>
       <div class="role">{{ coach.public_job_title|default:t.coach }} · {{ coach.academy.public_name }}</div>
@@ -119,7 +119,7 @@
   </div>
   <div class="people-grid">
     {% for member in board_members %}<article class="person-card">
-      {% if member.photo_data %}<img class="portrait" src="{% url 'persistent_media' 'shareholder' member.pk 'photo' %}" alt="{{ member.public_name }}">
+      {% if member.photo_name %}<img class="portrait" src="{% url 'persistent_media' 'shareholder' member.pk 'photo' %}" alt="{{ member.public_name }}">
       {% else %}<div class="portrait portrait-fallback">{{ member.public_name|slice:":1" }}</div>{% endif %}
       <h3>{{ member.public_name }}</h3>
       <div class="role">{{ member.public_job_title|default:t.board_member }}</div>

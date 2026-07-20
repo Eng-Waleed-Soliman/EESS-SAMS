@@ -127,7 +127,10 @@ class ApplicationFlowsTests(TestCase):
             arabic_html.index('أحمد الرئيس'),
             arabic_html.index('خالد العضو'),
         )
-        self.assertContains(arabic_response, chairman.photo_data_uri)
+        self.assertContains(
+            arabic_response,
+            reverse('persistent_media', args=['shareholder', chairman.pk, 'photo']),
+        )
         self.assertContains(arabic_response, '<html lang="ar" dir="rtl">')
 
         english_response = self.client.get(reverse('public_website'), {'lang': 'en'})
@@ -136,8 +139,59 @@ class ApplicationFlowsTests(TestCase):
             english_html.index('Ahmed Chairman'),
             english_html.index('Khaled Member'),
         )
-        self.assertContains(english_response, chairman.photo_data_uri)
+        self.assertContains(
+            english_response,
+            reverse('persistent_media', args=['shareholder', chairman.pk, 'photo']),
+        )
         self.assertContains(english_response, '<html lang="en" dir="ltr">')
+
+    def test_public_website_does_not_load_persistent_image_blobs_into_page_context(self):
+        branding = AppSetting.current()
+        branding.company_logo_data = b'x' * 1024
+        branding.company_logo_name = 'logo.png'
+        branding.save()
+        website = WebsiteSetting.current()
+        website.hero_image_data = b'y' * 1024
+        website.hero_image_name = 'hero.png'
+        website.save()
+        branch = Branch.objects.create(
+            name='Memory Safe Branch',
+            image_data=b'z' * 1024,
+            image_name='branch.png',
+        )
+        academy = Academy.objects.create(
+            branch=branch,
+            name='Memory Safe Academy',
+            logo_data=b'a' * 1024,
+            logo_name='academy.png',
+            sport_activity='Football',
+            company_name='Company',
+            manager_name='Manager',
+            manager_phone='01000000000',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(),
+            contract_end_date=date.today() + timedelta(days=30),
+        )
+        coach = AcademyMember.objects.create(
+            academy=academy,
+            role=AcademyMember.ROLE_COACH,
+            name='Memory Safe Coach',
+            photo_data=b'b' * 1024,
+            photo_name='coach.png',
+        )
+
+        self.client.logout()
+        response = self.client.get(reverse('public_website'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('company_logo_data', response.context['branding'].get_deferred_fields())
+        self.assertIn('hero_image_data', response.context['website'].get_deferred_fields())
+        rendered_branch = next(item for item in response.context['branches'] if item.pk == branch.pk)
+        rendered_academy = next(item for item in response.context['academies'] if item.pk == academy.pk)
+        rendered_coach = next(item for item in response.context['coaches'] if item.pk == coach.pk)
+        self.assertIn('image_data', rendered_branch.get_deferred_fields())
+        self.assertIn('logo_data', rendered_academy.get_deferred_fields())
+        self.assertIn('photo_data', rendered_coach.get_deferred_fields())
 
     def test_public_website_switches_all_public_content_to_english_and_remembers_language(self):
         branch = Branch.objects.create(

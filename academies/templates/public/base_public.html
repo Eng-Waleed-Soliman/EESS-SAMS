@@ -24,7 +24,7 @@
   <nav class="site-nav">
     <div class="container nav-inner">
       <a class="brand" href="{% url 'public_website' %}?lang={{ site_lang }}">
-        {% if branding.company_logo_data %}<img src="{% url 'persistent_media' 'branding' branding.pk 'company_logo' %}" alt="{{ branding.company_name }}">{% elif branding.company_logo %}<img src="{{ branding.company_logo.url }}" alt="{{ branding.company_name }}">{% endif %}
+        {% if branding.company_logo_name %}<img src="{% url 'persistent_media' 'branding' branding.pk 'company_logo' %}" alt="{{ branding.company_name }}">{% elif branding.company_logo %}<img src="{{ branding.company_logo.url }}" alt="{{ branding.company_name }}">{% endif %}
         <span><strong>{{ branding.company_short_name|default:'EESS' }}</strong><small>{{ branding.public_company_name }}</small></span>
       </a>
       <button class="menu-button" type="button" aria-label="{{ t.menu }}" onclick="document.querySelector('.nav-links').classList.toggle('open')">☰</button>
