@@ -1103,3 +1103,33 @@ class CafeteriaSale(models.Model):
 
     def __str__(self):
         return f'{self.item} - {self.quantity}'
+
+
+class CafeteriaCashSupply(models.Model):
+    branch = models.ForeignKey(
+        Branch,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='cafeteria_cash_supplies',
+        verbose_name='الفرع',
+    )
+    supply_date = models.DateField(default=datetime.date.today, verbose_name='تاريخ التوريد')
+    amount = models.PositiveIntegerField(verbose_name='مبلغ التوريد')
+    created_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='cafeteria_cash_supplies',
+        verbose_name='سجل بواسطة',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-supply_date', '-id']
+        verbose_name = 'توريد مبلغ كافيتريا'
+        verbose_name_plural = 'توريدات مبالغ الكافيتريا'
+
+    def __str__(self):
+        return f'{self.supply_date} - {self.amount}'

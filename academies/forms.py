@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.core.files.uploadedfile import UploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaCashSupply, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -1504,6 +1504,22 @@ class CafeteriaSaleForm(forms.ModelForm):
         if item:
             cleaned_data['unit_price'] = item.sale_price
         return cleaned_data
+
+
+class CafeteriaCashSupplyForm(forms.ModelForm):
+    class Meta:
+        model = CafeteriaCashSupply
+        fields = ['supply_date', 'amount']
+        widgets = {
+            'supply_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '1'}),
+        }
+
+    def clean_amount(self):
+        amount = self.cleaned_data.get('amount') or 0
+        if amount <= 0:
+            raise forms.ValidationError('مبلغ التوريد يجب أن يكون أكبر من صفر.')
+        return amount
 
 
 

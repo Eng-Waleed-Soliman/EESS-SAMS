@@ -1,0 +1,30 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3>توريد مبلغ مالي</h3>
+  <a class="btn btn-secondary" href="{% url 'cafe_inventory' %}">رجوع للجرد</a>
+</div>
+
+<form method="post" class="card p-4">
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+  <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+  {% endif %}
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label fw-bold">{{ form.supply_date.label }}</label>
+      {{ form.supply_date }}
+      {% for error in form.supply_date.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="col-md-6">
+      <label class="form-label fw-bold">{{ form.amount.label }}</label>
+      {{ form.amount }}
+      {% for error in form.amount.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+    </div>
+  </div>
+  <div class="d-flex gap-2 mt-4">
+    <button type="submit" class="btn btn-primary">حفظ</button>
+    <a class="btn btn-outline-secondary" href="{% url 'cafe_inventory' %}">رجوع</a>
+  </div>
+</form>
+{% endblock %}

@@ -14,8 +14,8 @@ from django.db.models import Sum, Q, Count
 from django.http import HttpResponse, Http404
 from django.utils import timezone
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaCashSupply, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
@@ -1724,8 +1724,15 @@ def cafe_inventory(request):
     if date_from > date_to:
         date_from, date_to = date_to, date_from
 
+    active_branch, all_branches = selected_branch(request)
+    items = CafeteriaItem.objects.select_related('category').order_by('category__code', 'code', 'name')
+    supplies = CafeteriaCashSupply.objects.all()
+    if not all_branches:
+        items = items.filter(branch=active_branch)
+        supplies = supplies.filter(branch=active_branch)
+
     rows = []
-    for item in CafeteriaItem.objects.select_related('category').order_by('category__code', 'code', 'name'):
+    for item in items:
         purchased_before = item.purchases.filter(purchase_date__lt=date_from).aggregate(total=Sum('quantity'))['total'] or 0
         sold_before = item.sales.filter(sale_date__lt=date_from).aggregate(total=Sum('quantity'))['total'] or 0
         purchased = item.purchases.filter(purchase_date__range=(date_from, date_to)).aggregate(total=Sum('quantity'))['total'] or 0
@@ -1738,12 +1745,44 @@ def cafe_inventory(request):
             'sold_quantity': sold,
             'remaining_quantity': opening_balance + purchased - sold,
         })
+
+    purchases = CafeteriaPurchase.objects.filter(item__in=items)
+    sales = CafeteriaSale.objects.filter(item__in=items)
+    purchase_cash_total = sum(
+        (row.quantity or 0) * (row.unit_price or 0)
+        for row in purchases.only('quantity', 'unit_price')
+    )
+    sales_cash_total = sum(
+        (row.quantity or 0) * (row.unit_price or 0)
+        for row in sales.only('quantity', 'unit_price')
+    )
+    supplied_cash_total = supplies.aggregate(total=Sum('amount'))['total'] or 0
+    cafeteria_cash = sales_cash_total - purchase_cash_total - supplied_cash_total
+
     return render(request, 'academies/cafe_inventory.html', {
         'rows': rows,
         'date_from': date_from,
         'date_to': date_to,
         'preset': preset,
+        'cafeteria_cash': cafeteria_cash,
     })
+
+
+@login_required
+def cafe_cash_supply_create(request):
+    active_branch, all_branches = selected_branch(request)
+    form = CafeteriaCashSupplyForm(
+        request.POST or None,
+        initial={'supply_date': date.today()},
+    )
+    if request.method == 'POST' and form.is_valid():
+        supply = form.save(commit=False)
+        supply.branch = None if all_branches else active_branch
+        supply.created_by = request.user
+        supply.save()
+        messages.success(request, 'تم حفظ توريد مبلغ الكافيتريا بنجاح.')
+        return redirect('cafe_inventory')
+    return render(request, 'academies/cafe_cash_supply_form.html', {'form': form})
 
 
 @login_required
@@ -3037,6 +3076,10 @@ def reports_home_v2(request):
         ).select_related('item'))
         purchase_total = sum(row.total_amount for row in purchases)
         sales_total = sum(row.total_amount for row in sales)
+        cash_supplies = CafeteriaCashSupply.objects.filter(supply_date__range=(start, end))
+        if not all_branches:
+            cash_supplies = cash_supplies.filter(branch=active_branch)
+        supplied_total = cash_supplies.aggregate(total=Sum('amount'))['total'] or 0
         purchased_quantities = {}
         sold_quantities = {}
         revenue_by_item = {}
@@ -3072,6 +3115,7 @@ def reports_home_v2(request):
             'cafeteria_purchase_total': purchase_total,
             'cafeteria_sales_total': sales_total,
             'cafeteria_net_profit': sales_total - purchase_total,
+            'cafeteria_supplied_total': supplied_total,
             'cafeteria_rows': cafeteria_rows,
             'cafeteria_statistics': sorted(cafeteria_rows, key=lambda row: (-row['sold'], row['item'].name)),
         })
