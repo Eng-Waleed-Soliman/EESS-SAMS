@@ -581,6 +581,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertRedirects(response, expected_print_url)
         print_detail = self.client.get(expected_print_url)
         self.assertContains(print_detail, "printVoucher(true)")
+        self.assertNotContains(print_detail, 'تم تحديث الأمر المالي بنجاح')
+        self.assertContains(print_detail, '@media print{.global-messages{display:none!important')
 
     def test_login_uses_typed_username_without_exposing_user_list(self):
         hidden_user = User.objects.create_user(username='private_operator', password='operator-password')

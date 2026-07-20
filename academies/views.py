@@ -2742,7 +2742,6 @@ def financial_voucher_update(request, pk):
     form = FinancialVoucherForm(request.POST or None, instance=voucher)
     if form.is_valid():
         form.save()
-        messages.success(request, 'تم تحديث الأمر المالي بنجاح.')
         destination = reverse('financial_voucher_detail', kwargs={'pk': voucher.pk})
         submit_action = request.POST.get('submit_action', 'save')
         if submit_action in {'print', 'pdf'}:
