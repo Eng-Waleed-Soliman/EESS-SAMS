@@ -525,6 +525,7 @@ class ApplicationFlowsTests(TestCase):
         voucher = FinancialVoucher.objects.get(voucher_type=FinancialVoucher.TYPE_DISBURSEMENT)
         self.assertRedirects(response, reverse('financial_voucher_detail', args=[voucher.pk]))
         self.assertEqual(voucher.created_by, self.user)
+        self.assertEqual(voucher.voucher_number, 'ص-00001')
         self.assertEqual(voucher.signature_name, signer.name)
         self.assertEqual(voucher.amount_in_words, 'ألف ومائتان وخمسون جنيه مصري فقط لا غير')
 
@@ -553,6 +554,7 @@ class ApplicationFlowsTests(TestCase):
         })
         supply = FinancialVoucher.objects.get(voucher_type=FinancialVoucher.TYPE_SUPPLY)
         self.assertRedirects(response, reverse('financial_voucher_detail', args=[supply.pk]))
+        self.assertEqual(supply.voucher_number, 'ت-00001')
         self.assertEqual(supply.amount_in_words, 'ألفان جنيه مصري فقط لا غير')
         supply_detail = self.client.get(reverse('financial_voucher_detail', args=[supply.pk]))
         self.assertContains(supply_detail, 'يتم استلام')

@@ -552,6 +552,7 @@ class FinancialVoucher(models.Model):
     ]
 
     voucher_type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name='نوع الأمر')
+    sequence_number = models.PositiveIntegerField(editable=False, verbose_name='المسلسل حسب نوع الأمر')
     amount = models.PositiveIntegerField(verbose_name='قيمة المبلغ')
     statement = models.TextField(verbose_name='السبب / البيان')
     voucher_date = models.DateField(verbose_name='التاريخ')
@@ -566,13 +567,29 @@ class FinancialVoucher(models.Model):
 
     class Meta:
         ordering = ['-voucher_date', '-id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['voucher_type', 'sequence_number'],
+                name='unique_financial_voucher_sequence_by_type',
+            ),
+        ]
         verbose_name = 'أمر صرف أو توريد مالي'
         verbose_name_plural = 'أوامر الصرف والتوريد المالية'
+
+    def save(self, *args, **kwargs):
+        if not self.sequence_number:
+            last_number = self.__class__.objects.filter(
+                voucher_type=self.voucher_type,
+            ).aggregate(
+                maximum=models.Max('sequence_number'),
+            )['maximum'] or 0
+            self.sequence_number = last_number + 1
+        super().save(*args, **kwargs)
 
     @property
     def voucher_number(self):
         prefix = 'ص' if self.voucher_type == self.TYPE_DISBURSEMENT else 'ت'
-        return f'{prefix}-{self.id:05d}' if self.id else f'{prefix}-جديد'
+        return f'{prefix}-{self.sequence_number:05d}' if self.sequence_number else f'{prefix}-جديد'
 
     @property
     def amount_in_words(self):
