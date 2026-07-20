@@ -13,10 +13,10 @@
     {% for field in form %}
       <div class="col-md-6">
         <label class="form-label fw-bold">{{ field.label }}</label>
-        {% if field.name == 'new_password' %}
+        {% if field.name == 'new_password' or field.name == 'confirm_new_password' %}
         <div class="input-group">
           {{ field }}
-          <button class="btn btn-outline-secondary" type="button" id="toggleNewPassword">إظهار</button>
+          <button class="btn btn-outline-secondary password-toggle" type="button" data-password-target="{{ field.id_for_label }}">إظهار</button>
         </div>
         {% else %}
         {{ field }}
@@ -116,15 +116,16 @@
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-  const passwordInput = document.getElementById('id_new_password');
-  const passwordToggle = document.getElementById('toggleNewPassword');
-  if(passwordInput && passwordToggle){
-    passwordToggle.addEventListener('click', function(){
-      const show = passwordInput.type === 'password';
-      passwordInput.type = show ? 'text' : 'password';
-      passwordToggle.textContent = show ? 'إخفاء' : 'إظهار';
-    });
-  }
+  document.querySelectorAll('.password-toggle').forEach(function(passwordToggle){
+    const passwordInput = document.getElementById(passwordToggle.dataset.passwordTarget);
+    if(passwordInput){
+      passwordToggle.addEventListener('click', function(){
+        const show = passwordInput.type === 'password';
+        passwordInput.type = show ? 'text' : 'password';
+        passwordToggle.textContent = show ? 'إخفاء' : 'إظهار';
+      });
+    }
+  });
   const cards = Array.from(document.querySelectorAll('[data-module-card]'));
   const panels = Array.from(document.querySelectorAll('[data-module-panel]'));
   const empty = document.getElementById('moduleDetailsEmpty');

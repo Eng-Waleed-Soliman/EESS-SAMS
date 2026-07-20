@@ -622,17 +622,47 @@ class ApplicationFlowsTests(TestCase):
     def test_admin_can_set_replacement_password_but_hash_is_never_displayed(self):
         target = User.objects.create_user(username='password_reset_user', password='old-secret-password')
         original_hash = target.password
+        mismatch_form = EESSUserUpdateForm(data={
+            'username': target.username,
+            'first_name': target.first_name,
+            'email': target.email,
+            'is_active': 'on',
+            'new_password': 'replacement-password-123',
+            'confirm_new_password': 'different-password',
+        }, instance=target)
+        self.assertFalse(mismatch_form.is_valid())
+        self.assertIn('confirm_new_password', mismatch_form.errors)
+
         form = EESSUserUpdateForm(data={
             'username': target.username,
             'first_name': target.first_name,
             'email': target.email,
             'is_active': 'on',
             'new_password': 'replacement-password-123',
+            'confirm_new_password': 'replacement-password-123',
         }, instance=target)
         self.assertTrue(form.is_valid(), form.errors.as_json())
         updated = form.save()
         self.assertNotEqual(updated.password, original_hash)
         self.assertTrue(updated.check_password('replacement-password-123'))
+
+        self.user.is_superuser = True
+        self.user.save(update_fields=['is_superuser'])
+        response = self.client.post(reverse('user_update', args=[target.pk]), {
+            'username': target.username,
+            'first_name': target.first_name,
+            'email': target.email,
+            'is_active': 'on',
+            'new_password': 'saved-through-user-screen',
+            'confirm_new_password': 'saved-through-user-screen',
+        })
+        self.assertRedirects(response, reverse('user_list'))
+        target.refresh_from_db()
+        self.assertFalse(target.check_password('replacement-password-123'))
+        self.assertTrue(target.check_password('saved-through-user-screen'))
+        self.client.logout()
+        self.assertFalse(self.client.login(username=target.username, password='replacement-password-123'))
+        self.assertTrue(self.client.login(username=target.username, password='saved-through-user-screen'))
 
     def test_academy_create_and_edit_keep_browser_date_format(self):
         place = OPERATION_PLACE_CHOICES[0][0]

@@ -1565,6 +1565,15 @@ class EESSUserUpdateForm(forms.ModelForm):
         widget=forms.PasswordInput(attrs={'class':'form-control', 'placeholder':'اتركها فارغة للاحتفاظ بكلمة المرور الحالية'}),
         help_text='كلمة المرور الحالية مشفّرة ولا يمكن استرجاعها. اكتب كلمة جديدة هنا عند نسيانها، أو اترك الخانة فارغة دون تغيير.'
     )
+    confirm_new_password = forms.CharField(
+        label='تأكيد كلمة المرور الجديدة',
+        required=False,
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'أعد كتابة كلمة المرور الجديدة',
+            'autocomplete': 'new-password',
+        }),
+    )
 
     class Meta:
         model = User
@@ -1580,6 +1589,18 @@ class EESSUserUpdateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         current_username = self.instance.username if self.instance and self.instance.pk else None
         self.fields['username'].choices = _job_title_username_choices(current_username)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('new_password')
+        confirmation = cleaned_data.get('confirm_new_password')
+        if password and not confirmation:
+            self.add_error('confirm_new_password', 'يجب تأكيد كلمة المرور الجديدة.')
+        elif confirmation and not password:
+            self.add_error('new_password', 'اكتب كلمة المرور الجديدة أولًا.')
+        elif password and confirmation and password != confirmation:
+            self.add_error('confirm_new_password', 'كلمتا المرور غير متطابقتين.')
+        return cleaned_data
 
     def save(self, commit=True):
         user = super().save(commit=False)
