@@ -1043,6 +1043,47 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.content.decode().count('class="activity-card"'), 1)
         self.assertNotContains(response, 'dashboard-card-col')
 
+    def test_dashboard_weekday_filter_marks_only_academy_training_slots_busy(self):
+        football_field = OPERATION_PLACE_CHOICES[0][0]
+        Academy.objects.create(
+            name='Sunday Academy',
+            sport_activity='Football',
+            company_name='Company',
+            manager_name='Manager',
+            manager_phone='01000000999',
+            operation_place=football_field,
+            contract_start_date=date(2026, 7, 1),
+            contract_end_date=date(2027, 6, 30),
+            subscription_type='variable',
+            training_schedule=[{
+                'place': football_field,
+                'day': WEEKDAY_AR[6],
+                'start_time': TIME_CHOICES[20][0],
+                'end_time': TIME_CHOICES[22][0],
+                'hourly_rent': 500,
+            }],
+        )
+
+        response = self.client.get(reverse('dashboard'), {
+            'training_year': '2026-2027',
+            'schedule_day': WEEKDAY_AR[6],
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['selected_schedule_day'], WEEKDAY_AR[6])
+        self.assertEqual(len(response.context['schedule_weekdays']), 7)
+        football_row = next(
+            row for row in response.context['academy_schedule_rows']
+            if row['place'] == football_field
+        )
+        self.assertFalse(football_row['cells'][19]['busy'])
+        self.assertTrue(football_row['cells'][20]['busy'])
+        self.assertTrue(football_row['cells'][21]['busy'])
+        self.assertFalse(football_row['cells'][22]['busy'])
+        self.assertEqual(football_row['cells'][20]['academy_names'], ['Sunday Academy'])
+        self.assertContains(response, 'class="schedule-cell busy"')
+        self.assertContains(response, 'Sunday Academy')
+
     def test_dashboard_does_not_leak_activities_between_branches(self):
         first = Branch.objects.create(name='الفرع الرئيسي')
         second = Branch.objects.create(name='الفرع الثاني')

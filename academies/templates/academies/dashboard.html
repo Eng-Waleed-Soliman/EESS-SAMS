@@ -14,6 +14,7 @@
   </div>
 
   <form method="get" class="dashboard-context-form" id="dashboard-context-form">
+    <input type="hidden" name="schedule_day" value="{{ selected_schedule_day }}">
     <div>
       <label for="branch_id">الفرع</label>
       <select name="branch_id" id="branch_id" class="form-select">
@@ -71,6 +72,48 @@
   </div>
 {% endif %}
 
+<section class="academy-weekly-board mt-4" aria-labelledby="academy-weekly-board-title">
+  <div class="weekly-board-heading">
+    <div>
+      <h3 id="academy-weekly-board-title">جدول تدريبات الأكاديميات</h3>
+      <p>ملاعب كرة القدم وملعب الباسكت — الأخضر مشغول بتدريب أكاديمية، والأبيض متاح.</p>
+    </div>
+    <strong>{{ selected_schedule_day }}</strong>
+  </div>
+
+  <nav class="weekday-filter" aria-label="اختيار يوم الأسبوع">
+    {% for day in schedule_weekdays %}
+      <a class="weekday-button {% if day.name == selected_schedule_day %}active{% endif %}"
+         href="?branch_id={% if active_branch_is_all %}all{% elif active_branch %}{{ active_branch.pk }}{% else %}all{% endif %}&amp;training_year={{ training_year|urlencode }}&amp;schedule_day={{ day.name|urlencode }}">
+        {{ day.name }}
+      </a>
+    {% endfor %}
+  </nav>
+
+  <div class="academy-schedule-rows">
+    {% for row in academy_schedule_rows %}
+      <div class="academy-schedule-row">
+        <div class="schedule-venue">
+          <span>{{ row.place }}</span>
+          {% if active_branch_is_all and row.branch_name %}<small>{{ row.branch_name }}</small>{% endif %}
+        </div>
+        <div class="schedule-scroll" tabindex="0" aria-label="توقيتات {{ row.place }}">
+          <div class="schedule-cells">
+            {% for cell in row.cells %}
+              <div class="schedule-cell {% if cell.busy %}busy{% endif %}" title="{{ cell.title }}">
+                <span>{{ cell.label }}</span>
+                <small>{% if cell.busy %}مشغول{% else %}متاح{% endif %}</small>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="schedule-empty">لا توجد ملاعب كرة قدم أو باسكت مسجلة لهذا الفرع.</div>
+    {% endfor %}
+  </div>
+</section>
+
 <style>
   .dashboard-brand-card{background:var(--sidebar-bg);border:1px solid #bfefff;border-radius:20px;padding:24px;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:0 15px 35px rgba(15,23,42,.08);direction:ltr}
   .dashboard-brand{display:flex;align-items:center;gap:16px;direction:ltr;flex:0 0 auto;min-width:0}
@@ -93,8 +136,30 @@
   .activity-details p{margin:0;color:#475569;font-weight:700}
   .activity-details small{display:block;margin-top:7px;color:#2563eb}
   .empty-icon{font-size:68px}
+  .academy-weekly-board{background:#fff;border-radius:22px;padding:22px;box-shadow:0 15px 35px rgba(15,23,42,.08)}
+  .weekly-board-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+  .weekly-board-heading h3{margin:0 0 5px;font-weight:900;color:#0f2747}
+  .weekly-board-heading p{margin:0;color:#64748b}
+  .weekly-board-heading>strong{background:#e9f7ef;color:#137a4c;border:1px solid #86d8ae;border-radius:12px;padding:9px 18px;white-space:nowrap}
+  .weekday-filter{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:9px;margin-bottom:18px}
+  .weekday-button{display:flex;min-height:48px;align-items:center;justify-content:center;border:1px solid #73cdf4;border-radius:11px;background:#dff6ff;color:#0f2747;text-decoration:none;font-weight:900;transition:.18s}
+  .weekday-button:hover{background:#c9efff;color:#0f2747;transform:translateY(-1px)}
+  .weekday-button.active{background:#2563eb;border-color:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.23)}
+  .academy-schedule-rows{border:1px solid #dbe5f1;border-radius:17px;overflow:hidden;background:#f8fbff}
+  .academy-schedule-row{display:flex;direction:rtl;min-width:0;border-bottom:1px solid #dbe5f1}
+  .academy-schedule-row:last-child{border-bottom:0}
+  .schedule-venue{flex:0 0 165px;min-height:104px;padding:14px 12px;background:#eef5fc;border-left:1px solid #dbe5f1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-weight:900;line-height:1.45}
+  .schedule-venue small{display:block;margin-top:6px;color:#64748b;font-weight:700}
+  .schedule-scroll{min-width:0;overflow-x:auto;padding:10px;background:#fff;scrollbar-color:#9fb3c8 #edf2f7}
+  .schedule-cells{display:flex;direction:rtl;gap:8px;width:max-content}
+  .schedule-cell{flex:0 0 94px;width:94px;min-height:82px;padding:9px 7px;border:1px solid #cfdae8;border-radius:12px;background:#fff;color:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.35;font-weight:800;white-space:normal}
+  .schedule-cell span{font-size:12px}
+  .schedule-cell small{margin-top:5px;color:#64748b;font-weight:700}
+  .schedule-cell.busy{background:#168b59;border-color:#168b59;color:#fff;box-shadow:0 5px 12px rgba(22,139,89,.2)}
+  .schedule-cell.busy small{color:#fff}
+  .schedule-empty{padding:28px;text-align:center;color:#64748b;font-weight:800}
   @media(max-width:1199px){.dashboard-brand-card{align-items:stretch;flex-direction:column}.dashboard-brand{align-self:flex-start}.dashboard-context-form{width:100%}.activity-grid{grid-template-columns:repeat(3,1fr)}}
-  @media(max-width:767px){.dashboard-brand-card{padding:18px}.dashboard-brand-copy{width:auto;min-width:0}.dashboard-program-name{font-size:28px;max-width:280px;min-height:64px}.dashboard-company-name{font-size:14px;white-space:normal}.dashboard-context-form{grid-template-columns:1fr}.activity-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:767px){.dashboard-brand-card{padding:18px}.dashboard-brand-copy{width:auto;min-width:0}.dashboard-program-name{font-size:28px;max-width:280px;min-height:64px}.dashboard-company-name{font-size:14px;white-space:normal}.dashboard-context-form{grid-template-columns:1fr}.activity-grid{grid-template-columns:repeat(2,1fr)}.academy-weekly-board{padding:15px}.weekly-board-heading{align-items:flex-start;flex-direction:column}.weekday-filter{grid-template-columns:repeat(4,1fr)}.schedule-venue{flex-basis:125px}.schedule-cell{flex-basis:88px;width:88px}}
   @media(max-width:480px){.activity-grid{grid-template-columns:1fr}}
 </style>
 <script>

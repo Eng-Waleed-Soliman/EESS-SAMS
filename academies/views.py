@@ -671,6 +671,90 @@ def logout_view(request):
     return redirect('login')
 
 
+def _is_dashboard_schedule_place(place_name):
+    """Limit the dashboard availability board to football and basketball venues."""
+    normalized = _norm(place_name)
+    lowered = normalized.casefold()
+    return (
+        'كرة القدم' in normalized
+        or 'الباسكت' in normalized
+        or 'basket' in lowered
+        or 'football' in lowered
+        or 'soccer' in lowered
+    )
+
+
+def _dashboard_academy_schedule_rows(academies, selected_date, branch=None, all_branches=False):
+    """Build half-hour availability rows using only recurring academy schedules."""
+    rows_by_key = {}
+
+    def ensure_row(row_branch, place_name):
+        place_name = (place_name or '').strip()
+        if not place_name or not _is_dashboard_schedule_place(place_name):
+            return None
+        branch_id = row_branch.pk if row_branch else None
+        key = (branch_id, _norm(place_name)) if all_branches else _norm(place_name)
+        if key not in rows_by_key:
+            rows_by_key[key] = {
+                'place': place_name,
+                'branch_name': row_branch.display_name if row_branch else '',
+                'cells': [
+                    {
+                        'label': label,
+                        'busy': False,
+                        'academy_names': [],
+                        'title': 'متاح',
+                    }
+                    for label in SLOT_LABELS
+                ],
+            }
+        return rows_by_key[key]
+
+    facilities = Facility.objects.select_related('branch')
+    if not all_branches:
+        facilities = facilities.filter(branch=branch) if branch else facilities.none()
+    facility_row_count = 0
+    for facility in facilities:
+        if ensure_row(facility.branch, facility.name) is not None:
+            facility_row_count += 1
+
+    if facility_row_count == 0:
+        if all_branches:
+            fallback_branches = []
+            seen_branch_ids = set()
+            for academy in academies:
+                academy_branch_id = academy.branch_id
+                if academy_branch_id in seen_branch_ids:
+                    continue
+                seen_branch_ids.add(academy_branch_id)
+                fallback_branches.append(academy.branch)
+            if not fallback_branches:
+                fallback_branches = [None]
+        else:
+            fallback_branches = [branch]
+        for fallback_branch in fallback_branches:
+            for place_name in OPERATION_SCREEN_PLACES[:3]:
+                ensure_row(fallback_branch, place_name)
+
+    for academy in academies:
+        for occurrence in _academy_schedule_occurrences_for_date(academy, selected_date):
+            row = ensure_row(academy.branch, occurrence.get('place'))
+            slot_index = occurrence.get('slot_index')
+            if row is None or slot_index is None or not (0 <= slot_index < len(SLOT_LABELS)):
+                continue
+            cell = row['cells'][slot_index]
+            cell['busy'] = True
+            if academy.name not in cell['academy_names']:
+                cell['academy_names'].append(academy.name)
+
+    rows = list(rows_by_key.values())
+    for row in rows:
+        for cell in row['cells']:
+            if cell['academy_names']:
+                cell['title'] = '، '.join(cell['academy_names'])
+    return rows
+
+
 def dashboard(request):
     if not request.user.is_authenticated:
         return login_view(request)
@@ -701,11 +785,37 @@ def dashboard(request):
             'symbol': _activity_symbol(name),
             'academy_count': academies.filter(sport_activity=name).count(),
         })
+    schedule_weekdays = [
+        {'index': weekday_index, 'name': WEEKDAY_AR[weekday_index]}
+        for weekday_index in (5, 6, 0, 1, 2, 3, 4)
+    ]
+    valid_schedule_days = {item['name'] for item in schedule_weekdays}
+    selected_schedule_day = request.GET.get('schedule_day', '').strip()
+    if selected_schedule_day not in valid_schedule_days:
+        selected_schedule_day = WEEKDAY_AR[date.today().weekday()]
+
+    selected_weekday_index = next(
+        item['index'] for item in schedule_weekdays
+        if item['name'] == selected_schedule_day
+    )
+    representative_date = date.today() + timedelta(
+        days=(selected_weekday_index - date.today().weekday()) % 7
+    )
+    academy_records = list(academies)
+    schedule_rows = _dashboard_academy_schedule_rows(
+        academy_records,
+        representative_date,
+        branch=branch,
+        all_branches=all_branches,
+    )
     context = {
         'activities': activities,
         'active_branch': branch,
         'active_branch_is_all': all_branches,
         'training_year': training_year,
+        'schedule_weekdays': schedule_weekdays,
+        'selected_schedule_day': selected_schedule_day,
+        'academy_schedule_rows': schedule_rows,
     }
     return render(request, 'academies/dashboard.html', context)
 
