@@ -1,8 +1,10 @@
 import json
+from io import BytesIO
+from pathlib import Path
 from decimal import Decimal
 from django import forms
 from django.db.models import Q
-from django.core.files.uploadedfile import UploadedFile
+from django.core.files.uploadedfile import UploadedFile, SimpleUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaCashSupply, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
@@ -11,6 +13,35 @@ from .constants import (
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
     SUBSCRIPTION_TYPE_CHOICES, VARIABLE_RENT_TYPE_CHOICES, WEEKDAY_AR,
 )
+
+from PIL import Image, ImageOps, UnidentifiedImageError
+
+
+def _resize_image_upload(upload, max_size=(1600, 1600)):
+    """Normalize an uploaded image without cropping any part of it."""
+    if not isinstance(upload, UploadedFile):
+        return upload
+    try:
+        upload.seek(0)
+        with Image.open(upload) as source:
+            source.seek(0)
+            image = ImageOps.exif_transpose(source)
+            image.thumbnail(max_size, Image.Resampling.LANCZOS)
+            has_alpha = image.mode in {'RGBA', 'LA'} or (
+                image.mode == 'P' and 'transparency' in image.info
+            )
+            output = BytesIO()
+            stem = Path(upload.name or 'image').stem
+            if has_alpha:
+                image.convert('RGBA').save(output, format='PNG', optimize=True)
+                content_type, filename = 'image/png', f'{stem}.png'
+            else:
+                image.convert('RGB').save(output, format='JPEG', quality=90, optimize=True)
+                content_type, filename = 'image/jpeg', f'{stem}.jpg'
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise forms.ValidationError('ملف الصورة غير صالح. اختر صورة JPG أو PNG أو WEBP أو GIF سليمة.')
+    upload.seek(0)
+    return SimpleUploadedFile(filename, output.getvalue(), content_type=content_type)
 
 
 def split_values(value):
@@ -289,6 +320,18 @@ class AcademyForm(forms.ModelForm):
         label='صورة مدير الأكاديمية', required=False,
         widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/jpeg,image/png,image/webp,image/gif'}),
     )
+    delete_logo = forms.BooleanField(
+        label='حذف اللوجو الحالي', required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'btn-check', 'autocomplete': 'off'}),
+    )
+    delete_website_image = forms.BooleanField(
+        label='حذف صورة الأكاديمية الحالية', required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'btn-check', 'autocomplete': 'off'}),
+    )
+    delete_manager_photo = forms.BooleanField(
+        label='حذف صورة مدير الأكاديمية الحالية', required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'btn-check', 'autocomplete': 'off'}),
+    )
     training_schedule_data = forms.CharField(required=False, widget=forms.HiddenInput(attrs={'id': 'id_training_schedule_data'}))
     sport_activity = forms.ChoiceField(
         label='النشاط الرياضي',
@@ -392,7 +435,7 @@ class AcademyForm(forms.ModelForm):
         self.fields['sport_activity'].choices = [('', 'اختر النشاط الرياضي')] + choices
         for name, field in self.fields.items():
             css_class = field.widget.attrs.get('class', '')
-            if name in {'has_extra_hours', 'is_published_on_website'}:
+            if name in {'has_extra_hours', 'is_published_on_website'} or name.startswith('delete_'):
                 continue
             if 'form-control' not in css_class and 'form-select' not in css_class:
                 field.widget.attrs['class'] = (css_class + ' form-control').strip()
@@ -428,7 +471,7 @@ class AcademyForm(forms.ModelForm):
             raise forms.ValidationError('اختر صورة بصيغة JPG أو PNG أو WEBP أو GIF.')
         if logo.size > 5 * 1024 * 1024:
             raise forms.ValidationError('حجم لوجو الأكاديمية يجب ألا يتجاوز 5 ميجابايت.')
-        return logo
+        return _resize_image_upload(logo, (800, 800))
 
     def _clean_public_image(self, field_name, label):
         image = self.cleaned_data.get(field_name)
@@ -439,7 +482,8 @@ class AcademyForm(forms.ModelForm):
             raise forms.ValidationError(f'اختر {label} بصيغة JPG أو PNG أو WEBP أو GIF.')
         if image.size > 5 * 1024 * 1024:
             raise forms.ValidationError(f'حجم {label} يجب ألا يتجاوز 5 ميجابايت.')
-        return image
+        sizes = {'website_image': (1600, 1100), 'manager_photo': (1000, 1400)}
+        return _resize_image_upload(image, sizes.get(field_name, (1600, 1600)))
 
     def clean_website_image(self):
         return self._clean_public_image('website_image', 'صورة الأكاديمية')
@@ -522,6 +566,11 @@ class AcademyForm(forms.ModelForm):
 
     def save(self, commit=True):
         academy = super().save(commit=False)
+        for field_name in ('logo', 'website_image', 'manager_photo'):
+            if self.cleaned_data.get(f'delete_{field_name}'):
+                setattr(academy, f'{field_name}_data', None)
+                setattr(academy, f'{field_name}_content_type', '')
+                setattr(academy, f'{field_name}_name', '')
         logo = self.cleaned_data.get('logo')
         if logo:
             academy.logo_data = logo.read()
@@ -607,6 +656,10 @@ class AcademyMemberForm(forms.ModelForm):
         label='إضافة صورة', required=False,
         widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/jpeg,image/png,image/webp,image/gif'}),
     )
+    delete_photo = forms.BooleanField(
+        label='حذف الصورة الحالية', required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'btn-check', 'autocomplete': 'off'}),
+    )
 
     class Meta:
         model = AcademyMember
@@ -645,7 +698,7 @@ class AcademyMemberForm(forms.ModelForm):
             self.fields.pop('birth_date', None)
             self.fields.pop('monthly_subscription', None)
         for name, field in self.fields.items():
-            if name in {'is_active', 'is_published_on_website'}:
+            if name in {'is_active', 'is_published_on_website'} or name == 'delete_photo':
                 continue
             css = field.widget.attrs.get('class', '')
             if field.widget.__class__.__name__ == 'Select':
@@ -662,7 +715,7 @@ class AcademyMemberForm(forms.ModelForm):
             raise forms.ValidationError('اختر صورة بصيغة JPG أو PNG أو WEBP أو GIF.')
         if photo.size > 5 * 1024 * 1024:
             raise forms.ValidationError('حجم الصورة يجب ألا يتجاوز 5 ميجابايت.')
-        return photo
+        return _resize_image_upload(photo, (1000, 1400))
 
     def save(self, commit=True):
         member = super().save(commit=False)
@@ -673,6 +726,10 @@ class AcademyMemberForm(forms.ModelForm):
             member.birth_date = None
         else:
             member.job_title = ''
+        if self.cleaned_data.get('delete_photo'):
+            member.photo_data = None
+            member.photo_content_type = ''
+            member.photo_name = ''
         photo = self.cleaned_data.get('photo')
         if photo:
             member.photo_data = photo.read()

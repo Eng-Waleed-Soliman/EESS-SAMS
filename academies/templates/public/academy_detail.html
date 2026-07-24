@@ -21,7 +21,7 @@
       {% if academy.branch %}<div class="value"><b>{{ t.branch }}</b><span>{{ academy.branch.public_name }}</span></div>{% endif %}
     </div>
   </div>
-  <div class="about-media">
+  <div class="about-media academy-cover-media">
     {% if academy.website_image_name %}<img src="{% url 'persistent_media' 'academy' academy.pk 'website_image' %}" alt="{{ academy.public_name }}">
     {% elif academy.branch and academy.branch.image_name %}<img src="{% url 'persistent_media' 'branch' academy.branch.pk 'image' %}" alt="{{ academy.branch.public_name }}">
     {% elif academy.branch and academy.branch.image %}<img src="{{ academy.branch.image.url }}" alt="{{ academy.branch.public_name }}">
@@ -45,7 +45,7 @@
   <div class="section-head"><div><div class="section-kicker">{{ t.training_team }}</div><h2>{{ t.academy_coaches }}</h2></div></div>
   <div class="people-grid">
     {% for coach in coaches %}<article class="person-card">
-      {% if coach.photo_name %}<img class="portrait" src="{% url 'persistent_media' 'member' coach.pk 'photo' %}" alt="{{ coach.public_name }}">
+      {% if coach.photo_name %}<img class="portrait academy-member-portrait" src="{% url 'persistent_media' 'member' coach.pk 'photo' %}" alt="{{ coach.public_name }}">
       {% else %}<div class="portrait portrait-fallback">{{ coach.public_name|slice:":1" }}</div>{% endif %}
       <h3>{{ coach.public_name }}</h3>
       <div class="role">{{ coach.public_job_title|default:t.coach }}</div>

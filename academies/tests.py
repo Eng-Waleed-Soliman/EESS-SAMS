@@ -1,4 +1,5 @@
 import json
+from io import BytesIO
 from datetime import date, timedelta
 
 from django.contrib.auth.models import User
@@ -9,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from PIL import Image
 
 from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
 from .forms import (
@@ -1309,7 +1311,9 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'id_job_title')
         self.assertContains(response, 'id_photo')
         self.assertContains(response, 'حفظ وتوليد QR Code')
-        coach_photo = SimpleUploadedFile('coach.png', b'fake-image-content', content_type='image/png')
+        coach_image = BytesIO()
+        Image.new('RGBA', (2200, 1600), (20, 110, 210, 255)).save(coach_image, format='PNG')
+        coach_photo = SimpleUploadedFile('coach.png', coach_image.getvalue(), content_type='image/png')
         response = self.client.post(create_url, {
             'role': AcademyMember.ROLE_COACH,
             'name': 'مدرب اختبار', 'phone': '', 'national_id': '',
@@ -1320,7 +1324,26 @@ class ApplicationFlowsTests(TestCase):
         coach = AcademyMember.objects.get(name='مدرب اختبار')
         self.assertEqual(coach.role, AcademyMember.ROLE_COACH)
         self.assertEqual(coach.job_title, 'مدرب لياقة')
-        self.assertEqual(bytes(coach.photo_data), b'fake-image-content')
+        self.assertTrue(coach.photo_data)
+        self.assertEqual(coach.photo_content_type, 'image/png')
+        with Image.open(BytesIO(bytes(coach.photo_data))) as resized_photo:
+            self.assertLessEqual(resized_photo.width, 1000)
+            self.assertLessEqual(resized_photo.height, 1400)
+            self.assertAlmostEqual(resized_photo.width / resized_photo.height, 2200 / 1600, places=2)
+        edit_url = reverse('academy_member_update', args=[academy.pk, coach.pk]) + '?role=staff'
+        edit_page = self.client.get(edit_url)
+        self.assertContains(edit_page, 'id_delete_photo')
+        self.assertContains(edit_page, 'حذف')
+        delete_response = self.client.post(edit_url, {
+            'role': AcademyMember.ROLE_COACH,
+            'name': coach.name, 'phone': '', 'national_id': '',
+            'job_title': coach.job_title, 'delete_photo': 'on',
+            'is_active': 'on', 'notes': '', 'submit_action': 'save',
+        })
+        self.assertEqual(delete_response.status_code, 302)
+        coach.refresh_from_db()
+        self.assertFalse(coach.photo_data)
+        self.assertEqual(coach.photo_name, '')
         qr_response = self.client.get(reverse('academy_member_qr', args=[academy.pk, coach.pk]))
         self.assertEqual(qr_response.status_code, 200)
         self.assertEqual(qr_response['Content-Type'], 'image/svg+xml')

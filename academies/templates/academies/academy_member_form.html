@@ -7,12 +7,14 @@
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
     <div class="row g-3">
       {% for field in form %}
+      {% if field.name != 'delete_photo' %}
       <div class="col-md-6">
         <label class="form-label fw-bold">{{ field.label }}</label>
-        {{ field }}
-        {% if field.name == 'photo' %}<div class="form-text">JPG أو PNG أو WEBP أو GIF - بحد أقصى 5 ميجابايت.</div>{% endif %}
+        {% if field.name == 'photo' %}<div class="academy-image-picker">{{ field }}{% if member and member.photo_data_uri %}{{ form.delete_photo }}<label class="btn btn-outline-danger" for="{{ form.delete_photo.id_for_label }}">حذف</label>{% endif %}</div>{% else %}{{ field }}{% endif %}
+        {% if field.name == 'photo' %}<div class="form-text">JPG أو PNG أو WEBP أو GIF - بحد أقصى 5 ميجابايت. تُصغّر الصورة تلقائياً وتظهر كاملة دون قص.</div>{% endif %}
         <div class="text-danger small">{{ field.errors }}</div>
       </div>
+      {% endif %}
       {% endfor %}
     </div>
     {% if member %}
@@ -29,6 +31,6 @@
   </form>
 </div>
 <style>
-.member-form-photo{width:150px;height:150px;object-fit:cover;border-radius:14px;border:1px solid #cbd5e1}.member-form-qr{width:150px;height:150px;background:#fff;padding:5px;border:1px solid #cbd5e1;border-radius:10px}
+.academy-image-picker{display:flex;align-items:center;gap:10px}.academy-image-picker .form-control{flex:1;min-width:0}.academy-image-picker .btn{white-space:nowrap;min-width:72px}.member-form-photo{width:150px;height:150px;object-fit:contain;border-radius:14px;border:1px solid #cbd5e1;background:#fff}.member-form-qr{width:150px;height:150px;background:#fff;padding:5px;border:1px solid #cbd5e1;border-radius:10px}@media(max-width:575px){.academy-image-picker{align-items:stretch;flex-direction:column}.academy-image-picker .btn{width:100%}}
 </style>
 {% endblock %}
