@@ -3784,14 +3784,17 @@ def academy_deposit_plan(request, academy_id):
             return redirect('academy_deposit_plan', academy_id=academy.id)
         prepared = []
         validation_errors = []
+        due_amounts_total = 0
         for installment in plan.installments.all():
             prefix = f'installment_{installment.id}_'
             try:
+                due_amount = max(0, int(request.POST.get(prefix + 'due_amount') or 0))
                 paid_amount = max(0, int(request.POST.get(prefix + 'paid_amount') or 0))
                 supplied_amount = max(0, int(request.POST.get(prefix + 'supplied_amount') or 0))
             except ValueError:
                 validation_errors.append(f'القيم المالية للقسط {installment.installment_number} غير صحيحة.')
                 continue
+            due_amounts_total += due_amount
             payment_date_text = (request.POST.get(prefix + 'payment_date') or '').strip()
             supplied_date_text = (request.POST.get(prefix + 'supplied_date') or '').strip()
             try:
@@ -3800,7 +3803,9 @@ def academy_deposit_plan(request, academy_id):
             except ValueError:
                 validation_errors.append(f'تاريخ القسط {installment.installment_number} غير صحيح.')
                 continue
-            if paid_amount > installment.due_amount:
+            if due_amount <= 0:
+                validation_errors.append(f'قيمة القسط {installment.installment_number} يجب أن تكون أكبر من صفر.')
+            if paid_amount > due_amount:
                 validation_errors.append(f'المسدد في القسط {installment.installment_number} أكبر من المستحق.')
             if supplied_amount > paid_amount:
                 validation_errors.append(f'المورد في القسط {installment.installment_number} أكبر من المسدد.')
@@ -3809,19 +3814,24 @@ def academy_deposit_plan(request, academy_id):
             if supplied_amount > 0 and not supplied_date:
                 validation_errors.append(f'أدخل تاريخ توريد القسط {installment.installment_number}.')
             prepared.append((
-                installment, paid_amount, payment_date, supplied_amount, supplied_date,
+                installment, due_amount, paid_amount, payment_date, supplied_amount, supplied_date,
                 (request.POST.get(prefix + 'notes') or '').strip(),
             ))
+        if due_amounts_total != plan.total_amount:
+            validation_errors.append(
+                f'مجموع قيم الأقساط ({due_amounts_total}) يجب أن يساوي إجمالي مبلغ التأمين ({plan.total_amount}).'
+            )
         if validation_errors:
             for error in dict.fromkeys(validation_errors):
                 messages.error(request, error)
             return redirect('academy_deposit_plan', academy_id=academy.id)
         with transaction.atomic():
-            for installment, paid_amount, payment_date, supplied_amount, supplied_date, notes in prepared:
+            for installment, due_amount, paid_amount, payment_date, supplied_amount, supplied_date, notes in prepared:
                 if paid_amount != installment.paid_amount:
                     installment.paid_recorded_by = request.user
                 if supplied_amount != installment.supplied_amount:
                     installment.supplied_recorded_by = request.user
+                installment.due_amount = due_amount
                 installment.paid_amount = paid_amount
                 installment.payment_date = payment_date
                 installment.supplied_amount = supplied_amount

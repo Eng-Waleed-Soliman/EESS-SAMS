@@ -467,46 +467,49 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.post(plan_url, {
             'action': 'save_plan',
             'total_amount': 1000,
-            'installments_count': 3,
+            'installments_count': 4,
             'first_due_month': today.strftime('%Y-%m'),
-            'notes': 'Three monthly installments',
+            'notes': 'Flexible monthly installments',
         })
         self.assertRedirects(response, plan_url)
         plan = AcademyDepositPlan.objects.get(academy=academy)
         installments = list(plan.installments.all())
-        self.assertEqual([item.due_amount for item in installments], [334, 333, 333])
+        self.assertEqual(len(installments), 4)
         self.assertEqual(installments[1].due_month, date(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1))
 
         first = installments[0]
+        flexible_amounts = [400, 158, 342, 100]
+        installment_payload = {'action': 'save_installments'}
+        for installment, due_amount in zip(installments, flexible_amounts):
+            installment_payload.update({
+                f'installment_{installment.id}_due_amount': due_amount,
+                f'installment_{installment.id}_paid_amount': 400 if installment == first else 0,
+                f'installment_{installment.id}_payment_date': today.isoformat() if installment == first else '',
+                f'installment_{installment.id}_supplied_amount': 200 if installment == first else 0,
+                f'installment_{installment.id}_supplied_date': today.isoformat() if installment == first else '',
+                f'installment_{installment.id}_notes': 'First payment' if installment == first else '',
+            })
         response = self.client.post(plan_url, {
-            'action': 'save_installments',
-            f'installment_{first.id}_paid_amount': 334,
-            f'installment_{first.id}_payment_date': today.isoformat(),
-            f'installment_{first.id}_supplied_amount': 200,
-            f'installment_{first.id}_supplied_date': today.isoformat(),
-            f'installment_{first.id}_notes': 'First payment',
+            **installment_payload,
         })
         self.assertRedirects(response, plan_url)
         first.refresh_from_db()
         self.assertEqual(first.paid_recorded_by, self.user)
         self.assertEqual(first.supplied_recorded_by, self.user)
         self.assertEqual(first.remaining_amount, 0)
-        self.assertEqual(first.unsupplied_amount, 134)
+        self.assertEqual(first.due_amount, 400)
+        self.assertEqual(first.unsupplied_amount, 200)
 
         response = self.client.get(rent_url)
-        self.assertEqual(response.context['deposit_totals']['paid'], 334)
-        self.assertEqual(response.context['deposit_totals']['remaining'], 666)
+        self.assertEqual(response.context['deposit_totals']['paid'], 400)
+        self.assertEqual(response.context['deposit_totals']['remaining'], 600)
         self.assertEqual(response.context['deposit_totals']['supplied'], 200)
-        self.assertEqual(response.context['deposit_totals']['unsupplied'], 134)
+        self.assertEqual(response.context['deposit_totals']['unsupplied'], 200)
         self.assertContains(response, 'السداد والتوريد')
 
-        response = self.client.post(plan_url, {
-            'action': 'save_installments',
-            f'installment_{first.id}_paid_amount': 334,
-            f'installment_{first.id}_payment_date': today.isoformat(),
-            f'installment_{first.id}_supplied_amount': 335,
-            f'installment_{first.id}_supplied_date': today.isoformat(),
-        }, follow=True)
+        invalid_payload = installment_payload.copy()
+        invalid_payload[f'installment_{first.id}_supplied_amount'] = 401
+        response = self.client.post(plan_url, invalid_payload, follow=True)
         self.assertContains(response, 'أكبر من المسدد')
         first.refresh_from_db()
         self.assertEqual(first.supplied_amount, 200)
@@ -1174,6 +1177,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, f'value="{selected_date.isoformat()}"')
         self.assertContains(response, 'white-space:nowrap!important')
         self.assertContains(response, 'min-width:1650px')
+        self.assertContains(response, 'bookingFilterForm')
+        self.assertNotContains(response, '<button class="btn btn-primary">عرض</button>', html=True)
         self.assertNotContains(response, '<th>المقدم</th>', html=True)
         self.assertNotContains(response, '<th>المتبقي</th>', html=True)
 
@@ -1196,6 +1201,9 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'width:175px!important')
         self.assertContains(response, 'operation-filter-period')
         self.assertContains(response, 'width:310px!important')
+        self.assertContains(response, 'operationTopScroll')
+        self.assertContains(response, 'operationFilterForm')
+        self.assertNotContains(response, '<button class="btn btn-primary">عرض</button>', html=True)
 
         booking_response = self.client.get(reverse('booking_create'), {
             'date': selected_date.isoformat(),

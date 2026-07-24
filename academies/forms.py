@@ -1007,14 +1007,14 @@ class AcademyDepositPlanForm(forms.ModelForm):
         fields = ['total_amount', 'installments_count', 'first_due_month', 'notes']
         widgets = {
             'total_amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
-            'installments_count': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'max': '3', 'step': '1'}),
+            'installments_count': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
     def clean_installments_count(self):
         count = self.cleaned_data.get('installments_count') or 0
-        if count < 1 or count > 3:
-            raise forms.ValidationError('عدد أقساط التأمين يجب أن يكون من قسط واحد إلى 3 أقساط فقط.')
+        if count < 1:
+            raise forms.ValidationError('عدد أقساط التأمين يجب أن يكون قسطًا واحدًا على الأقل.')
         return count
 
     def clean_total_amount(self):

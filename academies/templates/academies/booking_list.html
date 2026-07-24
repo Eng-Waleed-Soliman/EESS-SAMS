@@ -4,7 +4,7 @@
   <h3>الحجز اليومي</h3>
   <div class="d-flex gap-2 flex-wrap"><button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button><a class="btn btn-success" href="{% url 'daily_income_supply' %}">توريد مبالغ نقدية</a><a class="btn btn-primary" href="{% url 'booking_create' %}">إضافة حجز يومي</a></div>
 </div>
-<form class="card p-3 mb-3 booking-filter-form" method="get">
+<form id="bookingFilterForm" class="card p-3 mb-3 booking-filter-form" method="get">
   <div class="d-flex align-items-end gap-3 flex-wrap">
     <div class="booking-date-filter">
       <label class="form-label fw-bold">تاريخ الحجز</label>
@@ -14,7 +14,6 @@
       <label class="form-label fw-bold">البحث</label>
       <input class="form-control search-box" name="q" value="{{ q }}" placeholder="بحث باسم العميل أو رقم الموبايل أو المكان">
     </div>
-    <button class="btn btn-primary">عرض</button>
     {% if booking_date_value or q %}<a class="btn btn-outline-secondary" href="{% url 'booking_list' %}">كل الحجوزات</a>{% endif %}
   </div>
 </form>
@@ -43,4 +42,13 @@
 .booking-list-table td:last-child{min-width:280px}
 @media(max-width:768px){.booking-date-filter,.booking-search-filter{width:100%;max-width:none;flex-basis:100%}}
 </style>
+<script>
+const bookingFilterForm = document.getElementById('bookingFilterForm');
+let bookingSearchTimer;
+bookingFilterForm?.querySelector('input[name="booking_date"]')?.addEventListener('change', () => bookingFilterForm.submit());
+bookingFilterForm?.querySelector('input[name="q"]')?.addEventListener('input', () => {
+  clearTimeout(bookingSearchTimer);
+  bookingSearchTimer = setTimeout(() => bookingFilterForm.submit(), 500);
+});
+</script>
 {% endblock %}
