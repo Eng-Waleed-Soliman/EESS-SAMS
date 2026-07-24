@@ -268,6 +268,7 @@ class Academy(models.Model):
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     website_description = models.TextField(blank=True, verbose_name='نبذة الأكاديمية على الموقع')
     website_description_en = models.TextField(blank=True, verbose_name='نبذة الأكاديمية بالإنجليزية على الموقع')
+    location_link = models.URLField(max_length=1000, blank=True, verbose_name='رابط موقع الأكاديمية')
     is_published_on_website = models.BooleanField(default=True, verbose_name='إظهار الأكاديمية على الموقع')
     created_at = models.DateTimeField(auto_now_add=True)
 

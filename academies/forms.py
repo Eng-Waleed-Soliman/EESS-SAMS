@@ -400,11 +400,11 @@ class AcademyForm(forms.ModelForm):
     class Meta:
         model = Academy
         fields = [
-            'branch', 'name', 'name_en', 'logo', 'website_image', 'sport_activity', 'sport_activity_en', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone', 'manager_photo', 'manager_bio', 'manager_bio_en',
+            'branch', 'name', 'name_en', 'logo', 'website_image', 'sport_activity', 'sport_activity_en', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone', 'manager_photo',
             'operation_place', 'contract_start_date', 'contract_end_date', 'subscription_type', 'monthly_subscription',
             'variable_rent_type', 'variable_rent_value', 'eess_share_percentage', 'security_deposit', 'training_days', 'training_hours',
             'has_extra_hours', 'extra_training_days', 'extra_training_place', 'extra_training_hours', 'notes',
-            'website_description', 'website_description_en', 'is_published_on_website'
+            'website_description', 'website_description_en', 'location_link', 'is_published_on_website'
         ]
         widgets = {
             'branch': forms.Select(attrs={'class': 'form-select'}),
@@ -413,8 +413,11 @@ class AcademyForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'website_description': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'website_description_en': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'dir': 'ltr'}),
-            'manager_bio': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
-            'manager_bio_en': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'dir': 'ltr'}),
+            'location_link': forms.URLInput(attrs={
+                'class': 'form-control',
+                'dir': 'ltr',
+                'placeholder': 'https://maps.google.com/...',
+            }),
             'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control fixed-field', 'step': '1'}),
             'eess_share_percentage': forms.NumberInput(attrs={'class': 'form-control share-field', 'step': '1', 'min': '0', 'max': '100'}),

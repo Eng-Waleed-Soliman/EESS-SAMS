@@ -74,6 +74,7 @@ class ApplicationFlowsTests(TestCase):
             manager_photo_data=b'manager-photo', manager_photo_name='manager.jpg',
             manager_photo_content_type='image/jpeg',
             manager_bio='Academy manager biography.',
+            location_link='https://maps.google.com/?q=30.0,31.0',
         )
         AcademyMember.objects.create(
             academy=academy, role=AcademyMember.ROLE_COACH, name='Public Coach',
@@ -106,7 +107,9 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, academy.website_description)
         self.assertContains(detail, academy.manager_name)
-        self.assertContains(detail, academy.manager_bio)
+        self.assertNotContains(detail, academy.manager_bio)
+        self.assertContains(detail, academy.location_link)
+        self.assertContains(detail, 'عرض الموقع على الخريطة')
         self.assertContains(
             detail,
             reverse('persistent_media', args=['academy', academy.pk, 'manager_photo']),

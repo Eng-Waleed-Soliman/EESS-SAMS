@@ -133,6 +133,7 @@ PUBLIC_TEXT = {
         'back_academies': 'العودة إلى الأكاديميات', 'about_academy': 'عن الأكاديمية',
         'academy_manager': 'مدير الأكاديمية', 'academy_coaches': 'مدربو الأكاديمية',
         'professional_training': 'تدريب احترافي في', 'activity': 'النشاط', 'branch': 'الفرع',
+        'view_location': 'عرض الموقع على الخريطة',
         'academy_detail_default': 'أكاديمية متخصصة تعمل ضمن منظومة EESS لتقديم تدريب رياضي منظم وآمن وفعّال.',
         'training_team': 'فريق التدريب', 'academy_coaches': 'مدربو الأكاديمية',
         'join': 'انضم إلى', 'join_intro': 'تواصل معنا لمعرفة المواعيد والبرامج المتاحة.',
@@ -176,6 +177,7 @@ PUBLIC_TEXT = {
         'back_academies': 'Back to Academies', 'about_academy': 'About the Academy',
         'academy_manager': 'Academy Manager', 'academy_coaches': 'Academy Coaches',
         'professional_training': 'Professional Training in', 'activity': 'Activity', 'branch': 'Branch',
+        'view_location': 'View Location on Map',
         'academy_detail_default': 'A specialist academy within the EESS ecosystem, delivering structured, safe, and effective sports training.',
         'training_team': 'Coaching Team', 'academy_coaches': 'Academy Coaches',
         'join': 'Join', 'join_intro': 'Contact us to learn about schedules and available programmes.',
@@ -238,9 +240,6 @@ def _prepare_public_objects(language, branding, website, branches, academies, co
         )
         academy.public_description = _localized_value(
             academy, 'website_description', 'website_description_en', language,
-        )
-        academy.public_manager_bio = _localized_value(
-            academy, 'manager_bio', 'manager_bio_en', language,
         )
         prepare_branch(getattr(academy, 'branch', None))
 

@@ -21,8 +21,9 @@
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_phone.label }}</label>{{ form.manager_phone }}<div class="text-danger small">{{ form.manager_phone.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_photo.label }}</label><div class="academy-image-picker">{{ form.manager_photo }}{% if form.instance.manager_photo_name %}{{ form.delete_manager_photo }}<label class="btn btn-outline-danger" for="{{ form.delete_manager_photo.id_for_label }}">حذف</label>{% endif %}</div><div class="form-text">تُصغّر الصورة تلقائياً وتظهر كاملة دون قص.</div><div class="text-danger small">{{ form.manager_photo.errors }}</div></div>
       {% if form.instance.manager_photo_name %}<div class="col-md-6 mb-3"><label class="form-label fw-bold d-block">صورة مدير الأكاديمية الحالية</label><img src="{% url 'persistent_media' 'academy' form.instance.pk 'manager_photo' %}" alt="{{ form.instance.manager_name }}" class="academy-current-manager"></div>{% endif %}
-      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_bio.label }}</label>{{ form.manager_bio }}<div class="text-danger small">{{ form.manager_bio.errors }}</div></div>
-      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_bio_en.label }}</label>{{ form.manager_bio_en }}<div class="text-danger small">{{ form.manager_bio_en.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.website_description.label }}</label>{{ form.website_description }}<div class="form-text">تظهر هذه النبذة للزوار في صفحة الأكاديمية.</div><div class="text-danger small">{{ form.website_description.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.website_description_en.label }}</label>{{ form.website_description_en }}<div class="text-danger small">{{ form.website_description_en.errors }}</div></div>
+      <div class="col-12 mb-3"><label class="form-label fw-bold">{{ form.location_link.label }}</label>{{ form.location_link }}<div class="form-text">ألصق رابط موقع الأكاديمية من Google Maps، وسيظهر للزوار كزر احترافي لفتح الموقع.</div><div class="text-danger small">{{ form.location_link.errors }}</div></div>
 
       <div class="col-md-6 mb-3 legacy-schedule-field">
         <label class="form-label fw-bold">{{ form.operation_place.label }}</label>
@@ -73,8 +74,6 @@
       </div>
 
       <div class="col-12 mb-3"><label class="form-label fw-bold">{{ form.notes.label }}</label>{{ form.notes }}<div class="text-danger small">{{ form.notes.errors }}</div></div>
-      <div class="col-12 mb-3"><label class="form-label fw-bold">{{ form.website_description.label }}</label>{{ form.website_description }}<div class="form-text">تظهر هذه النبذة للزوار في الموقع الرسمي.</div><div class="text-danger small">{{ form.website_description.errors }}</div></div>
-      <div class="col-12 mb-3"><label class="form-label fw-bold">{{ form.website_description_en.label }}</label>{{ form.website_description_en }}<div class="text-danger small">{{ form.website_description_en.errors }}</div></div>
       <div class="col-12 mb-3"><div class="form-check">{{ form.is_published_on_website }} <label class="form-check-label fw-bold" for="{{ form.is_published_on_website.id_for_label }}">{{ form.is_published_on_website.label }}</label></div><div class="text-danger small">{{ form.is_published_on_website.errors }}</div></div>
     </div>
 
