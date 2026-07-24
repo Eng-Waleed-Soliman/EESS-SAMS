@@ -9,13 +9,20 @@
     <div class="row">
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.branch.label }}</label>{{ form.branch }}<div class="text-danger small">{{ form.branch.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.name.label }}</label>{{ form.name }}<div class="text-danger small">{{ form.name.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.name_en.label }}</label>{{ form.name_en }}<div class="text-danger small">{{ form.name_en.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.sport_activity.label }}</label>{{ form.sport_activity }}<div class="text-danger small">{{ form.sport_activity.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.logo.label }}</label>{{ form.logo }}<div class="form-text">يُستخدم في كروت التعارف. JPG أو PNG أو WEBP أو GIF بحد أقصى 5 ميجابايت.</div><div class="text-danger small">{{ form.logo.errors }}</div></div>
       {% if form.instance.logo_data_uri %}<div class="col-md-6 mb-3"><label class="form-label fw-bold d-block">اللوجو الحالي</label><img src="{{ form.instance.logo_data_uri }}" alt="لوجو {{ form.instance.name }}" style="width:110px;height:110px;object-fit:contain;border:1px solid #d9e2ef;border-radius:12px;background:#fff;padding:6px"></div>{% endif %}
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.website_image.label }}</label>{{ form.website_image }}<div class="form-text">صورة غلاف مستقلة تظهر داخل كارت الأكاديمية وفي صفحة تفاصيلها.</div><div class="text-danger small">{{ form.website_image.errors }}</div></div>
+      {% if form.instance.website_image_name %}<div class="col-md-6 mb-3"><label class="form-label fw-bold d-block">صورة الأكاديمية الحالية</label><img src="{% url 'persistent_media' 'academy' form.instance.pk 'website_image' %}" alt="{{ form.instance.name }}" style="width:220px;height:125px;object-fit:cover;border:1px solid #d9e2ef;border-radius:12px"></div>{% endif %}
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.company_name.label }}</label>{{ form.company_name }}<div class="text-danger small">{{ form.company_name.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_name.label }}</label>{{ form.manager_name }}<div class="text-danger small">{{ form.manager_name.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_national_id.label }}</label>{{ form.manager_national_id }}<div class="text-danger small">{{ form.manager_national_id.errors }}</div></div>
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_phone.label }}</label>{{ form.manager_phone }}<div class="text-danger small">{{ form.manager_phone.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_photo.label }}</label>{{ form.manager_photo }}<div class="text-danger small">{{ form.manager_photo.errors }}</div></div>
+      {% if form.instance.manager_photo_name %}<div class="col-md-6 mb-3"><label class="form-label fw-bold d-block">صورة مدير الأكاديمية الحالية</label><img src="{% url 'persistent_media' 'academy' form.instance.pk 'manager_photo' %}" alt="{{ form.instance.manager_name }}" style="width:120px;height:120px;object-fit:cover;object-position:center top;border-radius:50%;border:1px solid #d9e2ef"></div>{% endif %}
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_bio.label }}</label>{{ form.manager_bio }}<div class="text-danger small">{{ form.manager_bio.errors }}</div></div>
+      <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.manager_bio_en.label }}</label>{{ form.manager_bio_en }}<div class="text-danger small">{{ form.manager_bio_en.errors }}</div></div>
 
       <div class="col-md-6 mb-3 legacy-schedule-field">
         <label class="form-label fw-bold">{{ form.operation_place.label }}</label>
@@ -67,6 +74,7 @@
 
       <div class="col-12 mb-3"><label class="form-label fw-bold">{{ form.notes.label }}</label>{{ form.notes }}<div class="text-danger small">{{ form.notes.errors }}</div></div>
       <div class="col-12 mb-3"><label class="form-label fw-bold">{{ form.website_description.label }}</label>{{ form.website_description }}<div class="form-text">تظهر هذه النبذة للزوار في الموقع الرسمي.</div><div class="text-danger small">{{ form.website_description.errors }}</div></div>
+      <div class="col-12 mb-3"><label class="form-label fw-bold">{{ form.website_description_en.label }}</label>{{ form.website_description_en }}<div class="text-danger small">{{ form.website_description_en.errors }}</div></div>
       <div class="col-12 mb-3"><div class="form-check">{{ form.is_published_on_website }} <label class="form-check-label fw-bold" for="{{ form.is_published_on_website.id_for_label }}">{{ form.is_published_on_website.label }}</label></div><div class="text-danger small">{{ form.is_published_on_website.errors }}</div></div>
     </div>
 

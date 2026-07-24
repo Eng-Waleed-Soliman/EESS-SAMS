@@ -27,7 +27,7 @@ def persistent_media(request, model_name, pk, field_name):
         'website': (WebsiteSetting, {'hero_image', 'about_image'}),
         'branch': (Branch, {'logo', 'image'}),
         'sport': (SportActivityMedia, {'image'}),
-        'academy': (Academy, {'logo'}),
+        'academy': (Academy, {'logo', 'website_image', 'manager_photo'}),
         'member': (AcademyMember, {'photo'}),
         'shareholder': (Shareholder, {'photo'}),
     }
@@ -131,6 +131,7 @@ PUBLIC_TEXT = {
         'phone': 'الهاتف', 'email': 'البريد الإلكتروني', 'address': 'العنوان',
         'whatsapp': 'تواصل عبر واتساب',
         'back_academies': 'العودة إلى الأكاديميات', 'about_academy': 'عن الأكاديمية',
+        'academy_manager': 'مدير الأكاديمية', 'academy_coaches': 'مدربو الأكاديمية',
         'professional_training': 'تدريب احترافي في', 'activity': 'النشاط', 'branch': 'الفرع',
         'academy_detail_default': 'أكاديمية متخصصة تعمل ضمن منظومة EESS لتقديم تدريب رياضي منظم وآمن وفعّال.',
         'training_team': 'فريق التدريب', 'academy_coaches': 'مدربو الأكاديمية',
@@ -173,6 +174,7 @@ PUBLIC_TEXT = {
         'phone': 'Phone', 'email': 'Email', 'address': 'Address',
         'whatsapp': 'Contact Us on WhatsApp',
         'back_academies': 'Back to Academies', 'about_academy': 'About the Academy',
+        'academy_manager': 'Academy Manager', 'academy_coaches': 'Academy Coaches',
         'professional_training': 'Professional Training in', 'activity': 'Activity', 'branch': 'Branch',
         'academy_detail_default': 'A specialist academy within the EESS ecosystem, delivering structured, safe, and effective sports training.',
         'training_team': 'Coaching Team', 'academy_coaches': 'Academy Coaches',
@@ -237,6 +239,9 @@ def _prepare_public_objects(language, branding, website, branches, academies, co
         academy.public_description = _localized_value(
             academy, 'website_description', 'website_description_en', language,
         )
+        academy.public_manager_bio = _localized_value(
+            academy, 'manager_bio', 'manager_bio_en', language,
+        )
         prepare_branch(getattr(academy, 'branch', None))
 
     for branch in branches:
@@ -252,6 +257,8 @@ def _prepare_public_objects(language, branding, website, branches, academies, co
         person.public_name = _localized_value(person, 'name', 'name_en', language, person.name)
         person.public_job_title = _localized_value(person, 'job_title', 'job_title_en', language)
         person.public_bio = _localized_value(person, 'website_bio', 'website_bio_en', language)
+        identity = f'{person.name or ""} {person.name_en or ""}'.casefold()
+        person.photo_focus_up = 'حسين' in identity or 'hussein' in identity or 'bassiouni' in identity
 
 
 def _can_manage_users(user):
@@ -294,7 +301,7 @@ def public_website(request):
     academies = list(
         Academy.objects.filter(is_published_on_website=True)
         .select_related('branch')
-        .defer('logo_data', 'branch__logo_data', 'branch__image_data')
+        .defer('logo_data', 'website_image_data', 'manager_photo_data', 'branch__logo_data', 'branch__image_data')
         .order_by('name')
     )
     activity_media = {
@@ -380,6 +387,8 @@ def public_academy_detail(request, pk):
     academy = get_object_or_404(
         Academy.objects.select_related('branch').defer(
             'logo_data',
+            'website_image_data',
+            'manager_photo_data',
             'branch__logo_data',
             'branch__image_data',
         ),

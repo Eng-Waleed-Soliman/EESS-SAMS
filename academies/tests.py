@@ -67,6 +67,11 @@ class ApplicationFlowsTests(TestCase):
             operation_place=OPERATION_PLACE_CHOICES[0][0],
             contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=30),
             website_description='A professional public academy.',
+            website_image_data=b'academy-cover', website_image_name='cover.jpg',
+            website_image_content_type='image/jpeg',
+            manager_photo_data=b'manager-photo', manager_photo_name='manager.jpg',
+            manager_photo_content_type='image/jpeg',
+            manager_bio='Academy manager biography.',
         )
         AcademyMember.objects.create(
             academy=academy, role=AcademyMember.ROLE_COACH, name='Public Coach',
@@ -86,6 +91,11 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'عنوان الموقع الاحترافي')
         self.assertContains(response, branch.display_name)
         self.assertContains(response, academy.name)
+        self.assertContains(
+            response,
+            reverse('persistent_media', args=['academy', academy.pk, 'website_image']),
+        )
+        self.assertContains(response, reverse('public_academy_detail', args=[academy.pk]))
         self.assertContains(response, 'Public Coach')
         self.assertContains(response, 'Board Leader')
         self.assertNotContains(response, hidden_branch.name)
@@ -93,6 +103,12 @@ class ApplicationFlowsTests(TestCase):
         detail = self.client.get(reverse('public_academy_detail', args=[academy.pk]))
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, academy.website_description)
+        self.assertContains(detail, academy.manager_name)
+        self.assertContains(detail, academy.manager_bio)
+        self.assertContains(
+            detail,
+            reverse('persistent_media', args=['academy', academy.pk, 'manager_photo']),
+        )
         self.assertContains(detail, 'Public Coach')
 
     def test_board_member_photo_upload_and_chairman_position_in_both_languages(self):
@@ -191,6 +207,8 @@ class ApplicationFlowsTests(TestCase):
         rendered_coach = next(item for item in response.context['coaches'] if item.pk == coach.pk)
         self.assertIn('image_data', rendered_branch.get_deferred_fields())
         self.assertIn('logo_data', rendered_academy.get_deferred_fields())
+        self.assertIn('website_image_data', rendered_academy.get_deferred_fields())
+        self.assertIn('manager_photo_data', rendered_academy.get_deferred_fields())
         self.assertIn('photo_data', rendered_coach.get_deferred_fields())
 
     def test_public_website_switches_all_public_content_to_english_and_remembers_language(self):

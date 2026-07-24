@@ -82,10 +82,10 @@
   </div>
   <div class="card-grid">
     {% for academy in academies %}<article class="academy-card">
-      <div class="academy-image">
-        {% if academy.logo_name %}<img src="{% url 'persistent_media' 'academy' academy.pk 'logo' %}" alt="{{ academy.public_name }}">
+      <a class="academy-image" href="{% url 'public_academy_detail' academy.pk %}?lang={{ site_lang }}" aria-label="{{ academy.public_name }}">
+        {% if academy.website_image_name %}<img src="{% url 'persistent_media' 'academy' academy.pk 'website_image' %}" alt="{{ academy.public_name }}">
         {% else %}<span class="academy-letter">{{ academy.public_name|slice:":1" }}</span>{% endif %}
-      </div>
+      </a>
       <div class="card-body">
         <span class="card-meta">{{ academy.public_activity }}{% if academy.branch %} · {{ academy.branch.public_name }}{% endif %}</span>
         <h3>{{ academy.public_name }}</h3>
@@ -119,7 +119,7 @@
   </div>
   <div class="people-grid">
     {% for member in board_members %}<article class="person-card">
-      {% if member.photo_name %}<img class="portrait" src="{% url 'persistent_media' 'shareholder' member.pk 'photo' %}" alt="{{ member.public_name }}">
+      {% if member.photo_name %}<img class="portrait{% if member.photo_focus_up %} portrait-focus-up{% endif %}" src="{% url 'persistent_media' 'shareholder' member.pk 'photo' %}" alt="{{ member.public_name }}">
       {% else %}<div class="portrait portrait-fallback">{{ member.public_name|slice:":1" }}</div>{% endif %}
       <h3>{{ member.public_name }}</h3>
       <div class="role">{{ member.public_job_title|default:t.board_member }}</div>
