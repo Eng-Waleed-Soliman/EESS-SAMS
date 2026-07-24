@@ -73,6 +73,7 @@ class WebsiteSetting(models.Model):
     address = models.CharField(max_length=300, blank=True, verbose_name='العنوان')
     address_en = models.CharField(max_length=300, blank=True, verbose_name='العنوان بالإنجليزية')
     whatsapp = models.CharField(max_length=60, blank=True, verbose_name='رقم واتساب')
+    location_url = models.URLField(max_length=1000, blank=True, verbose_name='رابط موقع الشركة على الخريطة')
     facebook_url = models.URLField(blank=True, verbose_name='رابط فيسبوك')
     instagram_url = models.URLField(blank=True, verbose_name='رابط إنستجرام')
     youtube_url = models.URLField(blank=True, verbose_name='رابط يوتيوب')
@@ -268,7 +269,6 @@ class Academy(models.Model):
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     website_description = models.TextField(blank=True, verbose_name='نبذة الأكاديمية على الموقع')
     website_description_en = models.TextField(blank=True, verbose_name='نبذة الأكاديمية بالإنجليزية على الموقع')
-    location_link = models.URLField(max_length=1000, blank=True, verbose_name='رابط موقع الأكاديمية')
     is_published_on_website = models.BooleanField(default=True, verbose_name='إظهار الأكاديمية على الموقع')
     created_at = models.DateTimeField(auto_now_add=True)
 

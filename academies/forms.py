@@ -404,7 +404,7 @@ class AcademyForm(forms.ModelForm):
             'operation_place', 'contract_start_date', 'contract_end_date', 'subscription_type', 'monthly_subscription',
             'variable_rent_type', 'variable_rent_value', 'eess_share_percentage', 'security_deposit', 'training_days', 'training_hours',
             'has_extra_hours', 'extra_training_days', 'extra_training_place', 'extra_training_hours', 'notes',
-            'website_description', 'website_description_en', 'location_link', 'is_published_on_website'
+            'website_description', 'website_description_en', 'is_published_on_website'
         ]
         widgets = {
             'branch': forms.Select(attrs={'class': 'form-select'}),
@@ -413,11 +413,6 @@ class AcademyForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'website_description': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'website_description_en': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'dir': 'ltr'}),
-            'location_link': forms.URLInput(attrs={
-                'class': 'form-control',
-                'dir': 'ltr',
-                'placeholder': 'https://maps.google.com/...',
-            }),
             'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control fixed-field', 'step': '1'}),
             'eess_share_percentage': forms.NumberInput(attrs={'class': 'form-control share-field', 'step': '1', 'min': '0', 'max': '100'}),
@@ -785,7 +780,7 @@ class WebsiteSettingForm(forms.ModelForm):
         fields = [
             'hero_title_ar', 'hero_title_en', 'hero_text', 'hero_text_en', 'hero_image',
             'about_title', 'about_title_en', 'about_text', 'about_text_en', 'about_image',
-            'phone', 'email', 'address', 'address_en', 'whatsapp',
+            'phone', 'email', 'address', 'address_en', 'whatsapp', 'location_url',
             'facebook_url', 'instagram_url', 'youtube_url',
             'footer_text', 'footer_text_en', 'is_published',
         ]
@@ -796,6 +791,10 @@ class WebsiteSettingForm(forms.ModelForm):
             'about_text_en': forms.Textarea(attrs={'rows': 6, 'dir': 'ltr'}),
             'hero_image': forms.FileInput(attrs={'accept': 'image/*'}),
             'about_image': forms.FileInput(attrs={'accept': 'image/*'}),
+            'location_url': forms.URLInput(attrs={
+                'dir': 'ltr',
+                'placeholder': 'https://maps.google.com/...',
+            }),
             'is_published': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -810,6 +809,7 @@ class WebsiteSettingForm(forms.ModelForm):
                 self.fields['hero_image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
             if self.instance.about_image:
                 self.fields['about_image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
+        self.fields['location_url'].help_text = 'ألصق رابط موقع الشركة من Google Maps ليظهر للزوار في قسم التواصل.'
 
     def save(self, commit=True):
         setting = super().save(commit=False)

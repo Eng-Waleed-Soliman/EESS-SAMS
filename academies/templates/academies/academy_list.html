@@ -10,7 +10,8 @@
   <div class="col-lg-2"><button class="btn btn-primary w-100">بحث</button></div>
 </form>
 <div class="card p-3">
-  <div class="table-responsive">
+  <div class="academy-scrollbar" aria-label="تمرير الجدول أفقيًا"><div></div></div>
+  <div class="table-responsive academy-table-responsive">
     <table class="table table-hover align-middle academy-list-table">
       <thead><tr><th>الأكاديمية</th><th>النشاط</th><th>الشركة</th><th>المدير</th><th>الهاتف</th><th>نهاية التعاقد</th><th>البيانات</th><th></th></tr></thead>
       <tbody>
@@ -38,5 +39,26 @@
 .academy-list-table{min-width:1420px}
 .academy-list-table th,.academy-list-table td{white-space:nowrap;vertical-align:middle}
 .academy-list-table td:nth-child(7),.academy-list-table td:last-child{min-width:285px}
+.academy-scrollbar{width:100%;overflow-x:scroll;overflow-y:hidden;height:18px;margin-bottom:8px;direction:ltr;scrollbar-color:#4daee8 #e7f1f8;scrollbar-width:auto}
+.academy-scrollbar>div{width:1420px;height:1px}
+.academy-table-responsive{overflow-x:auto!important;direction:ltr;scrollbar-color:#4daee8 #e7f1f8}
+.academy-list-table{direction:rtl}
+.academy-scrollbar::-webkit-scrollbar,.academy-table-responsive::-webkit-scrollbar{height:13px}
+.academy-scrollbar::-webkit-scrollbar-thumb,.academy-table-responsive::-webkit-scrollbar-thumb{background:#4daee8;border-radius:999px;border:3px solid #e7f1f8}
+.academy-scrollbar::-webkit-scrollbar-track,.academy-table-responsive::-webkit-scrollbar-track{background:#e7f1f8;border-radius:999px}
 </style>
+<script>
+(() => {
+  const top = document.querySelector('.academy-scrollbar');
+  const table = document.querySelector('.academy-table-responsive');
+  if (!top || !table) return;
+  const spacer = top.firstElementChild;
+  const syncWidth = () => spacer.style.width = `${table.scrollWidth}px`;
+  let syncing = false;
+  top.addEventListener('scroll', () => { if (!syncing) { syncing = true; table.scrollLeft = top.scrollLeft; syncing = false; } });
+  table.addEventListener('scroll', () => { if (!syncing) { syncing = true; top.scrollLeft = table.scrollLeft; syncing = false; } });
+  syncWidth();
+  window.addEventListener('resize', syncWidth);
+})();
+</script>
 {% endblock %}

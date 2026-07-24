@@ -74,7 +74,6 @@ class ApplicationFlowsTests(TestCase):
             manager_photo_data=b'manager-photo', manager_photo_name='manager.jpg',
             manager_photo_content_type='image/jpeg',
             manager_bio='Academy manager biography.',
-            location_link='https://maps.google.com/?q=30.0,31.0',
         )
         AcademyMember.objects.create(
             academy=academy, role=AcademyMember.ROLE_COACH, name='Public Coach',
@@ -86,6 +85,7 @@ class ApplicationFlowsTests(TestCase):
         )
         website = WebsiteSetting.current()
         website.hero_title_ar = 'عنوان الموقع الاحترافي'
+        website.location_url = 'https://maps.google.com/?q=30.0,31.0'
         website.save()
 
         self.client.logout()
@@ -101,6 +101,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, reverse('public_academy_detail', args=[academy.pk]))
         self.assertContains(response, 'Public Coach')
         self.assertContains(response, 'Board Leader')
+        self.assertContains(response, website.location_url)
+        self.assertContains(response, 'عرض الموقع على الخريطة')
         self.assertNotContains(response, hidden_branch.name)
 
         detail = self.client.get(reverse('public_academy_detail', args=[academy.pk]))
@@ -108,8 +110,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, academy.website_description)
         self.assertContains(detail, academy.manager_name)
         self.assertNotContains(detail, academy.manager_bio)
-        self.assertContains(detail, academy.location_link)
-        self.assertContains(detail, 'عرض الموقع على الخريطة')
+        self.assertNotContains(detail, website.location_url)
         self.assertContains(
             detail,
             reverse('persistent_media', args=['academy', academy.pk, 'manager_photo']),
