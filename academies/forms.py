@@ -400,7 +400,7 @@ class AcademyForm(forms.ModelForm):
     class Meta:
         model = Academy
         fields = [
-            'branch', 'name', 'name_en', 'logo', 'website_image', 'sport_activity', 'sport_activity_en', 'company_name', 'manager_name', 'manager_national_id', 'manager_phone', 'manager_photo',
+            'branch', 'name', 'name_en', 'logo', 'website_image', 'sport_activity', 'sport_activity_en', 'company_name', 'manager_name', 'manager_name_en', 'manager_national_id', 'manager_phone', 'manager_photo', 'manager_bio', 'manager_bio_en',
             'operation_place', 'contract_start_date', 'contract_end_date', 'subscription_type', 'monthly_subscription',
             'variable_rent_type', 'variable_rent_value', 'eess_share_percentage', 'security_deposit', 'training_days', 'training_hours',
             'has_extra_hours', 'extra_training_days', 'extra_training_place', 'extra_training_hours', 'notes',
@@ -413,6 +413,8 @@ class AcademyForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'website_description': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'website_description_en': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'dir': 'ltr'}),
+            'manager_bio': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
+            'manager_bio_en': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'dir': 'ltr'}),
             'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control fixed-field', 'step': '1'}),
             'eess_share_percentage': forms.NumberInput(attrs={'class': 'form-control share-field', 'step': '1', 'min': '0', 'max': '100'}),

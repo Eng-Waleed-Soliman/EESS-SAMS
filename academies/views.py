@@ -241,6 +241,12 @@ def _prepare_public_objects(language, branding, website, branches, academies, co
         academy.public_description = _localized_value(
             academy, 'website_description', 'website_description_en', language,
         )
+        academy.public_manager_name = _localized_value(
+            academy, 'manager_name', 'manager_name_en', language, academy.manager_name,
+        )
+        academy.public_manager_bio = _localized_value(
+            academy, 'manager_bio', 'manager_bio_en', language,
+        )
         prepare_branch(getattr(academy, 'branch', None))
 
     for branch in branches:

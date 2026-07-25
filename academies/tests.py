@@ -66,6 +66,7 @@ class ApplicationFlowsTests(TestCase):
         academy = Academy.objects.create(
             branch=branch, name='Champions Academy', sport_activity='Football',
             company_name='Champions', manager_name='Manager', manager_phone='01000000000',
+            manager_name_en='Academy Manager EN',
             operation_place=OPERATION_PLACE_CHOICES[0][0],
             contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=30),
             website_description='A professional public academy.',
@@ -74,6 +75,7 @@ class ApplicationFlowsTests(TestCase):
             manager_photo_data=b'manager-photo', manager_photo_name='manager.jpg',
             manager_photo_content_type='image/jpeg',
             manager_bio='Academy manager biography.',
+            manager_bio_en='Academy manager English biography.',
         )
         coach = AcademyMember.objects.create(
             academy=academy, role=AcademyMember.ROLE_COACH, name='Public Coach',
@@ -113,13 +115,17 @@ class ApplicationFlowsTests(TestCase):
         detail = self.client.get(reverse('public_academy_detail', args=[academy.pk]))
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, academy.website_description)
-        self.assertNotContains(detail, academy.manager_name)
-        self.assertNotContains(detail, academy.manager_bio)
+        self.assertContains(detail, academy.manager_name)
+        self.assertContains(detail, academy.manager_bio)
         self.assertNotContains(detail, website.location_url)
         self.assertContains(detail, 'Public Coach')
         self.assertContains(detail, coach.website_bio)
         self.assertContains(detail, 'Public Administrator')
         self.assertContains(detail, administrator.website_bio)
+
+        detail_en = self.client.get(reverse('public_academy_detail', args=[academy.pk]), {'lang': 'en'})
+        self.assertContains(detail_en, academy.manager_name_en)
+        self.assertContains(detail_en, academy.manager_bio_en)
 
     def test_board_member_photo_upload_and_chairman_position_in_both_languages(self):
         Shareholder.objects.create(

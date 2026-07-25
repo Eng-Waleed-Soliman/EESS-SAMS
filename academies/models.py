@@ -243,6 +243,7 @@ class Academy(models.Model):
     sport_activity_en = models.CharField(max_length=150, blank=True, verbose_name='النشاط الرياضي بالإنجليزية للموقع')
     company_name = models.CharField(max_length=200, verbose_name='اسم الشركة')
     manager_name = models.CharField(max_length=200, verbose_name='اسم مدير الأكاديمية')
+    manager_name_en = models.CharField(max_length=200, blank=True, verbose_name='اسم مدير الأكاديمية بالإنجليزية')
     manager_national_id = models.CharField(max_length=50, blank=True, verbose_name='الرقم القومي لمدير الأكاديمية')
     manager_phone = models.CharField(max_length=50, verbose_name='رقم الهاتف')
     manager_photo_data = models.BinaryField(null=True, blank=True, editable=False, verbose_name='بيانات صورة مدير الأكاديمية')

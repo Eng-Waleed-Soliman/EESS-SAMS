@@ -29,6 +29,16 @@
     {% elif website.about_image %}<img src="{{ website.about_image.url }}" alt="{{ academy.public_name }}">{% endif %}
   </div>
 </div></section>
+{% if academy.public_manager_name or academy.public_manager_bio or academy.manager_photo_name %}
+<section class="academy-manager-section"><div class="container">
+  <div class="section-head"><div><div class="section-kicker">{% if is_english %}Academy Leadership{% else %}قيادة الأكاديمية{% endif %}</div><h2>{% if is_english %}Academy Manager{% else %}مدير الأكاديمية{% endif %}</h2></div></div>
+  <article class="manager-profile">
+    {% if academy.manager_photo_name %}<img class="manager-portrait" src="{% url 'persistent_media' 'academy' academy.pk 'manager_photo' %}" alt="{{ academy.public_manager_name }}">
+    {% else %}<div class="manager-portrait portrait-fallback">{{ academy.public_manager_name|slice:":1" }}</div>{% endif %}
+    <div class="manager-copy"><h3>{{ academy.public_manager_name }}</h3><div class="role">{% if is_english %}Academy Manager{% else %}مدير الأكاديمية{% endif %}</div>{% if academy.public_manager_bio %}<p>{{ academy.public_manager_bio }}</p>{% endif %}</div>
+  </article>
+</div></section>
+{% endif %}
 <section class="soft academy-team-section"><div class="container">
   <div class="section-head"><div><div class="section-kicker">{{ t.training_team }}</div><h2>{% if is_english %}Academy Coaches{% else %}مدربو الأكاديمية{% endif %}</h2></div></div>
   <div class="academy-team-grid">
