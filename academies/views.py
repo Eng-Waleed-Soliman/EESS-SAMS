@@ -338,19 +338,6 @@ def public_website(request):
         }
         for name in activity_names
     ]
-    coaches = list(
-        AcademyMember.objects.filter(
-            role=AcademyMember.ROLE_COACH,
-            is_active=True,
-            is_published_on_website=True,
-            academy__is_published_on_website=True,
-        ).select_related('academy', 'academy__branch').defer(
-            'photo_data',
-            'academy__logo_data',
-            'academy__branch__logo_data',
-            'academy__branch__image_data',
-        ).order_by('academy__name', 'name')
-    )
     board_members = list(
         Shareholder.objects.filter(is_published_on_website=True)
         .defer('photo_data')
@@ -358,7 +345,7 @@ def public_website(request):
     )
     board_members.sort(key=_board_member_display_rank)
     _prepare_public_objects(
-        language, branding, website, branches, academies, coaches, board_members,
+        language, branding, website, branches, academies, [], board_members,
     )
     return render(request, 'public/home.html', {
         'branding': branding,
@@ -366,7 +353,6 @@ def public_website(request):
         'branches': branches,
         'academies': academies,
         'activities': activities,
-        'coaches': coaches,
         'board_members': board_members,
         **language_context,
     })
@@ -394,20 +380,23 @@ def public_academy_detail(request, pk):
         pk=pk,
         is_published_on_website=True,
     )
-    coaches = academy.members.filter(
-        role=AcademyMember.ROLE_COACH,
+    staff = list(academy.members.filter(
+        role__in=(AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN),
         is_active=True,
         is_published_on_website=True,
-    ).defer('photo_data').order_by('name')
+    ).defer('photo_data').order_by('role', 'name'))
+    coaches = [member for member in staff if member.role == AcademyMember.ROLE_COACH]
+    administrators = [member for member in staff if member.role == AcademyMember.ROLE_ADMIN]
     branches = [academy.branch] if academy.branch else []
     _prepare_public_objects(
-        language, branding, website, branches, [academy], list(coaches), [],
+        language, branding, website, branches, [academy], staff, [],
     )
     return render(request, 'public/academy_detail.html', {
         'branding': branding,
         'website': website,
         'academy': academy,
         'coaches': coaches,
+        'administrators': administrators,
         **language_context,
     })
 

@@ -75,9 +75,13 @@ class ApplicationFlowsTests(TestCase):
             manager_photo_content_type='image/jpeg',
             manager_bio='Academy manager biography.',
         )
-        AcademyMember.objects.create(
+        coach = AcademyMember.objects.create(
             academy=academy, role=AcademyMember.ROLE_COACH, name='Public Coach',
             job_title='Head Coach', website_bio='Professional coach biography.',
+        )
+        administrator = AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_ADMIN, name='Public Administrator',
+            job_title='Academy Coordinator', website_bio='Professional administrator biography.',
         )
         Shareholder.objects.create(
             name='Board Leader', job_title='Chairman',
@@ -99,7 +103,8 @@ class ApplicationFlowsTests(TestCase):
             reverse('persistent_media', args=['academy', academy.pk, 'website_image']),
         )
         self.assertContains(response, reverse('public_academy_detail', args=[academy.pk]))
-        self.assertContains(response, 'Public Coach')
+        self.assertNotContains(response, 'مدربونا')
+        self.assertNotContains(response, 'id="team"')
         self.assertContains(response, 'Board Leader')
         self.assertContains(response, website.location_url)
         self.assertContains(response, 'عرض الموقع على الخريطة')
@@ -108,14 +113,13 @@ class ApplicationFlowsTests(TestCase):
         detail = self.client.get(reverse('public_academy_detail', args=[academy.pk]))
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, academy.website_description)
-        self.assertContains(detail, academy.manager_name)
+        self.assertNotContains(detail, academy.manager_name)
         self.assertNotContains(detail, academy.manager_bio)
         self.assertNotContains(detail, website.location_url)
-        self.assertContains(
-            detail,
-            reverse('persistent_media', args=['academy', academy.pk, 'manager_photo']),
-        )
         self.assertContains(detail, 'Public Coach')
+        self.assertContains(detail, coach.website_bio)
+        self.assertContains(detail, 'Public Administrator')
+        self.assertContains(detail, administrator.website_bio)
 
     def test_board_member_photo_upload_and_chairman_position_in_both_languages(self):
         Shareholder.objects.create(
@@ -210,11 +214,12 @@ class ApplicationFlowsTests(TestCase):
         self.assertIn('hero_image_data', response.context['website'].get_deferred_fields())
         rendered_branch = next(item for item in response.context['branches'] if item.pk == branch.pk)
         rendered_academy = next(item for item in response.context['academies'] if item.pk == academy.pk)
-        rendered_coach = next(item for item in response.context['coaches'] if item.pk == coach.pk)
         self.assertIn('image_data', rendered_branch.get_deferred_fields())
         self.assertIn('logo_data', rendered_academy.get_deferred_fields())
         self.assertIn('website_image_data', rendered_academy.get_deferred_fields())
         self.assertIn('manager_photo_data', rendered_academy.get_deferred_fields())
+        detail = self.client.get(reverse('public_academy_detail', args=[academy.pk]))
+        rendered_coach = next(item for item in detail.context['coaches'] if item.pk == coach.pk)
         self.assertIn('photo_data', rendered_coach.get_deferred_fields())
 
     def test_public_website_switches_all_public_content_to_english_and_remembers_language(self):
@@ -270,8 +275,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'Cairo Branch')
         self.assertContains(response, 'Champions Academy')
         self.assertContains(response, 'Football')
-        self.assertContains(response, 'English Coach')
-        self.assertContains(response, 'Head Coach')
+        self.assertNotContains(response, 'Our Coaches')
         self.assertNotContains(response, 'عن الشركة')
 
         detail = self.client.get(reverse('public_academy_detail', args=[academy.pk]))
@@ -279,6 +283,9 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, '<html lang="en" dir="ltr">')
         self.assertContains(detail, 'Back to Academies')
         self.assertContains(detail, 'English academy introduction')
+        self.assertContains(detail, 'English Coach')
+        self.assertContains(detail, 'Head Coach')
+        self.assertContains(detail, 'English coach biography')
 
         arabic = self.client.get(reverse('public_website'), {'lang': 'ar'})
         self.assertContains(arabic, '<html lang="ar" dir="rtl">')

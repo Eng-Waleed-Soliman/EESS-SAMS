@@ -29,29 +29,26 @@
     {% elif website.about_image %}<img src="{{ website.about_image.url }}" alt="{{ academy.public_name }}">{% endif %}
   </div>
 </div></section>
-<section class="soft academy-manager-section"><div class="container">
-  <div class="section-head"><div><div class="section-kicker">{{ t.academy_manager }}</div><h2>{{ academy.manager_name }}</h2></div></div>
-  <article class="manager-profile">
-    {% if academy.manager_photo_name %}<img class="manager-portrait" src="{% url 'persistent_media' 'academy' academy.pk 'manager_photo' %}" alt="{{ academy.manager_name }}">
-    {% else %}<div class="manager-portrait portrait-fallback">{{ academy.manager_name|slice:":1" }}</div>{% endif %}
-    <div class="manager-copy">
-      <h3>{{ academy.manager_name }}</h3>
-      <div class="role">{{ t.academy_manager }}</div>
-    </div>
-  </article>
-</div></section>
-{% if coaches %}<section class="soft"><div class="container">
-  <div class="section-head"><div><div class="section-kicker">{{ t.training_team }}</div><h2>{{ t.academy_coaches }}</h2></div></div>
-  <div class="people-grid">
-    {% for coach in coaches %}<article class="person-card">
-      {% if coach.photo_name %}<img class="portrait academy-member-portrait" src="{% url 'persistent_media' 'member' coach.pk 'photo' %}" alt="{{ coach.public_name }}">
-      {% else %}<div class="portrait portrait-fallback">{{ coach.public_name|slice:":1" }}</div>{% endif %}
-      <h3>{{ coach.public_name }}</h3>
-      <div class="role">{{ coach.public_job_title|default:t.coach }}</div>
-      <p>{{ coach.public_bio|truncatechars:150 }}</p>
-    </article>{% endfor %}
+<section class="soft academy-team-section"><div class="container">
+  <div class="section-head"><div><div class="section-kicker">{{ t.training_team }}</div><h2>{% if is_english %}Academy Coaches{% else %}مدربو الأكاديمية{% endif %}</h2></div></div>
+  <div class="academy-team-grid">
+    {% for coach in coaches %}<article class="academy-team-card">
+      {% if coach.photo_name %}<img class="academy-team-photo" src="{% url 'persistent_media' 'member' coach.pk 'photo' %}" alt="{{ coach.public_name }}">
+      {% else %}<div class="academy-team-photo portrait-fallback">{{ coach.public_name|slice:":1" }}</div>{% endif %}
+      <div class="academy-team-copy"><h3>{{ coach.public_name }}</h3><div class="role">{{ coach.public_job_title|default:t.coach }}</div>{% if coach.public_bio %}<p>{{ coach.public_bio }}</p>{% endif %}</div>
+    </article>{% empty %}<div class="empty">{% if is_english %}Coach profiles will be added soon.{% else %}سيتم إضافة بيانات المدربين قريبًا.{% endif %}</div>{% endfor %}
   </div>
-</div></section>{% endif %}
+</div></section>
+<section class="academy-team-section"><div class="container">
+  <div class="section-head"><div><div class="section-kicker">{% if is_english %}Operations Team{% else %}فريق الإدارة{% endif %}</div><h2>{% if is_english %}Academy Administrators{% else %}إداريو الأكاديمية{% endif %}</h2></div></div>
+  <div class="academy-team-grid">
+    {% for administrator in administrators %}<article class="academy-team-card">
+      {% if administrator.photo_name %}<img class="academy-team-photo" src="{% url 'persistent_media' 'member' administrator.pk 'photo' %}" alt="{{ administrator.public_name }}">
+      {% else %}<div class="academy-team-photo portrait-fallback">{{ administrator.public_name|slice:":1" }}</div>{% endif %}
+      <div class="academy-team-copy"><h3>{{ administrator.public_name }}</h3><div class="role">{{ administrator.public_job_title|default:'إداري' }}</div>{% if administrator.public_bio %}<p>{{ administrator.public_bio }}</p>{% endif %}</div>
+    </article>{% empty %}<div class="empty">{% if is_english %}Administrator profiles will be added soon.{% else %}سيتم إضافة بيانات الإداريين قريبًا.{% endif %}</div>{% endfor %}
+  </div>
+</div></section>
 <section class="contact">
   <div class="container" style="text-align:center">
     <h2>{{ t.join }} {{ academy.public_name }}</h2>

@@ -96,22 +96,6 @@
   </div>
 </div></section>
 
-{% if coaches %}<section id="team"><div class="container">
-  <div class="section-head">
-    <div><div class="section-kicker">{{ t.team_kicker }}</div><h2>{{ t.team_title }}</h2></div>
-    <p>{{ t.team_intro }}</p>
-  </div>
-  <div class="people-grid">
-    {% for coach in coaches %}<article class="person-card">
-      {% if coach.photo_name %}<img class="portrait" src="{% url 'persistent_media' 'member' coach.pk 'photo' %}" alt="{{ coach.public_name }}">
-      {% else %}<div class="portrait portrait-fallback">{{ coach.public_name|slice:":1" }}</div>{% endif %}
-      <h3>{{ coach.public_name }}</h3>
-      <div class="role">{{ coach.public_job_title|default:t.coach }} · {{ coach.academy.public_name }}</div>
-      <p>{{ coach.public_bio|truncatechars:120 }}</p>
-    </article>{% endfor %}
-  </div>
-</div></section>{% endif %}
-
 {% if board_members %}<section class="soft" id="board"><div class="container">
   <div class="section-head">
     <div><div class="section-kicker">{{ t.board_kicker }}</div><h2>{{ t.board_title }}</h2></div>
