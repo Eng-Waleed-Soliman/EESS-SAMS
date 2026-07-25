@@ -210,6 +210,46 @@ def _localized_value(obj, arabic_field, english_field, language, fallback=''):
     return value if value and str(value).strip() else fallback
 
 
+_PUBLIC_ACTIVITY_NAMES_EN = {
+    'سباحة': 'Swimming',
+    'كرة قدم': 'Football',
+    'جمباز': 'Gymnastics',
+    'جيم': 'Fitness',
+    'كرة سلة': 'Basketball',
+    'كرة طائرة': 'Volleyball',
+    'القوس والسهم': 'Archery',
+    'fitness': 'Fitness',
+    'gym': 'Fitness',
+    'football': 'Football',
+    'swimming': 'Swimming',
+}
+
+_PUBLIC_ACTIVITY_HEADLINES_AR = {
+    'سباحة': 'نصنع التميز في السباحة',
+    'كرة قدم': 'نصنع التميز في كرة القدم',
+    'جمباز': 'نصنع التميز في الجمباز',
+    'جيم': 'نصنع التميز في اللياقة البدنية',
+    'كرة سلة': 'نصنع التميز في كرة السلة',
+    'كرة طائرة': 'نصنع التميز في الكرة الطائرة',
+    'القوس والسهم': 'نصنع التميز في القوس والسهم',
+}
+
+
+def _public_activity_name(academy, language):
+    arabic_name = str(academy.sport_activity or '').strip()
+    english_name = str(academy.sport_activity_en or '').strip()
+    if language == 'en':
+        return english_name or _PUBLIC_ACTIVITY_NAMES_EN.get(arabic_name.casefold(), arabic_name)
+    return arabic_name
+
+
+def _public_activity_headline(academy, language, activity_name):
+    arabic_name = str(academy.sport_activity or '').strip()
+    if language == 'en':
+        return f'Building Excellence in {activity_name}' if activity_name else 'Building Sporting Excellence'
+    return _PUBLIC_ACTIVITY_HEADLINES_AR.get(arabic_name.casefold(), 'نصنع التميز الرياضي')
+
+
 def _prepare_public_objects(language, branding, website, branches, academies, coaches, board_members):
     branding.public_company_name = (
         branding.company_name
@@ -235,8 +275,9 @@ def _prepare_public_objects(language, branding, website, branches, academies, co
         if not academy:
             return
         academy.public_name = _localized_value(academy, 'name', 'name_en', language, academy.name)
-        academy.public_activity = _localized_value(
-            academy, 'sport_activity', 'sport_activity_en', language, academy.sport_activity,
+        academy.public_activity = _public_activity_name(academy, language)
+        academy.public_detail_title = _public_activity_headline(
+            academy, language, academy.public_activity,
         )
         academy.public_description = _localized_value(
             academy, 'website_description', 'website_description_en', language,

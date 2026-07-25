@@ -64,7 +64,7 @@ class ApplicationFlowsTests(TestCase):
             name='Hidden Branch', is_published_on_website=False,
         )
         academy = Academy.objects.create(
-            branch=branch, name='Champions Academy', sport_activity='Football',
+            branch=branch, name='Champions Academy', sport_activity='سباحة',
             company_name='Champions', manager_name='Manager', manager_phone='01000000000',
             manager_name_en='Academy Manager EN',
             operation_place=OPERATION_PLACE_CHOICES[0][0],
@@ -115,6 +115,7 @@ class ApplicationFlowsTests(TestCase):
         detail = self.client.get(reverse('public_academy_detail', args=[academy.pk]))
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, academy.website_description)
+        self.assertContains(detail, 'نصنع التميز في السباحة')
         self.assertContains(detail, academy.manager_name)
         self.assertContains(detail, academy.manager_bio)
         self.assertNotContains(detail, website.location_url)
@@ -124,6 +125,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, administrator.website_bio)
 
         detail_en = self.client.get(reverse('public_academy_detail', args=[academy.pk]), {'lang': 'en'})
+        self.assertContains(detail_en, 'Building Excellence in Swimming')
+        self.assertNotContains(detail_en, 'Building Excellence in سباحة')
         self.assertContains(detail_en, academy.manager_name_en)
         self.assertContains(detail_en, academy.manager_bio_en)
 
