@@ -978,8 +978,14 @@ def booking_list(request):
     bookings = DailyBooking.objects.all()
     active_branch, all_branches = selected_branch(request)
     if not all_branches:
-        venue_names = active_branch.facilities.values_list('name', flat=True)
-        bookings = bookings.filter(venue__in=venue_names)
+        # Daily bookings already carry their branch explicitly. Filtering by
+        # facility names hides every booking when the facilities table is
+        # empty or a legacy venue label differs from the configured name.
+        branch_filter = Q(branch=active_branch)
+        default_branch_id = Branch.objects.order_by('pk').values_list('pk', flat=True).first()
+        if active_branch.pk == default_branch_id:
+            branch_filter |= Q(branch__isnull=True)
+        bookings = bookings.filter(branch_filter)
     if booking_date_value:
         try:
             selected_booking_date = date.fromisoformat(booking_date_value)

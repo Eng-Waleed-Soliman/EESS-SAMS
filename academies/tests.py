@@ -1198,6 +1198,38 @@ class ApplicationFlowsTests(TestCase):
         self.assertNotContains(response, '<th>المقدم</th>', html=True)
         self.assertNotContains(response, '<th>المتبقي</th>', html=True)
 
+    def test_daily_booking_list_uses_booking_branch_without_requiring_facilities(self):
+        selected_date = date.today()
+        active_branch = Branch.objects.create(name='BICC', short_name='BICC')
+        other_branch = Branch.objects.create(name='Other Branch', short_name='OTHER')
+        common = {
+            'venue': OPERATION_PLACE_CHOICES[0][0],
+            'booking_date': selected_date,
+            'start_time': TIME_CHOICES[0][0],
+            'end_time': TIME_CHOICES[2][0],
+            'customer_phone': '01000000333',
+            'total_amount': 500,
+            'advance_payment': 100,
+            'remaining_amount': 400,
+        }
+        DailyBooking.objects.create(
+            **common, branch=active_branch, customer_name='Active branch booking',
+        )
+        DailyBooking.objects.create(
+            **{**common, 'customer_phone': '01000000444'},
+            branch=other_branch, customer_name='Other branch booking',
+        )
+
+        session = self.client.session
+        session['active_branch_id'] = active_branch.pk
+        session.save()
+        response = self.client.get(reverse('booking_list'), {
+            'booking_date': selected_date.isoformat(),
+        })
+
+        self.assertContains(response, 'Active branch booking')
+        self.assertNotContains(response, 'Other branch booking')
+
     def test_morning_operation_period_and_booking_prefill_from_available_slot(self):
         selected_date = date.today()
         place = OPERATION_PLACE_CHOICES[0][0]
