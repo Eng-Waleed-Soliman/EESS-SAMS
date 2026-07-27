@@ -26,6 +26,7 @@ from .models import (
     AcademyDepositPlan,
     AcademyDepositInstallment,
     AcademyMonthlyRentPayment,
+    AcademyRentPaymentEntry,
     AppSetting,
     Branch,
     CafeteriaCategory,
@@ -483,52 +484,134 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.post(plan_url, {
             'action': 'save_plan',
             'total_amount': 1000,
-            'installments_count': 4,
-            'first_due_month': today.strftime('%Y-%m'),
             'notes': 'Flexible monthly installments',
         })
         self.assertRedirects(response, plan_url)
         plan = AcademyDepositPlan.objects.get(academy=academy)
-        installments = list(plan.installments.all())
-        self.assertEqual(len(installments), 4)
-        self.assertEqual(installments[1].due_month, date(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1))
+        self.assertEqual(plan.installments.count(), 0)
 
-        first = installments[0]
-        flexible_amounts = [400, 158, 342, 100]
-        installment_payload = {'action': 'save_installments'}
-        for installment, due_amount in zip(installments, flexible_amounts):
-            installment_payload.update({
-                f'installment_{installment.id}_due_amount': due_amount,
-                f'installment_{installment.id}_paid_amount': 400 if installment == first else 0,
-                f'installment_{installment.id}_payment_date': today.isoformat() if installment == first else '',
-                f'installment_{installment.id}_supplied_amount': 200 if installment == first else 0,
-                f'installment_{installment.id}_supplied_date': today.isoformat() if installment == first else '',
-                f'installment_{installment.id}_notes': 'First payment' if installment == first else '',
-            })
         response = self.client.post(plan_url, {
-            **installment_payload,
+            'action': 'add_installment',
+            'new_paid_amount': 400,
+            'new_payment_date': today.isoformat(),
+            'new_supplied_amount': 200,
+            'new_supplied_date': today.isoformat(),
+            'new_notes': 'First payment',
         })
         self.assertRedirects(response, plan_url)
-        first.refresh_from_db()
+        first = plan.installments.get()
         self.assertEqual(first.paid_recorded_by, self.user)
         self.assertEqual(first.supplied_recorded_by, self.user)
         self.assertEqual(first.remaining_amount, 0)
         self.assertEqual(first.due_amount, 400)
         self.assertEqual(first.unsupplied_amount, 200)
 
-        response = self.client.get(rent_url)
-        self.assertEqual(response.context['deposit_totals']['paid'], 400)
-        self.assertEqual(response.context['deposit_totals']['remaining'], 600)
-        self.assertEqual(response.context['deposit_totals']['supplied'], 200)
-        self.assertEqual(response.context['deposit_totals']['unsupplied'], 200)
-        self.assertContains(response, 'السداد والتوريد')
+        response = self.client.post(plan_url, {
+            'action': 'add_installment',
+            'new_paid_amount': 158,
+            'new_payment_date': (today + timedelta(days=2)).isoformat(),
+            'new_supplied_amount': 0,
+            'new_supplied_date': '',
+            'new_notes': 'Second payment with a different value',
+        })
+        self.assertRedirects(response, plan_url)
+        self.assertEqual(plan.installments.count(), 2)
+        plan.refresh_from_db()
+        self.assertEqual(plan.installments_count, 2)
 
-        invalid_payload = installment_payload.copy()
-        invalid_payload[f'installment_{first.id}_supplied_amount'] = 401
-        response = self.client.post(plan_url, invalid_payload, follow=True)
-        self.assertContains(response, 'أكبر من المسدد')
+        response = self.client.get(rent_url)
+        self.assertEqual(response.context['deposit_totals']['paid'], 558)
+        self.assertEqual(response.context['deposit_totals']['remaining'], 442)
+        self.assertEqual(response.context['deposit_totals']['supplied'], 200)
+        self.assertEqual(response.context['deposit_totals']['unsupplied'], 358)
+        self.assertContains(response, 'إدارة الأقساط')
+
+        response = self.client.post(plan_url, {
+            'action': 'save_installments',
+            f'installment_{first.id}_paid_amount': 450,
+            f'installment_{first.id}_payment_date': today.isoformat(),
+            f'installment_{first.id}_supplied_amount': 250,
+            f'installment_{first.id}_supplied_date': today.isoformat(),
+            f'installment_{first.id}_notes': 'Edited first installment',
+            **{
+                f'installment_{item.id}_{field}': value
+                for item in plan.installments.exclude(pk=first.pk)
+                for field, value in {
+                    'paid_amount': item.paid_amount,
+                    'payment_date': item.payment_date.isoformat(),
+                    'supplied_amount': item.supplied_amount,
+                    'supplied_date': '',
+                    'notes': item.notes,
+                }.items()
+            },
+        })
+        self.assertRedirects(response, plan_url)
         first.refresh_from_db()
-        self.assertEqual(first.supplied_amount, 200)
+        self.assertEqual(first.paid_amount, 450)
+        self.assertEqual(first.supplied_amount, 250)
+
+        second = plan.installments.exclude(pk=first.pk).get()
+        response = self.client.post(plan_url, {
+            'action': 'delete_installment', 'installment_id': second.pk,
+        })
+        self.assertRedirects(response, plan_url)
+        self.assertEqual(plan.installments.count(), 1)
+        plan.refresh_from_db()
+        self.assertEqual(plan.installments_count, 1)
+
+    def test_monthly_rent_supports_multiple_editable_and_deletable_payments(self):
+        today = date.today()
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_reports = True
+        profile.save()
+        academy = Academy.objects.create(
+            name='Monthly Installments Academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01012345678',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(today.year, 1, 1), contract_end_date=date(today.year, 12, 31),
+            subscription_type='fixed', monthly_subscription=2000,
+        )
+        overview_url = reverse('academy_rent_payments') + f'?month={today:%Y-%m}'
+        self.client.get(overview_url)
+        payment = AcademyMonthlyRentPayment.objects.get(academy=academy, month=date(today.year, today.month, 1))
+        entries_url = reverse('academy_rent_payment_entries', args=[payment.pk])
+
+        for paid, supplied in ((600, 300), (400, 0)):
+            response = self.client.post(entries_url, {
+                'action': 'add_entry', 'new_paid_amount': paid,
+                'new_payment_date': today.isoformat(), 'new_supplied_amount': supplied,
+                'new_supplied_date': today.isoformat() if supplied else '', 'new_notes': '',
+            })
+            self.assertRedirects(response, entries_url + f'?month={today:%Y-%m}')
+        payment.refresh_from_db()
+        self.assertEqual(payment.entries.count(), 2)
+        self.assertEqual(payment.paid_amount, 1000)
+        self.assertEqual(payment.supplied_amount, 300)
+
+        entries = list(payment.entries.all())
+        payload = {'action': 'save_entries'}
+        for index, entry in enumerate(entries):
+            payload.update({
+                f'entry_{entry.id}_paid_amount': 700 if index == 0 else 400,
+                f'entry_{entry.id}_payment_date': today.isoformat(),
+                f'entry_{entry.id}_supplied_amount': 350 if index == 0 else 100,
+                f'entry_{entry.id}_supplied_date': today.isoformat(),
+                f'entry_{entry.id}_notes': 'edited',
+            })
+        response = self.client.post(entries_url, payload)
+        self.assertRedirects(response, entries_url + f'?month={today:%Y-%m}')
+        payment.refresh_from_db()
+        self.assertEqual(payment.paid_amount, 1100)
+        self.assertEqual(payment.supplied_amount, 450)
+
+        response = self.client.post(entries_url, {
+            'action': 'delete_entry', 'entry_id': entries[1].pk,
+        })
+        self.assertRedirects(response, entries_url + f'?month={today:%Y-%m}')
+        payment.refresh_from_db()
+        self.assertEqual(AcademyRentPaymentEntry.objects.filter(payment=payment).count(), 1)
+        self.assertEqual(payment.paid_amount, 700)
+        self.assertEqual(payment.supplied_amount, 350)
 
     def test_financial_disbursement_and_supply_vouchers_render_numbers_and_words(self):
         today = date.today()

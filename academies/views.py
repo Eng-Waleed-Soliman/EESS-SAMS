@@ -14,7 +14,7 @@ from django.db.models import Sum, Q, Count
 from django.http import HttpResponse, Http404
 from django.utils import timezone
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaCashSupply, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaCashSupply, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
@@ -2432,6 +2432,70 @@ def _academy_rent_rows(year, month, start, end, branch=None):
     return rows
 
 
+def _posted_amount(request, name):
+    raw_value = (request.POST.get(name) or '0').strip()
+    try:
+        return max(0, int(raw_value or 0))
+    except (TypeError, ValueError):
+        raise ValueError('أدخل قيمة مالية صحيحة.')
+
+
+def _posted_date(request, name):
+    raw_value = (request.POST.get(name) or '').strip()
+    if not raw_value:
+        return None
+    try:
+        return date.fromisoformat(raw_value)
+    except ValueError:
+        raise ValueError('أدخل تاريخًا صحيحًا.')
+
+
+def _sync_rent_payment(payment):
+    totals = payment.entries.aggregate(paid=Sum('paid_amount'), supplied=Sum('supplied_amount'))
+    latest_payment = payment.entries.exclude(payment_date=None).order_by('-payment_date', '-id').first()
+    latest_supply = payment.entries.exclude(supplied_date=None).order_by('-supplied_date', '-id').first()
+    latest_note = payment.entries.exclude(notes='').order_by('-updated_at', '-id').first()
+    payment.paid_amount = totals['paid'] or 0
+    payment.supplied_amount = totals['supplied'] or 0
+    payment.payment_date = latest_payment.payment_date if latest_payment else None
+    payment.supplied_date = latest_supply.supplied_date if latest_supply else None
+    payment.notes = latest_note.notes if latest_note else ''
+    payment.save(update_fields=[
+        'paid_amount', 'supplied_amount', 'payment_date', 'supplied_date', 'notes', 'updated_at',
+    ])
+
+
+def _sync_deposit_plan(plan):
+    installments = list(plan.installments.order_by('payment_date', 'id'))
+    # Move the old sequence out of the way first so reordering dates never
+    # collides with the unique (plan, installment_number) constraint.
+    for offset, installment in enumerate(installments, start=1):
+        installment.installment_number = 30000 + offset
+        installment.save(update_fields=['installment_number', 'updated_at'])
+    for number, installment in enumerate(installments, start=1):
+        changes = []
+        if installment.installment_number != number:
+            installment.installment_number = number
+            changes.append('installment_number')
+        source_date = installment.payment_date or installment.due_month or plan.first_due_month
+        expected_month = date(source_date.year, source_date.month, 1)
+        if installment.due_month != expected_month:
+            installment.due_month = expected_month
+            changes.append('due_month')
+        if installment.due_amount != installment.paid_amount:
+            installment.due_amount = installment.paid_amount
+            changes.append('due_amount')
+        if changes:
+            installment.save(update_fields=changes + ['updated_at'])
+    count = len(installments)
+    first = installments[0] if installments else None
+    plan.installments_count = max(1, count)
+    if first:
+        source_date = first.payment_date or first.due_month
+        plan.first_due_month = date(source_date.year, source_date.month, 1)
+    plan.save(update_fields=['installments_count', 'first_due_month', 'updated_at'])
+
+
 def _add_months(month_date, offset):
     month_index = (month_date.year * 12 + month_date.month - 1) + offset
     return date(month_index // 12, month_index % 12 + 1, 1)
@@ -2481,7 +2545,7 @@ def _academy_deposit_rows(rent_rows, month_start):
             'academy': academy,
             'plan': plan,
             'total': total,
-            'installments_count': plan.installments_count if plan else 0,
+            'installments_count': len(installments),
             'due_this_month': due_this_month,
             'paid': paid,
             'remaining': remaining,
@@ -3720,26 +3784,8 @@ def academy_rent_payments(request):
     year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
     active_branch, all_branches = selected_branch(request)
     rows = _academy_rent_rows(year, month, start, end, None if all_branches else active_branch)
-    if request.method == 'POST':
-        for row in rows:
-            payment = row['payment']
-            prefix = f'payment_{payment.id}_'
-            for field_name in ['paid_amount', 'supplied_amount']:
-                raw_value = (request.POST.get(prefix + field_name) or '0').strip()
-                try:
-                    setattr(payment, field_name, max(0, int(raw_value or 0)))
-                except ValueError:
-                    setattr(payment, field_name, 0)
-            for field_name in ['payment_date', 'supplied_date']:
-                raw_date = (request.POST.get(prefix + field_name) or '').strip()
-                try:
-                    setattr(payment, field_name, date.fromisoformat(raw_date) if raw_date else None)
-                except ValueError:
-                    setattr(payment, field_name, None)
-            payment.notes = request.POST.get(prefix + 'notes', '').strip()
-            payment.save()
-        messages.success(request, 'تم حفظ سدادات وتوريدات إيجارات الأكاديميات.')
-        return redirect(f"{request.path}?month={month_value}")
+    for row in rows:
+        row['entries_count'] = row['payment'].entries.count()
     booking_income_qs = DailyBookingCheckout.objects.filter(income_date__range=(start, end))
     if not all_branches:
         booking_income_qs = booking_income_qs.filter(booking__branch=active_branch)
@@ -3774,113 +3820,246 @@ def academy_rent_payments(request):
 
 
 @login_required
+def academy_rent_payment_entries(request, payment_id):
+    if not _can_access_reports(request.user):
+        messages.error(request, 'ليس لديك صلاحية إدارة دفعات إيجارات الأكاديميات.')
+        return redirect('dashboard')
+    payment = get_object_or_404(
+        AcademyMonthlyRentPayment.objects.select_related('academy', 'academy__branch'),
+        pk=payment_id,
+    )
+    action = request.POST.get('action', '') if request.method == 'POST' else ''
+
+    if action == 'delete_entry':
+        entry = get_object_or_404(AcademyRentPaymentEntry, pk=request.POST.get('entry_id'), payment=payment)
+        entry.delete()
+        _sync_rent_payment(payment)
+        messages.success(request, 'تم حذف الحركة المالية وإعادة حساب الإجماليات.')
+        return redirect(f"{request.path}?month={payment.month:%Y-%m}")
+
+    if action in {'add_entry', 'save_entries'}:
+        prepared = []
+        errors = []
+        source_entries = [None] if action == 'add_entry' else list(payment.entries.all())
+        for entry in source_entries:
+            prefix = 'new_' if entry is None else f'entry_{entry.id}_'
+            try:
+                paid_amount = _posted_amount(request, prefix + 'paid_amount')
+                supplied_amount = _posted_amount(request, prefix + 'supplied_amount')
+                payment_date = _posted_date(request, prefix + 'payment_date')
+                supplied_date = _posted_date(request, prefix + 'supplied_date')
+            except ValueError as exc:
+                errors.append(str(exc))
+                continue
+            if paid_amount == 0 and supplied_amount == 0:
+                errors.append('أدخل مبلغًا مسددًا أو مبلغًا موردًا للحركة.')
+            if paid_amount and not payment_date:
+                errors.append('تاريخ السداد مطلوب عند تسجيل مبلغ مسدد.')
+            if supplied_amount and not supplied_date:
+                errors.append('تاريخ التوريد مطلوب عند تسجيل مبلغ مورد.')
+            prepared.append({
+                'entry': entry,
+                'paid_amount': paid_amount,
+                'payment_date': payment_date,
+                'supplied_amount': supplied_amount,
+                'supplied_date': supplied_date,
+                'notes': (request.POST.get(prefix + 'notes') or '').strip(),
+            })
+
+        if not errors:
+            if action == 'add_entry':
+                current_paid = payment.entries.aggregate(total=Sum('paid_amount'))['total'] or 0
+                current_supplied = payment.entries.aggregate(total=Sum('supplied_amount'))['total'] or 0
+                total_paid = current_paid + prepared[0]['paid_amount']
+                total_supplied = current_supplied + prepared[0]['supplied_amount']
+            else:
+                total_paid = sum(item['paid_amount'] for item in prepared)
+                total_supplied = sum(item['supplied_amount'] for item in prepared)
+            if total_paid > payment.expected_amount:
+                errors.append(
+                    f'إجمالي المسدد ({total_paid}) لا يمكن أن يتجاوز المستحق ({payment.expected_amount}).'
+                )
+            if total_supplied > total_paid:
+                errors.append(f'إجمالي المورد ({total_supplied}) لا يمكن أن يتجاوز إجمالي المسدد ({total_paid}).')
+
+        if errors:
+            for error in dict.fromkeys(errors):
+                messages.error(request, error)
+        else:
+            with transaction.atomic():
+                for item in prepared:
+                    entry = item.pop('entry')
+                    if entry is None:
+                        AcademyRentPaymentEntry.objects.create(
+                            payment=payment, recorded_by=request.user, **item
+                        )
+                    else:
+                        for field_name, value in item.items():
+                            setattr(entry, field_name, value)
+                        entry.recorded_by = request.user
+                        entry.save()
+                _sync_rent_payment(payment)
+            messages.success(
+                request,
+                'تمت إضافة الدفعة بنجاح.' if action == 'add_entry' else 'تم حفظ تعديلات الحركات المالية.',
+            )
+        return redirect(f"{request.path}?month={payment.month:%Y-%m}")
+
+    return render(request, 'academies/academy_rent_payment_entries.html', {
+        'payment': payment,
+        'entries': payment.entries.select_related('recorded_by').all(),
+        'back_month': request.GET.get('month', payment.month.strftime('%Y-%m')),
+    })
+
+
+@login_required
 def academy_deposit_plan(request, academy_id):
     if not _can_access_reports(request.user):
         messages.error(request, 'ليس لديك صلاحية إدارة تأمينات الأكاديميات.')
         return redirect('dashboard')
     academy = get_object_or_404(Academy.objects.select_related('branch'), pk=academy_id)
     plan = AcademyDepositPlan.objects.filter(academy=academy).prefetch_related('installments').first()
-    has_movements = bool(plan and plan.installments.filter(Q(paid_amount__gt=0) | Q(supplied_amount__gt=0)).exists())
+    action = request.POST.get('action', '') if request.method == 'POST' else ''
     initial = None
     if not plan:
         initial = {
             'total_amount': academy.security_deposit or 0,
-            'installments_count': 1,
-            'first_due_month': date(academy.contract_start_date.year, academy.contract_start_date.month, 1),
         }
-    form = AcademyDepositPlanForm(request.POST or None, instance=plan, initial=initial)
-    if has_movements:
-        for field in form.fields.values():
-            field.disabled = True
+    form = AcademyDepositPlanForm(
+        request.POST if action == 'save_plan' else None,
+        instance=plan,
+        initial=initial,
+    )
 
-    if request.method == 'POST' and request.POST.get('action') == 'save_plan':
-        if has_movements:
-            messages.error(request, 'لا يمكن تغيير خطة التأمين بعد تسجيل سداد أو توريد. يمكن تعديل الأقساط المسجلة فقط.')
-        elif form.is_valid():
+    if request.method == 'POST' and action == 'save_plan':
+        if form.is_valid():
+            paid_total = plan.paid_total if plan else 0
+            if form.cleaned_data['total_amount'] < paid_total:
+                form.add_error('total_amount', f'المبلغ لا يمكن أن يقل عن إجمالي المسدد ({paid_total}).')
+        if form.is_valid():
             with transaction.atomic():
                 saved_plan = form.save(commit=False)
                 saved_plan.academy = academy
                 if not saved_plan.pk:
                     saved_plan.created_by = request.user
-                saved_plan.first_due_month = date(
-                    saved_plan.first_due_month.year, saved_plan.first_due_month.month, 1
-                )
-                saved_plan.save()
-                saved_plan.installments.all().delete()
-                base_amount, remainder = divmod(saved_plan.total_amount, saved_plan.installments_count)
-                for index in range(saved_plan.installments_count):
-                    AcademyDepositInstallment.objects.create(
-                        plan=saved_plan,
-                        installment_number=index + 1,
-                        due_month=_add_months(saved_plan.first_due_month, index),
-                        due_amount=base_amount + (1 if index < remainder else 0),
+                    saved_plan.first_due_month = date(
+                        academy.contract_start_date.year, academy.contract_start_date.month, 1
                     )
+                    saved_plan.installments_count = 1
+                saved_plan.save()
                 academy.security_deposit = saved_plan.total_amount
                 academy.save(update_fields=['security_deposit'])
-            messages.success(request, 'تم حفظ خطة التأمين وإنشاء الأقساط بنجاح.')
+            messages.success(request, 'تم حفظ إجمالي مبلغ التأمين بنجاح.')
             return redirect('academy_deposit_plan', academy_id=academy.id)
 
-    if request.method == 'POST' and request.POST.get('action') == 'save_installments':
+    if request.method == 'POST' and action == 'add_installment':
         if not plan:
-            messages.error(request, 'أنشئ خطة التأمين أولًا.')
+            messages.error(request, 'احفظ إجمالي مبلغ التأمين أولًا.')
             return redirect('academy_deposit_plan', academy_id=academy.id)
-        prepared = []
-        validation_errors = []
-        due_amounts_total = 0
-        for installment in plan.installments.all():
-            prefix = f'installment_{installment.id}_'
-            try:
-                due_amount = max(0, int(request.POST.get(prefix + 'due_amount') or 0))
-                paid_amount = max(0, int(request.POST.get(prefix + 'paid_amount') or 0))
-                supplied_amount = max(0, int(request.POST.get(prefix + 'supplied_amount') or 0))
-            except ValueError:
-                validation_errors.append(f'القيم المالية للقسط {installment.installment_number} غير صحيحة.')
-                continue
-            due_amounts_total += due_amount
-            payment_date_text = (request.POST.get(prefix + 'payment_date') or '').strip()
-            supplied_date_text = (request.POST.get(prefix + 'supplied_date') or '').strip()
-            try:
-                payment_date = date.fromisoformat(payment_date_text) if payment_date_text else None
-                supplied_date = date.fromisoformat(supplied_date_text) if supplied_date_text else None
-            except ValueError:
-                validation_errors.append(f'تاريخ القسط {installment.installment_number} غير صحيح.')
-                continue
-            if due_amount <= 0:
-                validation_errors.append(f'قيمة القسط {installment.installment_number} يجب أن تكون أكبر من صفر.')
-            if paid_amount > due_amount:
-                validation_errors.append(f'المسدد في القسط {installment.installment_number} أكبر من المستحق.')
-            if supplied_amount > paid_amount:
-                validation_errors.append(f'المورد في القسط {installment.installment_number} أكبر من المسدد.')
-            if paid_amount > 0 and not payment_date:
-                validation_errors.append(f'أدخل تاريخ سداد القسط {installment.installment_number}.')
-            if supplied_amount > 0 and not supplied_date:
-                validation_errors.append(f'أدخل تاريخ توريد القسط {installment.installment_number}.')
-            prepared.append((
-                installment, due_amount, paid_amount, payment_date, supplied_amount, supplied_date,
-                (request.POST.get(prefix + 'notes') or '').strip(),
-            ))
-        if due_amounts_total != plan.total_amount:
-            validation_errors.append(
-                f'مجموع قيم الأقساط ({due_amounts_total}) يجب أن يساوي إجمالي مبلغ التأمين ({plan.total_amount}).'
-            )
-        if validation_errors:
-            for error in dict.fromkeys(validation_errors):
+        errors = []
+        try:
+            paid_amount = _posted_amount(request, 'new_paid_amount')
+            supplied_amount = _posted_amount(request, 'new_supplied_amount')
+            payment_date = _posted_date(request, 'new_payment_date')
+            supplied_date = _posted_date(request, 'new_supplied_date')
+        except ValueError as exc:
+            errors.append(str(exc))
+            paid_amount = supplied_amount = 0
+            payment_date = supplied_date = None
+        if paid_amount <= 0:
+            errors.append('قيمة القسط يجب أن تكون أكبر من صفر.')
+        if not payment_date:
+            errors.append('تاريخ سداد القسط مطلوب.')
+        if supplied_amount > paid_amount:
+            errors.append('المبلغ المورد لا يمكن أن يتجاوز قيمة القسط المسدد.')
+        if supplied_amount and not supplied_date:
+            errors.append('تاريخ التوريد مطلوب عند تسجيل مبلغ مورد.')
+        if plan.paid_total + paid_amount > plan.total_amount:
+            errors.append(f'القسط يتجاوز المبلغ المتبقي من التأمين ({plan.remaining_amount}).')
+        if errors:
+            for error in dict.fromkeys(errors):
                 messages.error(request, error)
             return redirect('academy_deposit_plan', academy_id=academy.id)
         with transaction.atomic():
-            for installment, due_amount, paid_amount, payment_date, supplied_amount, supplied_date, notes in prepared:
-                if paid_amount != installment.paid_amount:
-                    installment.paid_recorded_by = request.user
-                if supplied_amount != installment.supplied_amount:
-                    installment.supplied_recorded_by = request.user
-                installment.due_amount = due_amount
+            AcademyDepositInstallment.objects.create(
+                plan=plan,
+                installment_number=plan.installments.count() + 1,
+                due_month=date(payment_date.year, payment_date.month, 1),
+                due_amount=paid_amount,
+                paid_amount=paid_amount,
+                payment_date=payment_date,
+                supplied_amount=supplied_amount,
+                supplied_date=supplied_date,
+                notes=(request.POST.get('new_notes') or '').strip(),
+                paid_recorded_by=request.user,
+                supplied_recorded_by=request.user if supplied_amount else None,
+            )
+            _sync_deposit_plan(plan)
+        messages.success(request, 'تمت إضافة قسط التأمين وإعادة حساب المتبقي.')
+        return redirect('academy_deposit_plan', academy_id=academy.id)
+
+    if request.method == 'POST' and action == 'delete_installment':
+        if not plan:
+            return redirect('academy_deposit_plan', academy_id=academy.id)
+        installment = get_object_or_404(
+            AcademyDepositInstallment, pk=request.POST.get('installment_id'), plan=plan
+        )
+        installment.delete()
+        _sync_deposit_plan(plan)
+        messages.success(request, 'تم حذف القسط وإعادة حساب المتبقي.')
+        return redirect('academy_deposit_plan', academy_id=academy.id)
+
+    if request.method == 'POST' and action == 'save_installments':
+        if not plan:
+            return redirect('academy_deposit_plan', academy_id=academy.id)
+        prepared, errors = [], []
+        for installment in plan.installments.all():
+            prefix = f'installment_{installment.id}_'
+            try:
+                paid_amount = _posted_amount(request, prefix + 'paid_amount')
+                supplied_amount = _posted_amount(request, prefix + 'supplied_amount')
+                payment_date = _posted_date(request, prefix + 'payment_date')
+                supplied_date = _posted_date(request, prefix + 'supplied_date')
+            except ValueError as exc:
+                errors.append(str(exc))
+                continue
+            if paid_amount <= 0:
+                errors.append(f'قيمة القسط {installment.installment_number} يجب أن تكون أكبر من صفر.')
+            if not payment_date:
+                errors.append(f'تاريخ سداد القسط {installment.installment_number} مطلوب.')
+            if supplied_amount > paid_amount:
+                errors.append(f'المورد في القسط {installment.installment_number} أكبر من المسدد.')
+            if supplied_amount and not supplied_date:
+                errors.append(f'تاريخ توريد القسط {installment.installment_number} مطلوب.')
+            prepared.append((
+                installment, paid_amount, payment_date, supplied_amount, supplied_date,
+                (request.POST.get(prefix + 'notes') or '').strip(),
+            ))
+        total_paid = sum(item[1] for item in prepared)
+        total_supplied = sum(item[3] for item in prepared)
+        if total_paid > plan.total_amount:
+            errors.append(f'إجمالي الأقساط ({total_paid}) يتجاوز مبلغ التأمين ({plan.total_amount}).')
+        if total_supplied > total_paid:
+            errors.append('إجمالي المورد لا يمكن أن يتجاوز إجمالي المسدد.')
+        if errors:
+            for error in dict.fromkeys(errors):
+                messages.error(request, error)
+            return redirect('academy_deposit_plan', academy_id=academy.id)
+        with transaction.atomic():
+            for installment, paid_amount, payment_date, supplied_amount, supplied_date, notes in prepared:
+                installment.due_amount = paid_amount
                 installment.paid_amount = paid_amount
                 installment.payment_date = payment_date
+                installment.due_month = date(payment_date.year, payment_date.month, 1)
                 installment.supplied_amount = supplied_amount
                 installment.supplied_date = supplied_date
                 installment.notes = notes
+                installment.paid_recorded_by = request.user
+                if supplied_amount:
+                    installment.supplied_recorded_by = request.user
                 installment.save()
-        messages.success(request, 'تم حفظ سداد وتوريد أقساط التأمين بنجاح.')
+            _sync_deposit_plan(plan)
+        messages.success(request, 'تم حفظ تعديلات أقساط التأمين.')
         return redirect('academy_deposit_plan', academy_id=academy.id)
 
     installments = list(plan.installments.select_related('paid_recorded_by', 'supplied_recorded_by')) if plan else []
@@ -3889,7 +4068,6 @@ def academy_deposit_plan(request, academy_id):
         'plan': plan,
         'form': form,
         'installments': installments,
-        'has_movements': has_movements,
         'back_month': request.GET.get('month', ''),
     })
 

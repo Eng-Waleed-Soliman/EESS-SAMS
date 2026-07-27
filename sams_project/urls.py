@@ -107,6 +107,7 @@ urlpatterns = [
     path('settings/activities/<int:pk>/edit/', views.activity_update, name='activity_update'),
     path('settings/activities/<int:pk>/delete/', views.activity_delete, name='activity_delete'),
     path('academy-rent-payments/', views.academy_rent_payments, name='academy_rent_payments'),
+    path('academy-rent-payments/<int:payment_id>/entries/', views.academy_rent_payment_entries, name='academy_rent_payment_entries'),
     path('academy-rent-payments/deposits/<int:academy_id>/', views.academy_deposit_plan, name='academy_deposit_plan'),
     path('users/', views.user_list, name='user_list'),
     path('users/add/', views.user_create, name='user_create'),

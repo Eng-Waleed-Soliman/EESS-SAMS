@@ -998,26 +998,13 @@ class AcademyMonthlyRentPaymentForm(forms.ModelForm):
 
 
 class AcademyDepositPlanForm(forms.ModelForm):
-    first_due_month = forms.DateField(
-        label='شهر استحقاق أول قسط',
-        input_formats=['%Y-%m', '%Y-%m-%d'],
-        widget=forms.DateInput(format='%Y-%m', attrs={'type': 'month', 'class': 'form-control'}),
-    )
-
     class Meta:
         model = AcademyDepositPlan
-        fields = ['total_amount', 'installments_count', 'first_due_month', 'notes']
+        fields = ['total_amount', 'notes']
         widgets = {
             'total_amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
-            'installments_count': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
-
-    def clean_installments_count(self):
-        count = self.cleaned_data.get('installments_count') or 0
-        if count < 1:
-            raise forms.ValidationError('عدد أقساط التأمين يجب أن يكون قسطًا واحدًا على الأقل.')
-        return count
 
     def clean_total_amount(self):
         amount = self.cleaned_data.get('total_amount') or 0

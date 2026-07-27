@@ -1,0 +1,55 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<style>
+  .entry-table { min-width: 1180px; }
+  .entry-table th, .entry-table td { white-space: nowrap; vertical-align: middle; }
+  .entry-table .form-control { min-width: 135px; }
+</style>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div><h2 class="mb-1">دفعات إيجار {{ payment.academy.name }}</h2><div class="text-muted">شهر {{ payment.month|date:'m/Y' }} — {{ payment.academy.branch.display_name|default:'بدون فرع' }}</div></div>
+  <a class="btn btn-secondary" href="{% url 'academy_rent_payments' %}?month={{ back_month }}">رجوع لإيجارات الأكاديميات</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md"><div class="card p-3"><b>المستحق</b><h3>{{ payment.expected_amount }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>المسدد</b><h3>{{ payment.paid_amount }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>المتبقي</b><h3>{{ payment.remaining_amount }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>المورد</b><h3>{{ payment.supplied_amount }}</h3></div></div>
+  <div class="col-md"><div class="card p-3"><b>غير المورد</b><h3>{{ payment.unsupplied_amount }}</h3></div></div>
+</div>
+
+<form method="post" class="card p-4 mb-4">
+  {% csrf_token %}<input type="hidden" name="action" value="add_entry">
+  <h5 class="fw-bold mb-3">إضافة دفعة خلال الشهر</h5>
+  <div class="row g-3 align-items-end">
+    <div class="col-md-2"><label class="form-label fw-bold">المبلغ المسدد</label><input class="form-control" type="number" min="0" name="new_paid_amount" value="0"></div>
+    <div class="col-md-2"><label class="form-label fw-bold">تاريخ السداد</label><input class="form-control" type="date" name="new_payment_date"></div>
+    <div class="col-md-2"><label class="form-label fw-bold">المبلغ المورد</label><input class="form-control" type="number" min="0" name="new_supplied_amount" value="0"></div>
+    <div class="col-md-2"><label class="form-label fw-bold">تاريخ التوريد</label><input class="form-control" type="date" name="new_supplied_date"></div>
+    <div class="col-md-2"><label class="form-label fw-bold">ملاحظات</label><input class="form-control" name="new_notes"></div>
+    <div class="col-md-2"><button class="btn btn-primary w-100">إضافة دفعة</button></div>
+  </div>
+</form>
+
+{% if entries %}
+<form method="post" class="card p-3">
+  {% csrf_token %}<input type="hidden" name="action" value="save_entries">
+  <h5 class="fw-bold mb-3">سجل الدفعات والتوريدات</h5>
+  <div class="table-responsive"><table class="table table-striped text-center entry-table">
+    <thead><tr><th>م</th><th>المسدد</th><th>تاريخ السداد</th><th>المورد</th><th>تاريخ التوريد</th><th>غير المورد</th><th>مسجل الحركة</th><th>ملاحظات</th><th>حذف</th></tr></thead>
+    <tbody>{% for entry in entries %}<tr>
+      <td>{{ forloop.counter }}</td>
+      <td><input class="form-control" type="number" min="0" name="entry_{{ entry.id }}_paid_amount" value="{{ entry.paid_amount }}"></td>
+      <td><input class="form-control" type="date" name="entry_{{ entry.id }}_payment_date" value="{{ entry.payment_date|date:'Y-m-d' }}"></td>
+      <td><input class="form-control" type="number" min="0" name="entry_{{ entry.id }}_supplied_amount" value="{{ entry.supplied_amount }}"></td>
+      <td><input class="form-control" type="date" name="entry_{{ entry.id }}_supplied_date" value="{{ entry.supplied_date|date:'Y-m-d' }}"></td>
+      <td>{{ entry.unsupplied_amount }}</td><td>{{ entry.recorded_by.first_name|default:entry.recorded_by.username|default:'-' }}</td>
+      <td><input class="form-control" name="entry_{{ entry.id }}_notes" value="{{ entry.notes }}"></td>
+      <td><button type="submit" class="btn btn-sm btn-outline-danger" form="delete-entry-{{ entry.id }}" onclick="return confirm('هل تريد حذف هذه الحركة؟')">حذف</button></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  <button class="btn btn-success mt-3">حفظ التعديلات</button>
+</form>
+{% for entry in entries %}<form id="delete-entry-{{ entry.id }}" method="post" class="d-none">{% csrf_token %}<input type="hidden" name="action" value="delete_entry"><input type="hidden" name="entry_id" value="{{ entry.id }}"></form>{% endfor %}
+{% else %}<div class="alert alert-secondary">لا توجد دفعات مسجلة لهذا الشهر حتى الآن.</div>{% endif %}
+{% endblock %}

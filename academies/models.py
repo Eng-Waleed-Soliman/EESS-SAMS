@@ -658,6 +658,42 @@ class AcademyMonthlyRentPayment(models.Model):
         return f'{self.academy} - {self.month:%Y-%m}'
 
 
+class AcademyRentPaymentEntry(models.Model):
+    payment = models.ForeignKey(
+        AcademyMonthlyRentPayment,
+        on_delete=models.CASCADE,
+        related_name='entries',
+        verbose_name='سداد إيجار الشهر',
+    )
+    paid_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المسدد')
+    payment_date = models.DateField(null=True, blank=True, verbose_name='تاريخ السداد')
+    supplied_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المورد')
+    supplied_date = models.DateField(null=True, blank=True, verbose_name='تاريخ التوريد')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    recorded_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='recorded_academy_rent_entries',
+        verbose_name='مسجل الحركة',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['payment_date', 'created_at', 'id']
+        verbose_name = 'دفعة إيجار أكاديمية'
+        verbose_name_plural = 'دفعات إيجارات الأكاديميات'
+
+    @property
+    def unsupplied_amount(self):
+        return max(0, int(self.paid_amount or 0) - int(self.supplied_amount or 0))
+
+    def __str__(self):
+        return f'{self.payment} - {self.paid_amount}'
+
+
 class AcademyDepositPlan(models.Model):
     academy = models.OneToOneField(
         Academy, on_delete=models.CASCADE, related_name='deposit_plan', verbose_name='الأكاديمية'
