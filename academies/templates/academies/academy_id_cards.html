@@ -143,19 +143,19 @@
 .back-company{font-size:15pt;font-weight:900;letter-spacing:.8px;margin-bottom:7mm;direction:ltr}.training-year-label{font-size:10pt;font-weight:700}.training-year-value{font-size:16pt;font-weight:900;margin:2mm 0 6mm;direction:ltr}.identity-qr{width:34mm;height:34mm;background:#fff;border:1px solid #bdd1e7;border-radius:2mm;padding:1.5mm}
 @media print{
   @page{size:54mm 86mm;margin:0}
-  html,body{width:54mm!important;min-width:54mm!important;margin:0!important;padding:0!important;background:#fff!important}
+  html,body{width:54mm!important;min-width:54mm!important;margin:0!important;padding:0!important;background:#fff!important;direction:ltr!important}
   body *{visibility:hidden!important}
   body.card-print-mode .identity-cards-grid,
   body.card-print-mode .identity-cards-grid *{visibility:visible!important}
-  body.card-print-mode .identity-cards-grid{position:absolute!important;inset:0 auto auto 0!important;display:block!important;width:54mm!important;margin:0!important;padding:0!important}
+  body.card-print-mode .identity-cards-grid{position:absolute!important;top:0!important;left:1mm!important;right:auto!important;display:block!important;width:52mm!important;margin:0!important;padding:0!important;direction:ltr!important}
   .sidebar,.no-print,.page-title,.navbar,.cards-print-heading{display:none!important}
   .main-content,.content-wrapper,.container,.container-fluid{margin:0!important;padding:0!important;width:54mm!important;max-width:54mm!important}
-  .identity-card-record{display:block!important;width:54mm!important;margin:0!important;padding:0!important;break-after:page;page-break-after:always}
+  .identity-card-record{display:block!important;width:52mm!important;margin:0!important;padding:0!important;break-after:page;page-break-after:always;direction:ltr!important}
   .identity-card-record:not(.is-print-selected){display:none!important}
-  .identity-card-pair{display:block!important;width:54mm!important;margin:0!important;padding:0!important}
+  .identity-card-pair{display:block!important;width:52mm!important;margin:0!important;padding:0!important;direction:ltr!important}
   /* Keep the complete rounded border inside the CR80 printable area.
      A full 54x86 mm element is clipped by some Chrome/printer drivers. */
-  .identity-card{display:flex!important;width:52mm!important;height:84mm!important;margin:1mm!important;box-shadow:none!important;border-color:#135c91;break-inside:avoid;page-break-inside:avoid}
+  .identity-card{display:flex!important;width:52mm!important;height:84mm!important;margin:1mm 0!important;box-shadow:none!important;border-color:#135c91;break-inside:avoid;page-break-inside:avoid}
   .identity-card-front{break-after:page;page-break-after:always}
   .identity-card-back{break-after:auto;page-break-after:auto}
 }
