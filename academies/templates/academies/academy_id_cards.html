@@ -3,7 +3,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
   <h3>كروت التعارف</h3>
   <div class="d-flex gap-2 flex-wrap">
-    {% if members %}<button type="button" class="btn btn-danger" onclick="printCards(true)">تصدير PDF</button><button type="button" class="btn btn-outline-primary" onclick="printCards(false)">طباعة</button>{% endif %}
+    {% if members %}<button type="button" class="btn btn-danger" onclick="printSelectedCards(true)">تصدير PDF</button><button type="button" class="btn btn-outline-primary" onclick="printSelectedCards(false)">طباعة المحدد</button>{% endif %}
     <a class="btn btn-secondary" href="{% url 'reports_home' %}?report_type=academies{% if academy %}&academy_id={{ academy.pk }}{% endif %}">رجوع للتقارير</a>
   </div>
 </div>
@@ -35,13 +35,38 @@
 {% endif %}
 
 {% if card_group %}
+{% if members %}
+<div class="card p-3 mb-4 no-print card-print-controls">
+  <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <label class="form-check d-flex align-items-center gap-2 mb-0 fw-bold">
+        <input id="select-all-cards" class="form-check-input mt-0" type="checkbox" checked onchange="toggleAllCards(this.checked)">
+        تحديد كل الكروت
+      </label>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllCards(false)">إلغاء التحديد</button>
+      <span class="badge text-bg-primary" id="selected-cards-count"></span>
+    </div>
+    <div class="small text-muted">
+      الطباعة مضبوطة على كارت CR80 مقاس 54 × 86 مم. اختر الطباعة على الوجهين من إعدادات طابعة IDP.
+    </div>
+  </div>
+</div>
+{% endif %}
 <div class="cards-print-heading">
   <h1>{% if card_group == 'staff' %}كروت تعارف المدربين والإداريين{% else %}كروت تعارف اللاعبين{% endif %}</h1>
   <div>{{ academy.name }} — العام التدريبي {{ training_year }}</div>
 </div>
 <div class="identity-cards-grid">
   {% for member in members %}
-  <article class="identity-card-pair">
+  <article class="identity-card-record" data-member-id="{{ member.pk }}">
+    <div class="card-selection-bar no-print">
+      <label class="form-check d-flex align-items-center gap-2 mb-0">
+        <input class="form-check-input member-card-checkbox mt-0" type="checkbox" checked value="{{ member.pk }}" onchange="updateSelectedCardsCount()">
+        <span>تحديد {{ member.name }}</span>
+      </label>
+      <button type="button" class="btn btn-sm btn-outline-primary" onclick="printOneCard('{{ member.pk }}')">طباعة هذا الكارت</button>
+    </div>
+    <div class="identity-card-pair">
     <section class="identity-card identity-card-front">
       <div class="card-brand-header">
         <div class="card-company-brand">
@@ -79,6 +104,7 @@
       <div class="training-year-value">{{ training_year }}</div>
       <img class="identity-qr" src="{% url 'academy_member_qr' academy.pk member.pk %}" alt="QR {{ member.name }}">
     </section>
+    </div>
   </article>
   {% empty %}
   <div class="alert alert-info text-center no-print">لا توجد بيانات مسجلة في هذه المجموعة.</div>
@@ -92,6 +118,8 @@
 .cards-print-heading{display:none;text-align:center;margin:0 0 8mm}.cards-print-heading h1{font-size:20pt;margin:0 0 2mm}
 .training-year-select{direction:ltr;text-align:center}.fallback-logo{display:none!important}.fallback-logo[style*="display: grid"]{display:grid!important}
 .identity-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(390px,1fr));gap:26px;align-items:start}
+.identity-card-record{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.card-selection-bar{width:min(100%,422px);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:#fff;border:1px solid #cfe3f5;border-radius:12px}
 .identity-card-pair{display:flex;gap:14px;justify-content:center;break-inside:avoid;page-break-inside:avoid}
 .identity-card{width:54mm;height:86mm;box-sizing:border-box;border:1.15mm solid #082d61;border-radius:4mm;overflow:hidden;background-color:#fff;background-image:linear-gradient(135deg,transparent 0 68%,rgba(19,92,145,.045) 68.4% 69%,transparent 69.4%),linear-gradient(135deg,transparent 0 76%,rgba(19,92,145,.035) 76.4% 77%,transparent 77.4%);background-size:100% 100%;position:relative;text-align:center;box-shadow:inset 0 0 0 .55mm #fff,inset 0 0 0 .9mm #2b75b6,0 8px 24px rgba(15,23,42,.14);font-family:Tahoma,Arial,sans-serif;isolation:isolate;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .identity-card::before,.identity-card::after{content:"";position:absolute;pointer-events:none;z-index:0}
@@ -114,17 +142,79 @@
 .identity-card-back::after{right:-2mm;bottom:-2mm;width:27mm;height:25mm;clip-path:polygon(38% 100%,100% 15%,100% 100%);background:linear-gradient(132deg,transparent 0 45%,#d7aa2b 46% 47.5%,transparent 48.5%),linear-gradient(132deg,transparent 0 32%,#32b8ef 33% 44%,#1679c8 45% 61%,#082d61 62% 100%);opacity:.98}
 .back-company{font-size:15pt;font-weight:900;letter-spacing:.8px;margin-bottom:7mm;direction:ltr}.training-year-label{font-size:10pt;font-weight:700}.training-year-value{font-size:16pt;font-weight:900;margin:2mm 0 6mm;direction:ltr}.identity-qr{width:34mm;height:34mm;background:#fff;border:1px solid #bdd1e7;border-radius:2mm;padding:1.5mm}
 @media print{
-  @page{size:A4 portrait;margin:8mm}
-  body{background:#fff!important}.sidebar,.no-print,.page-title,.navbar{display:none!important}.main-content,.content-wrapper{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
-  .cards-print-heading{display:block}.identity-cards-grid{grid-template-columns:111mm;gap:5mm;justify-content:center}.identity-card-pair{gap:3mm}.identity-card{box-shadow:none;border-color:#135c91}
+  @page{size:54mm 86mm;margin:0}
+  html,body{width:54mm!important;min-width:54mm!important;margin:0!important;padding:0!important;background:#fff!important}
+  body *{visibility:hidden!important}
+  body.card-print-mode .identity-cards-grid,
+  body.card-print-mode .identity-cards-grid *{visibility:visible!important}
+  body.card-print-mode .identity-cards-grid{position:absolute!important;inset:0 auto auto 0!important;display:block!important;width:54mm!important;margin:0!important;padding:0!important}
+  .sidebar,.no-print,.page-title,.navbar,.cards-print-heading{display:none!important}
+  .main-content,.content-wrapper,.container,.container-fluid{margin:0!important;padding:0!important;width:54mm!important;max-width:54mm!important}
+  .identity-card-record{display:block!important;width:54mm!important;margin:0!important;padding:0!important;break-after:page;page-break-after:always}
+  .identity-card-record:not(.is-print-selected){display:none!important}
+  .identity-card-pair{display:block!important;width:54mm!important;margin:0!important;padding:0!important}
+  .identity-card{display:flex!important;width:54mm!important;height:86mm!important;margin:0!important;box-shadow:none!important;border-color:#135c91;break-inside:avoid;page-break-inside:avoid}
+  .identity-card-front{break-after:page;page-break-after:always}
+  .identity-card-back{break-after:auto;page-break-after:auto}
 }
 </style>
 <script>
-function printCards(asPdf){
+let cardPrintTitle = '';
+
+function cardRecords(){
+  return Array.from(document.querySelectorAll('.identity-card-record'));
+}
+
+function updateSelectedCardsCount(){
+  const checkboxes = Array.from(document.querySelectorAll('.member-card-checkbox'));
+  const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
+  const counter = document.getElementById('selected-cards-count');
+  const selectAll = document.getElementById('select-all-cards');
+  if(counter) counter.textContent = selected + ' من ' + checkboxes.length + ' كارت';
+  if(selectAll){
+    selectAll.checked = checkboxes.length > 0 && selected === checkboxes.length;
+    selectAll.indeterminate = selected > 0 && selected < checkboxes.length;
+  }
+}
+
+function toggleAllCards(checked){
+  document.querySelectorAll('.member-card-checkbox').forEach((checkbox) => { checkbox.checked = checked; });
+  updateSelectedCardsCount();
+}
+
+function cleanupCardPrint(){
+  document.body.classList.remove('card-print-mode');
+  cardRecords().forEach((record) => record.classList.remove('is-print-selected'));
+  if(cardPrintTitle){
+    document.title = cardPrintTitle;
+    cardPrintTitle = '';
+  }
+}
+
+function startCardPrint(asPdf, memberId){
+  const selectedRecords = cardRecords().filter((record) => {
+    if(memberId) return record.dataset.memberId === String(memberId);
+    const checkbox = record.querySelector('.member-card-checkbox');
+    return checkbox && checkbox.checked;
+  });
+  if(!selectedRecords.length){
+    window.alert('اختر كارتًا واحدًا على الأقل للطباعة.');
+    return;
+  }
+  cleanupCardPrint();
+  selectedRecords.forEach((record) => record.classList.add('is-print-selected'));
+  document.body.classList.add('card-print-mode');
+  cardPrintTitle = document.title;
   const oldTitle=document.title;
   document.title=(asPdf?'PDF - ':'')+'كروت التعارف - {{ academy.name|escapejs }} - {{ training_year|escapejs }}';
   window.print();
-  setTimeout(()=>document.title=oldTitle,600);
+  document.title=oldTitle;
+  cleanupCardPrint();
 }
+
+function printSelectedCards(asPdf){ startCardPrint(asPdf, null); }
+function printOneCard(memberId){ startCardPrint(false, memberId); }
+window.addEventListener('afterprint', cleanupCardPrint);
+document.addEventListener('DOMContentLoaded', updateSelectedCardsCount);
 </script>
 {% endblock %}
