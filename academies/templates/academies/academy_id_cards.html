@@ -153,7 +153,10 @@
   .identity-card-record{display:block!important;width:54mm!important;margin:0!important;padding:0!important;break-after:page;page-break-after:always}
   .identity-card-record:not(.is-print-selected){display:none!important}
   .identity-card-pair{display:block!important;width:54mm!important;margin:0!important;padding:0!important}
-  .identity-card{display:flex!important;width:54mm!important;height:86mm!important;margin:0!important;box-shadow:none!important;border-color:#135c91;break-inside:avoid;page-break-inside:avoid}
+  /* Leave a 0.4 mm safety inset on every side. Printing a 54x86 mm
+     element flush to a 54x86 mm page can lose the left border because
+     of browser/driver rounding and the printer's non-printable edge. */
+  .identity-card{display:flex!important;width:53.2mm!important;height:85.2mm!important;margin:.4mm!important;box-shadow:none!important;border-color:#135c91;break-inside:avoid;page-break-inside:avoid}
   .identity-card-front{break-after:page;page-break-after:always}
   .identity-card-back{break-after:auto;page-break-after:auto}
 }
