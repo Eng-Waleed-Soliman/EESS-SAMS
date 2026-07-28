@@ -30,6 +30,8 @@ from .models import (
     AppSetting,
     Branch,
     CafeteriaCategory,
+    CafeteriaHospitality,
+    CafeteriaHospitalityItem,
     CafeteriaItem,
     CafeteriaPurchase,
     CafeteriaSale,
@@ -841,6 +843,58 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, '<td>3</td>', html=True)
         self.assertContains(response, '<td class="fw-bold">7</td>', html=True)
 
+    def test_cafeteria_hospitality_deducts_stock_and_appears_in_report(self):
+        self.user.is_staff = True
+        self.user.is_superuser = True
+        self.user.save(update_fields=['is_staff', 'is_superuser'])
+        board_member = Shareholder.objects.create(
+            name='عضو مجلس الإدارة',
+            job_title='عضو مجلس الإدارة',
+        )
+        category = CafeteriaCategory.objects.create(code=901, name='ضيافة')
+        item = CafeteriaItem.objects.create(
+            category=category,
+            code=1,
+            name='مياه معدنية',
+            opening_quantity=10,
+            purchase_price=5,
+            sale_price=15,
+        )
+
+        response = self.client.post(reverse('cafe_sale_list'), {
+            'sale_date': '2026-07-28',
+            'order_items': json.dumps([{'item_id': item.pk, 'quantity': 2}]),
+            'checkout_action': 'hospitality',
+            'hospitality_board_member': board_member.pk,
+            'hospitality_employee_name': 'موظف الاختبار',
+        })
+
+        self.assertRedirects(response, reverse('cafe_sale_list'))
+        hospitality = CafeteriaHospitality.objects.get()
+        line = CafeteriaHospitalityItem.objects.get(hospitality=hospitality)
+        self.assertEqual(hospitality.board_member, board_member)
+        self.assertEqual(hospitality.employee_name, 'موظف الاختبار')
+        self.assertEqual(line.item, item)
+        self.assertEqual(line.quantity, 2)
+        self.assertEqual(line.unit_price, 15)
+        self.assertEqual(hospitality.total_amount, 30)
+        self.assertFalse(CafeteriaSale.objects.filter(item=item).exists())
+        item.refresh_from_db()
+        self.assertEqual(item.stock_quantity, 8)
+
+        report = self.client.get(reverse('reports_home'), {
+            'report_type': 'cafeteria',
+            'section': 'hospitality',
+            'range_mode': 'custom',
+            'date_from': '2026-07-28',
+            'date_to': '2026-07-28',
+        })
+        self.assertEqual(report.status_code, 200)
+        self.assertContains(report, 'عضو مجلس الإدارة')
+        self.assertContains(report, 'موظف الاختبار')
+        self.assertContains(report, 'مياه معدنية')
+        self.assertContains(report, '30')
+
     def test_cafeteria_stock_adjustment_replaces_old_balance_and_appears_in_sales(self):
         today = date.today()
         category = CafeteriaCategory.objects.create(code=77, name='Stock adjustment')
@@ -1561,6 +1615,12 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'background-color:#fff')
         self.assertContains(response, 'border:1.15mm solid #082d61')
         self.assertContains(response, 'linear-gradient(132deg')
+        self.assertContains(response, '@page{size:54mm 86mm;margin:0}')
+        self.assertContains(response, 'printSelectedCards(true)')
+        self.assertContains(response, 'printSelectedCards(false)')
+        self.assertContains(response, 'printOneCard')
+        self.assertContains(response, 'member-card-checkbox')
+        self.assertNotContains(response, '@page{size:A4 portrait')
         self.assertContains(response, 'تصدير PDF')
         self.assertContains(response, 'طباعة')
 

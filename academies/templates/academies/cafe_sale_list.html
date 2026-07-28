@@ -25,6 +25,7 @@
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
       <input type="hidden" name="order_items" id="order_items">
+      <input type="hidden" name="checkout_action" id="checkout_action" value="sale">
       <h5 class="fw-bold mb-3">إضافة حركة بيع</h5>
       <div class="row g-3">
         <input type="hidden" id="categoryFilter" value="{{ selected_category }}">
@@ -77,9 +78,30 @@
         </div>
         <div class="d-flex gap-2 justify-content-end flex-wrap">
           <button type="button" class="btn btn-secondary" id="clearOrder">تفريغ الأوردر</button>
-          <button class="btn" id="checkoutOrder">Checkout</button>
+          <button type="button" class="btn" id="hospitalityOrder">ضيافة</button>
+          <button type="button" class="btn" id="checkoutOrder">Checkout</button>
         </div>
       </div>
+      <dialog id="hospitalityDialog" class="hospitality-dialog">
+        <div class="hospitality-dialog__header">
+          <h5 class="fw-bold m-0">تسجيل حركة ضيافة</h5>
+          <button type="button" class="hospitality-dialog__close" id="cancelHospitality" aria-label="إغلاق">×</button>
+        </div>
+        <div class="hospitality-dialog__body">
+          <label class="form-label fw-bold" for="hospitality_board_member">عضو مجلس الإدارة</label>
+          <select class="form-select mb-3" name="hospitality_board_member" id="hospitality_board_member">
+            <option value="">اختر عضو مجلس الإدارة</option>
+            {% for member in board_members %}<option value="{{ member.id }}">{{ member.name }}</option>{% endfor %}
+          </select>
+          <label class="form-label fw-bold" for="hospitality_employee_name">اسم الموظف الذي استلم الضيافة</label>
+          <input class="form-control" type="text" name="hospitality_employee_name" id="hospitality_employee_name" maxlength="200" placeholder="اكتب اسم الموظف">
+          <div class="text-danger small mt-2" id="hospitalityError"></div>
+        </div>
+        <div class="hospitality-dialog__actions">
+          <button type="button" class="btn btn-secondary" id="closeHospitality">إلغاء</button>
+          <button type="button" class="btn" id="confirmHospitality">OK</button>
+        </div>
+      </dialog>
     </form>
   </div>
 
@@ -146,6 +168,12 @@
 .cafe-category-card small{font-size:13px;color:#64748b}
 .cafe-category-card:hover small,.cafe-category-card.active small{color:#dbeafe}
 .order-panel{border-top:1px solid #e5e7eb;padding-top:14px}
+.hospitality-dialog{width:min(520px,calc(100vw - 32px));border:0;border-radius:18px;padding:0;box-shadow:0 24px 70px rgba(15,23,42,.3);direction:rtl}
+.hospitality-dialog::backdrop{background:rgba(15,23,42,.55)}
+.hospitality-dialog__header,.hospitality-dialog__actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid #e5e7eb}
+.hospitality-dialog__actions{justify-content:flex-start;border-bottom:0;border-top:1px solid #e5e7eb}
+.hospitality-dialog__body{padding:22px 20px}
+.hospitality-dialog__close{border:0;background:transparent;font-size:28px;line-height:1;color:#64748b}
 </style>
 <script>
 const rawItems = JSON.parse(document.getElementById('items-data').textContent);
@@ -167,6 +195,16 @@ const orderTotal = document.getElementById('orderTotal');
 const addOrderItemBtn = document.getElementById('addOrderItem');
 const clearOrderBtn = document.getElementById('clearOrder');
 const quickSaleForm = document.getElementById('quickSaleForm');
+const checkoutAction = document.getElementById('checkout_action');
+const checkoutOrderBtn = document.getElementById('checkoutOrder');
+const hospitalityOrderBtn = document.getElementById('hospitalityOrder');
+const hospitalityDialog = document.getElementById('hospitalityDialog');
+const hospitalityMember = document.getElementById('hospitality_board_member');
+const hospitalityEmployee = document.getElementById('hospitality_employee_name');
+const hospitalityError = document.getElementById('hospitalityError');
+const confirmHospitality = document.getElementById('confirmHospitality');
+const cancelHospitality = document.getElementById('cancelHospitality');
+const closeHospitality = document.getElementById('closeHospitality');
 let orderItems = [];
 
 if(saleDate && !saleDate.value){
@@ -290,6 +328,36 @@ if(itemSelect){ itemSelect.addEventListener('change', function(){ priceInput.val
 if(quantityInput){ quantityInput.addEventListener('input', refreshSale); }
 if(addOrderItemBtn){ addOrderItemBtn.addEventListener('click', addCurrentItemToOrder); }
 if(clearOrderBtn){ clearOrderBtn.addEventListener('click', function(){ orderItems = []; renderOrder(); }); }
+if(checkoutOrderBtn){
+  checkoutOrderBtn.addEventListener('click', function(){
+    checkoutAction.value = 'sale';
+    quickSaleForm.requestSubmit();
+  });
+}
+if(hospitalityOrderBtn){
+  hospitalityOrderBtn.addEventListener('click', function(){
+    if(orderItems.length === 0){
+      stockInfo.textContent = 'أضف صنفاً واحداً على الأقل للأوردر قبل تسجيل الضيافة.';
+      return;
+    }
+    hospitalityError.textContent = '';
+    hospitalityDialog.showModal();
+  });
+}
+function dismissHospitality(){ if(hospitalityDialog.open){ hospitalityDialog.close(); } }
+if(cancelHospitality){ cancelHospitality.addEventListener('click', dismissHospitality); }
+if(closeHospitality){ closeHospitality.addEventListener('click', dismissHospitality); }
+if(confirmHospitality){
+  confirmHospitality.addEventListener('click', function(){
+    if(!hospitalityMember.value || !hospitalityEmployee.value.trim()){
+      hospitalityError.textContent = 'اختر عضو مجلس الإدارة واكتب اسم الموظف.';
+      return;
+    }
+    checkoutAction.value = 'hospitality';
+    hospitalityDialog.close();
+    quickSaleForm.requestSubmit();
+  });
+}
 if(orderRows){
   orderRows.addEventListener('click', function(event){
     const button = event.target.closest('.remove-order-item');

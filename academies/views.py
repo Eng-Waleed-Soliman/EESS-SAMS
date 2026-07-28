@@ -14,7 +14,7 @@ from django.db.models import Sum, Q, Count
 from django.http import HttpResponse, Http404
 from django.utils import timezone
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaCashSupply, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
@@ -1999,6 +1999,7 @@ def cafe_sale_list(request):
     form = CafeteriaSaleForm(request.POST or None)
     if request.method == 'POST':
         raw_order = request.POST.get('order_items', '').strip()
+        checkout_action = request.POST.get('checkout_action', 'sale').strip()
         if raw_order:
             try:
                 order_items = json.loads(raw_order)
@@ -2025,16 +2026,48 @@ def cafe_sale_list(request):
                 if requested_by_item[item.id] > item.stock_quantity:
                     messages.error(request, f'المخزون غير كاف للصنف {item.name}. المتاح: {item.stock_quantity}.')
                     return redirect('cafe_sale_list')
+            board_member = None
+            employee_name = ''
+            if checkout_action == 'hospitality':
+                board_member = Shareholder.objects.filter(pk=request.POST.get('hospitality_board_member')).first()
+                employee_name = request.POST.get('hospitality_employee_name', '').strip()
+                if not board_member:
+                    messages.error(request, 'اختر عضو مجلس الإدارة الخاص بحركة الضيافة.')
+                    return redirect('cafe_sale_list')
+                if not employee_name:
+                    messages.error(request, 'اكتب اسم الموظف الذي استلم الضيافة.')
+                    return redirect('cafe_sale_list')
+
             with transaction.atomic():
-                for item, quantity, unit_price in prepared_rows:
-                    CafeteriaSale.objects.create(
-                        item=item,
-                        sale_date=sale_date,
-                        quantity=quantity,
-                        unit_price=unit_price,
-                        notes=notes,
+                if checkout_action == 'hospitality':
+                    hospitality = CafeteriaHospitality.objects.create(
+                        board_member=board_member,
+                        employee_name=employee_name,
+                        hospitality_date=sale_date,
+                        created_by=request.user,
                     )
+                    for item, quantity, unit_price in prepared_rows:
+                        CafeteriaHospitalityItem.objects.create(
+                            hospitality=hospitality,
+                            item=item,
+                            item_code=item.code,
+                            item_name=item.name,
+                            quantity=quantity,
+                            unit_price=unit_price,
+                        )
+                else:
+                    for item, quantity, unit_price in prepared_rows:
+                        CafeteriaSale.objects.create(
+                            item=item,
+                            sale_date=sale_date,
+                            quantity=quantity,
+                            unit_price=unit_price,
+                            notes=notes,
+                        )
             created_count = len(prepared_rows)
+            if checkout_action == 'hospitality':
+                messages.success(request, f'تم تسجيل الضيافة وخصم {created_count} صنف من المخزون بنجاح.')
+                return redirect('cafe_sale_list')
             messages.success(request, f'تم Checkout للأوردر وحفظ {created_count} صنف بنجاح.')
             return redirect('cafe_sale_list')
         if form.is_valid():
@@ -2075,6 +2108,7 @@ def cafe_sale_list(request):
         'today_profit': today_profit,
         'today_count': today_sales.count(),
         'low_stock_items': low_stock_items,
+        'board_members': Shareholder.objects.all().order_by('name'),
     })
 
 @login_required
@@ -3085,7 +3119,7 @@ def reports_home_v2(request):
         'academies': {'summary', 'staff', 'player'},
         'monthly_income': {'summary', 'expected', 'paid', 'supplied'},
         'expenses': {'summary', 'monthly', 'daily'},
-        'cafeteria': {'summary', 'inventory', 'statistics'},
+        'cafeteria': {'summary', 'inventory', 'statistics', 'hospitality'},
     }
     if report_type == 'academies' and requested_section in {'coach', 'admin'}:
         requested_section = 'staff'
@@ -3126,6 +3160,8 @@ def reports_home_v2(request):
         'daily_expense_rows': [],
         'cafeteria_rows': [],
         'cafeteria_statistics': [],
+        'cafeteria_hospitality_groups': [],
+        'cafeteria_hospitality_total': 0,
         'security_rows': [],
     }
     employee_qs = Employee.objects.all()
@@ -3316,6 +3352,10 @@ def reports_home_v2(request):
             row['item_id']: row['total'] or 0
             for row in CafeteriaSale.objects.values('item_id').annotate(total=Sum('quantity'))
         }
+        all_hospitality_quantities = {
+            row['item_id']: row['total'] or 0
+            for row in CafeteriaHospitalityItem.objects.values('item_id').annotate(total=Sum('quantity'))
+        }
         for purchase in purchases:
             purchased_quantities[purchase.item_id] = purchased_quantities.get(purchase.item_id, 0) + purchase.quantity
         for sale in sales:
@@ -3330,11 +3370,44 @@ def reports_home_v2(request):
                 'item': item,
                 'purchased': purchased_quantities.get(item.id, 0),
                 'sold': sold_quantities.get(item.id, 0),
-                'remaining': int(item.opening_quantity or 0) + int(all_purchased_quantities.get(item.id, 0)) - int(all_sold_quantities.get(item.id, 0)),
+                'remaining': (
+                    int(item.opening_quantity or 0)
+                    + int(all_purchased_quantities.get(item.id, 0))
+                    - int(all_sold_quantities.get(item.id, 0))
+                    - int(all_hospitality_quantities.get(item.id, 0))
+                ),
                 'revenue': revenue,
                 'profit': profit,
                 'profit_percentage': round((profit / revenue) * 100, 1) if revenue else 0,
             })
+        hospitality_qs = CafeteriaHospitality.objects.filter(
+            hospitality_date__range=(start, end)
+        ).select_related('board_member', 'created_by').prefetch_related(
+            'items__item'
+        ).order_by('board_member__name', 'hospitality_date', 'id')
+        hospitality_groups = {}
+        hospitality_total = 0
+        for movement in hospitality_qs:
+            movement_lines = [
+                line for line in movement.items.all()
+                if all_branches or line.item.branch_id == active_branch.id
+            ]
+            if not movement_lines:
+                continue
+            movement_total = sum(line.total_amount for line in movement_lines)
+            group = hospitality_groups.setdefault(movement.board_member_id, {
+                'member': movement.board_member,
+                'movements': [],
+                'total': 0,
+            })
+            group['movements'].append({
+                'movement': movement,
+                'lines': movement_lines,
+                'total': movement_total,
+            })
+            group['total'] += movement_total
+            hospitality_total += movement_total
+
         context.update({
             'cafeteria_purchase_total': purchase_total,
             'cafeteria_sales_total': sales_total,
@@ -3342,6 +3415,8 @@ def reports_home_v2(request):
             'cafeteria_supplied_total': supplied_total,
             'cafeteria_rows': cafeteria_rows,
             'cafeteria_statistics': sorted(cafeteria_rows, key=lambda row: (-row['sold'], row['item'].name)),
+            'cafeteria_hospitality_groups': list(hospitality_groups.values()),
+            'cafeteria_hospitality_total': hospitality_total,
         })
 
     elif report_type == 'security_log':

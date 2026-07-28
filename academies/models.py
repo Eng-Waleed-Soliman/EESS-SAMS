@@ -1088,8 +1088,18 @@ class CafeteriaItem(models.Model):
         return self.sales.aggregate(total=models.Sum('quantity'))['total'] or 0
 
     @property
+    def hospitality_quantity(self):
+        return self.hospitality_items.aggregate(total=models.Sum('quantity'))['total'] or 0
+
+    @property
     def stock_quantity(self):
-        return int(self.opening_quantity + self.purchased_quantity - self.sold_quantity + self.stock_adjustment)
+        return int(
+            self.opening_quantity
+            + self.purchased_quantity
+            - self.sold_quantity
+            - self.hospitality_quantity
+            + self.stock_adjustment
+        )
 
     @property
     def alert_limit(self):
@@ -1149,6 +1159,70 @@ class CafeteriaSale(models.Model):
 
     def __str__(self):
         return f'{self.item} - {self.quantity}'
+
+
+class CafeteriaHospitality(models.Model):
+    board_member = models.ForeignKey(
+        Shareholder,
+        on_delete=models.PROTECT,
+        related_name='cafeteria_hospitality_movements',
+        verbose_name='عضو مجلس الإدارة',
+    )
+    employee_name = models.CharField(max_length=200, verbose_name='اسم الموظف المستلم')
+    hospitality_date = models.DateField(default=datetime.date.today, verbose_name='تاريخ الضيافة')
+    created_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='cafeteria_hospitality_movements',
+        verbose_name='سجل بواسطة',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-hospitality_date', '-id']
+        verbose_name = 'حركة ضيافة كافيتريا'
+        verbose_name_plural = 'حركات ضيافة الكافيتريا'
+
+    @property
+    def total_amount(self):
+        return sum(line.total_amount for line in self.items.all())
+
+    def __str__(self):
+        return f'{self.board_member} - {self.hospitality_date}'
+
+
+class CafeteriaHospitalityItem(models.Model):
+    hospitality = models.ForeignKey(
+        CafeteriaHospitality,
+        on_delete=models.CASCADE,
+        related_name='items',
+        verbose_name='حركة الضيافة',
+    )
+    item = models.ForeignKey(
+        CafeteriaItem,
+        on_delete=models.PROTECT,
+        related_name='hospitality_items',
+        verbose_name='الصنف',
+    )
+    item_code = models.PositiveIntegerField(default=0, verbose_name='كود الصنف وقت الحركة')
+    item_name = models.CharField(max_length=200, verbose_name='اسم الصنف وقت الحركة')
+    quantity = models.PositiveIntegerField(default=1, verbose_name='الكمية')
+    unit_price = models.PositiveIntegerField(default=0, verbose_name='سعر البيع وقت الحركة')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+        verbose_name = 'صنف حركة ضيافة'
+        verbose_name_plural = 'أصناف حركات الضيافة'
+
+    @property
+    def total_amount(self):
+        return int((self.quantity or 0) * (self.unit_price or 0))
+
+    def __str__(self):
+        return f'{self.item_name} - {self.quantity}'
 
 
 class CafeteriaCashSupply(models.Model):

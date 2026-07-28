@@ -134,10 +134,50 @@
 {% endif %}
 
 {% if report_type == 'cafeteria' %}
+<div class="d-flex gap-2 flex-wrap mb-3 no-print">
+  <a class="btn {% if section == 'hospitality' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&amp;range_mode={{ range_mode }}&amp;month={{ month_value }}&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}&amp;section=hospitality">الضيافة</a>
+</div>
 <div class="d-flex gap-2 flex-wrap mb-3"><a class="btn {% if section == 'summary' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&month={{ month_value }}&section=summary">ملخص الكافيتريا</a><a class="btn {% if section == 'inventory' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&month={{ month_value }}&section=inventory">الجرد</a><a class="btn {% if section == 'statistics' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&month={{ month_value }}&section=statistics">الإحصائيات</a></div>
 <div class="row g-3 mb-4"><div class="col-md-3"><div class="card p-3"><b>إجمالي المشتريات</b><h3>{{ cafeteria_purchase_total }}</h3></div></div><div class="col-md-3"><div class="card p-3"><b>إجمالي المبيعات</b><h3>{{ cafeteria_sales_total }}</h3></div></div><div class="col-md-3"><div class="card p-3"><b>صافي الربح</b><h3>{{ cafeteria_net_profit }}</h3></div></div><div class="col-md-3"><div class="card p-3"><b>إجمالي المبلغ المورد</b><h3>{{ cafeteria_supplied_total }}</h3></div></div></div>
 {% if section == 'inventory' %}<div class="card p-3"><h4>جرد كميات الأصناف خلال الشهر</h4><table class="table table-striped text-center"><thead><tr><th>كود الصنف</th><th>الفئة</th><th>الصنف</th><th>كمية الشراء</th><th>كمية البيع</th><th>الكمية الحالية بالمخزون</th></tr></thead><tbody>{% for row in cafeteria_rows %}<tr><td>{{ row.item.code }}</td><td>{{ row.item.category.name|default:'-' }}</td><td>{{ row.item.name }}</td><td>{{ row.purchased }}</td><td>{{ row.sold }}</td><td>{{ row.remaining }}</td></tr>{% empty %}<tr><td colspan="6">لا توجد أصناف</td></tr>{% endfor %}</tbody></table></div>{% endif %}
 {% if section == 'statistics' %}<div class="card p-3"><h4>إحصائيات الأصناف مرتبة حسب الأكثر مبيعًا</h4><table class="table table-striped text-center"><thead><tr><th>الترتيب</th><th>الصنف</th><th>الكمية المباعة</th><th>إيراد المبيعات</th><th>ربح الصنف</th><th>نسبة الربح</th></tr></thead><tbody>{% for row in cafeteria_statistics %}<tr><td>{{ forloop.counter }}</td><td>{{ row.item.name }}</td><td>{{ row.sold }}</td><td>{{ row.revenue }}</td><td>{{ row.profit }}</td><td>{{ row.profit_percentage }}%</td></tr>{% empty %}<tr><td colspan="6">لا توجد أصناف</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% endif %}
+
+{% if report_type == 'cafeteria' and section == 'hospitality' %}
+<div class="card p-3 hospitality-report">
+  <h3 class="text-center fw-bold mb-4">تقرير الضيافة</h3>
+  {% for group in cafeteria_hospitality_groups %}
+  <section class="mb-4 hospitality-member-section">
+    <h4 class="fw-bold mb-3">عضو مجلس الإدارة: {{ group.member.name }}</h4>
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped text-center align-middle">
+        <thead>
+          <tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>إجمالي الصنف</th><th>إجمالي الحركة</th><th>اسم الموظف</th></tr>
+        </thead>
+        <tbody>
+          {% for entry in group.movements %}
+            {% for line in entry.lines %}
+            <tr>
+              <td>{{ entry.movement.hospitality_date|date:'d/m/Y' }}</td>
+              <td>{{ line.item_name }}</td>
+              <td>{{ line.quantity }}</td>
+              <td>{{ line.unit_price }}</td>
+              <td>{{ line.total_amount }}</td>
+              <td>{% if forloop.first %}{{ entry.total }}{% else %}—{% endif %}</td>
+              <td>{{ entry.movement.employee_name }}</td>
+            </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+        <tfoot><tr class="fw-bold"><th colspan="6">إجمالي الضيافة للعضو</th><th>{{ group.total }}</th></tr></tfoot>
+      </table>
+    </div>
+  </section>
+  {% empty %}
+  <div class="alert alert-info text-center">لا توجد حركات ضيافة خلال الفترة المختارة.</div>
+  {% endfor %}
+  <div class="alert alert-primary text-center fw-bold fs-5 mb-0">إجمالي الضيافة لجميع أعضاء مجلس الإدارة: {{ cafeteria_hospitality_total }}</div>
+</div>
 {% endif %}
 
 {% if report_type == 'security_log' %}
