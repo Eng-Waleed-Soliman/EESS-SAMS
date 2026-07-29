@@ -1,0 +1,103 @@
+{% extends 'academies/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<style>
+  .branch-gallery-section{margin-top:28px;padding-top:24px;border-top:1px solid #d8e3ec}
+  .branch-gallery-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .branch-gallery-row{border:1px solid #d5e2ee;border-radius:16px;padding:16px;background:#f9fcff}
+  .branch-gallery-row.is-deleted{display:none}
+  .branch-gallery-preview{width:100%;height:180px;object-fit:contain;background:#fff;border:1px solid #e0e9f1;border-radius:12px;margin-bottom:12px}
+  .branch-gallery-actions{display:flex;justify-content:flex-end;margin-top:10px}
+  .gallery-delete-input{display:none}
+  @media(max-width:760px){.branch-gallery-grid{grid-template-columns:1fr}}
+</style>
+
+<div class="page-header"><h1>{{ title }}</h1></div>
+<div class="card">
+  <form method="post" enctype="multipart/form-data" id="branch-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-grid">
+      {% for field in form %}
+      <div class="form-group{% if field.name == 'notes' or field.name == 'website_description' or field.name == 'website_description_en' %} full-width{% endif %}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<small class="form-text">{{ field.help_text }}</small>{% endif %}
+        {% for error in field.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <section class="branch-gallery-section">
+      <div class="section-title-row">
+        <div>
+          <h2>صور الفرع الإضافية</h2>
+          <p class="text-muted">يمكن إضافة عدة صور، مع شرح مختصر من سطر واحد لكل صورة.</p>
+        </div>
+        <button type="button" class="btn btn-secondary" id="add-gallery-image">إضافة صورة أخرى</button>
+      </div>
+      {{ gallery_formset.management_form }}
+      {% if gallery_formset.non_form_errors %}<div class="alert alert-danger">{{ gallery_formset.non_form_errors }}</div>{% endif %}
+      <div class="branch-gallery-grid" id="gallery-forms">
+        {% for gallery_form in gallery_formset %}
+        <div class="branch-gallery-row">
+          {{ gallery_form.id }}
+          <div class="gallery-delete-input">{{ gallery_form.DELETE }}</div>
+          {% if gallery_form.instance.pk %}
+            {% if gallery_form.instance.image_name %}
+              <img class="branch-gallery-preview" src="{% url 'persistent_media' 'branch_gallery' gallery_form.instance.pk 'image' %}" alt="{{ gallery_form.instance.caption }}">
+            {% elif gallery_form.instance.image %}
+              <img class="branch-gallery-preview" src="{{ gallery_form.instance.image.url }}" alt="{{ gallery_form.instance.caption }}">
+            {% endif %}
+          {% endif %}
+          <div class="form-group">
+            <label>{{ gallery_form.image.label }}</label>{{ gallery_form.image }}
+            {% for error in gallery_form.image.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="form-group">
+            <label>{{ gallery_form.caption.label }}</label>{{ gallery_form.caption }}
+            {% for error in gallery_form.caption.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="branch-gallery-actions"><button type="button" class="btn btn-danger remove-gallery-image">حذف الصورة</button></div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">حفظ</button>
+      <a class="btn btn-secondary" href="{% url 'branch_list' %}">رجوع</a>
+    </div>
+  </form>
+</div>
+
+<template id="empty-gallery-form">
+  <div class="branch-gallery-row">
+    {{ gallery_formset.empty_form.id }}
+    <div class="gallery-delete-input">{{ gallery_formset.empty_form.DELETE }}</div>
+    <div class="form-group"><label>{{ gallery_formset.empty_form.image.label }}</label>{{ gallery_formset.empty_form.image }}</div>
+    <div class="form-group"><label>{{ gallery_formset.empty_form.caption.label }}</label>{{ gallery_formset.empty_form.caption }}</div>
+    <div class="branch-gallery-actions"><button type="button" class="btn btn-danger remove-gallery-image">حذف الصورة</button></div>
+  </div>
+</template>
+<script>
+(() => {
+  const container = document.getElementById('gallery-forms');
+  const total = document.getElementById('id_gallery-TOTAL_FORMS');
+  const template = document.getElementById('empty-gallery-form');
+  document.getElementById('add-gallery-image').addEventListener('click', () => {
+    const index = Number(total.value);
+    container.insertAdjacentHTML('beforeend', template.innerHTML.replaceAll('__prefix__', index));
+    total.value = index + 1;
+  });
+  container.addEventListener('click', (event) => {
+    const button = event.target.closest('.remove-gallery-image');
+    if (!button) return;
+    const row = button.closest('.branch-gallery-row');
+    const checkbox = row.querySelector('input[name$="-DELETE"]');
+    if (checkbox) checkbox.checked = true;
+    row.classList.add('is-deleted');
+  });
+})();
+</script>
+{% endblock %}

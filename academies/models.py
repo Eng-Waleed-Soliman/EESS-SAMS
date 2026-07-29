@@ -116,7 +116,7 @@ class Branch(models.Model):
     location = models.CharField(max_length=250, blank=True, verbose_name='الموقع')
     location_en = models.CharField(max_length=250, blank=True, verbose_name='الموقع بالإنجليزية')
     logo = models.FileField(upload_to='branches/logos/', blank=True, verbose_name='لوجو الفرع')
-    image = models.FileField(upload_to='branches/images/', blank=True, verbose_name='صورة الفرع')
+    image = models.FileField(upload_to='branches/images/', blank=True, verbose_name='صورة الفرع الرئيسية')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     website_description = models.TextField(blank=True, verbose_name='نبذة الفرع على الموقع')
     website_description_en = models.TextField(blank=True, verbose_name='نبذة الفرع بالإنجليزية على الموقع')
@@ -144,6 +144,33 @@ class Branch(models.Model):
     @property
     def logo_data_uri(self):
         return image_data_uri(self.logo_data, self.logo_content_type)
+
+    @property
+    def image_data_uri(self):
+        return image_data_uri(self.image_data, self.image_content_type)
+
+
+class BranchGalleryImage(models.Model):
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.CASCADE,
+        related_name='gallery_images',
+        verbose_name='الفرع',
+    )
+    image = models.FileField(upload_to='branches/gallery/', verbose_name='الصورة الإضافية')
+    caption = models.CharField(max_length=250, verbose_name='شرح الصورة (سطر واحد)')
+    image_data = models.BinaryField(null=True, blank=True, editable=False)
+    image_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    image_name = models.CharField(max_length=255, blank=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+        verbose_name = 'صورة إضافية للفرع'
+        verbose_name_plural = 'صور الفرع الإضافية'
+
+    def __str__(self):
+        return f'{self.branch.display_name} - {self.caption}'
 
     @property
     def image_data_uri(self):

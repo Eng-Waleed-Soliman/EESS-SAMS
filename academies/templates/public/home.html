@@ -70,6 +70,20 @@
         <span class="card-meta">{{ branch.public_location|default:"EESS" }}</span>
         <h3>{{ branch.public_name }}</h3>
         <p>{{ branch.public_description|default:t.branch_default }}</p>
+        {% with gallery=branch.gallery_images.all %}
+          {% if gallery %}
+          <div class="branch-gallery" aria-label="صور {{ branch.public_name }}">
+            {% for gallery_image in gallery %}
+            <figure class="branch-gallery-item">
+              <a href="{% url 'persistent_media' 'branch_gallery' gallery_image.pk 'image' %}" target="_blank" rel="noopener">
+                <img src="{% url 'persistent_media' 'branch_gallery' gallery_image.pk 'image' %}" alt="{{ gallery_image.caption }}">
+                <figcaption>{{ gallery_image.caption }}</figcaption>
+              </a>
+            </figure>
+            {% endfor %}
+          </div>
+          {% endif %}
+        {% endwith %}
       </div>
     </article>{% empty %}<div class="empty">{{ t.branches_empty }}</div>{% endfor %}
   </div>

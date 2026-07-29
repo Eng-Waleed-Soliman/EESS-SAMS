@@ -10,12 +10,12 @@ from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.db import transaction
-from django.db.models import Sum, Q, Count
+from django.db.models import Sum, Q, Count, Prefetch
 from django.http import HttpResponse, Http404
 from django.utils import timezone
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
@@ -26,6 +26,7 @@ def persistent_media(request, model_name, pk, field_name):
         'branding': (AppSetting, {'company_logo', 'main_screen_image'}),
         'website': (WebsiteSetting, {'hero_image', 'about_image'}),
         'branch': (Branch, {'logo', 'image'}),
+        'branch_gallery': (BranchGalleryImage, {'image'}),
         'sport': (SportActivityMedia, {'image'}),
         'academy': (Academy, {'logo', 'website_image', 'manager_photo'}),
         'member': (AcademyMember, {'photo'}),
@@ -342,6 +343,12 @@ def public_website(request):
     branches = list(
         Branch.objects.filter(is_published_on_website=True)
         .defer('logo_data', 'image_data')
+        .prefetch_related(
+            Prefetch(
+                'gallery_images',
+                queryset=BranchGalleryImage.objects.defer('image_data').order_by('id'),
+            )
+        )
         .order_by('name')
     )
     academies = list(
@@ -3577,7 +3584,7 @@ def branch_create(request):
     if not _can_manage_users(request.user):
         messages.error(request, 'ليس لديك صلاحية الإعدادات.')
         return redirect('dashboard')
-    return _generic_form(request, BranchForm, 'إضافة فرع', 'branch_list')
+    return _branch_form(request, Branch(), 'إضافة فرع')
 
 
 @login_required
@@ -3585,7 +3592,29 @@ def branch_update(request, pk):
     if not _can_manage_users(request.user):
         messages.error(request, 'ليس لديك صلاحية الإعدادات.')
         return redirect('dashboard')
-    return _generic_form(request, BranchForm, 'تعديل فرع', 'branch_list', get_object_or_404(Branch, pk=pk))
+    return _branch_form(request, get_object_or_404(Branch, pk=pk), 'تعديل فرع')
+
+
+def _branch_form(request, branch, title):
+    form = BranchForm(request.POST or None, request.FILES or None, instance=branch)
+    gallery_formset = BranchGalleryImageFormSet(
+        request.POST or None,
+        request.FILES or None,
+        instance=branch,
+        prefix='gallery',
+    )
+    if request.method == 'POST' and form.is_valid() and gallery_formset.is_valid():
+        with transaction.atomic():
+            branch = form.save()
+            gallery_formset.instance = branch
+            gallery_formset.save()
+        messages.success(request, 'تم حفظ بيانات الفرع وصوره بنجاح.')
+        return redirect('branch_list')
+    return render(request, 'academies/branch_form.html', {
+        'form': form,
+        'gallery_formset': gallery_formset,
+        'title': title,
+    })
 
 
 @login_required

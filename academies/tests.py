@@ -14,7 +14,7 @@ from PIL import Image
 
 from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
 from .forms import (
-    AcademyForm, AppSettingForm, BranchForm, DailyBookingForm,
+    AcademyForm, AppSettingForm, BranchForm, BranchGalleryImageFormSet, DailyBookingForm,
     EESSUserUpdateForm, SportActivityMediaForm,
 )
 from .middleware import DatabaseRetryMiddleware
@@ -29,6 +29,7 @@ from .models import (
     AcademyRentPaymentEntry,
     AppSetting,
     Branch,
+    BranchGalleryImage,
     CafeteriaCategory,
     CafeteriaHospitality,
     CafeteriaHospitalityItem,
@@ -392,6 +393,68 @@ class ApplicationFlowsTests(TestCase):
 
         branch.short_name = ''
         self.assertEqual(branch.display_name, branch.name)
+
+    def test_branch_gallery_images_are_saved_displayed_and_can_be_deleted(self):
+        branch = Branch.objects.create(
+            name='Gallery Branch',
+            short_name='GB',
+            is_published_on_website=True,
+        )
+        image_stream = BytesIO()
+        Image.new('RGB', (1200, 800), color='#1769aa').save(image_stream, format='PNG')
+        image_stream.seek(0)
+        upload = SimpleUploadedFile(
+            'branch-gallery.png',
+            image_stream.read(),
+            content_type='image/png',
+        )
+        formset = BranchGalleryImageFormSet(
+            data={
+                'gallery-TOTAL_FORMS': '1',
+                'gallery-INITIAL_FORMS': '0',
+                'gallery-MIN_NUM_FORMS': '0',
+                'gallery-MAX_NUM_FORMS': '1000',
+                'gallery-0-caption': 'Main sports hall',
+            },
+            files={'gallery-0-image': upload},
+            instance=branch,
+            prefix='gallery',
+        )
+        self.assertTrue(formset.is_valid(), formset.errors)
+        formset.save()
+
+        gallery_image = BranchGalleryImage.objects.get(branch=branch)
+        self.assertTrue(gallery_image.image_data)
+        self.assertEqual(gallery_image.caption, 'Main sports hall')
+
+        self.client.logout()
+        public_response = self.client.get(reverse('public_website'))
+        self.assertContains(public_response, 'Main sports hall')
+        media_url = reverse(
+            'persistent_media',
+            args=['branch_gallery', gallery_image.pk, 'image'],
+        )
+        self.assertContains(public_response, media_url)
+        media_response = self.client.get(media_url)
+        self.assertEqual(media_response.status_code, 200)
+        self.assertEqual(media_response['Content-Type'], 'image/jpeg')
+
+        delete_formset = BranchGalleryImageFormSet(
+            data={
+                'gallery-TOTAL_FORMS': '1',
+                'gallery-INITIAL_FORMS': '1',
+                'gallery-MIN_NUM_FORMS': '0',
+                'gallery-MAX_NUM_FORMS': '1000',
+                'gallery-0-id': str(gallery_image.pk),
+                'gallery-0-caption': gallery_image.caption,
+                'gallery-0-DELETE': 'on',
+            },
+            instance=branch,
+            prefix='gallery',
+        )
+        self.assertTrue(delete_formset.is_valid(), delete_formset.errors)
+        delete_formset.save()
+        self.assertFalse(BranchGalleryImage.objects.filter(pk=gallery_image.pk).exists())
 
     def test_security_entry_exit_visitors_qr_and_report(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
