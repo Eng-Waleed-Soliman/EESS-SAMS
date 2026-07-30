@@ -902,6 +902,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(sale.unit_price, 10)
         response = self.client.get(reverse('cafe_inventory'), {'preset': 'today'})
         self.assertContains(response, 'جرد الكافيتريا')
+        self.assertContains(response, 'المخزون المتاح')
         self.assertContains(response, '<td>8</td>', html=True)
         self.assertContains(response, '<td>3</td>', html=True)
         self.assertContains(response, '<td class="fw-bold">7</td>', html=True)
@@ -982,7 +983,10 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(item.stock_quantity, 41)
 
         response = self.client.get(reverse('cafe_item_list'))
+        self.assertContains(response, 'المخزون المتاح')
         self.assertContains(response, '<td>41</td>', html=True)
+        response = self.client.get(reverse('cafe_inventory'), {'preset': 'today'})
+        self.assertContains(response, '<td class="fw-bold">41</td>', html=True)
         response = self.client.get(reverse('cafe_stock_adjust'))
         self.assertContains(response, f'name="quantity_{item.id}" value="41"')
         response = self.client.get(reverse('cafe_sale_list'))

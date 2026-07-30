@@ -33,17 +33,17 @@
 <div class="card p-3 table-responsive">
   <table class="table table-striped align-middle text-center">
     <thead>
-      <tr><th>كود الصنف</th><th>الصنف</th><th>رصيد أول الفترة</th><th>كمية الشراء</th><th>كمية البيع</th><th>الكمية المتبقية</th></tr>
+      <tr><th>كود الصنف</th><th>الصنف</th><th>رصيد أول الفترة</th><th>كمية الشراء</th><th>كمية البيع</th><th>المخزون المتاح</th></tr>
     </thead>
     <tbody>
       {% for row in rows %}
-      <tr class="{% if row.remaining_quantity < 0 %}table-danger{% endif %}">
+      <tr class="{% if row.available_stock < 0 %}table-danger{% endif %}">
         <td>{{ row.item.code }}</td>
         <td>{{ row.item.name }}</td>
         <td>{{ row.opening_balance }}</td>
         <td>{{ row.purchased_quantity }}</td>
         <td>{{ row.sold_quantity }}</td>
-        <td class="fw-bold">{{ row.remaining_quantity }}</td>
+        <td class="fw-bold">{{ row.available_stock }}</td>
       </tr>
       {% empty %}<tr><td colspan="6">لا توجد أصناف مسجلة</td></tr>{% endfor %}
     </tbody>

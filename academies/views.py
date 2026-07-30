@@ -1910,7 +1910,11 @@ def cafe_inventory(request):
             'opening_balance': opening_balance,
             'purchased_quantity': purchased,
             'sold_quantity': sold,
-            'remaining_quantity': opening_balance + purchased - sold,
+            # The stock adjustment and hospitality movements are part of the
+            # live balance, but are not represented by the period movement
+            # columns above.  Always use the model's canonical live stock so
+            # inventory, sales, and item screens cannot disagree.
+            'available_stock': item.stock_quantity,
         })
 
     purchases = CafeteriaPurchase.objects.filter(item__in=items)
