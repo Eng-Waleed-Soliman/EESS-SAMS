@@ -83,3 +83,15 @@ class CafeteriaCashSupplyTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['cafeteria_supplied_total'], 30)
         self.assertContains(response, 'إجمالي المبلغ المورد')
+
+    def test_sales_screen_can_create_supply_and_return_to_sales(self):
+        response = self.client.get(reverse('cafe_sale_list'))
+        self.assertContains(response, reverse('cafe_cash_supply_create') + '?next=sales')
+
+        response = self.client.post(reverse('cafe_cash_supply_create'), {
+            'supply_date': date.today().isoformat(),
+            'amount': 45,
+            'next': 'sales',
+        })
+        self.assertRedirects(response, reverse('cafe_sale_list'))
+        self.assertEqual(CafeteriaCashSupply.objects.get().amount, 45)

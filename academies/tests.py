@@ -1725,10 +1725,14 @@ class ApplicationFlowsTests(TestCase):
 
         response = self.client.get(reverse('cafe_sale_list'))
         self.assertContains(response, reverse('cafe_menu'))
+        self.assertContains(response, reverse('cafe_cash_supply_create'))
         self.assertNotContains(response, reverse('cafe_category_list'))
         self.assertNotContains(response, reverse('cafe_item_list'))
         self.assertNotContains(response, reverse('cafe_purchase_list'))
         self.assertNotContains(response, 'لوحة التحكم')
+
+        response = self.client.get(reverse('cafe_cash_supply_create') + '?next=sales')
+        self.assertEqual(response.status_code, 200)
 
         response = self.client.get(reverse('cafe_menu'))
         self.assertContains(response, 'اختبار المنيو')

@@ -24,6 +24,7 @@ class CafeteriaSpecialistAccessMiddleware:
         '/cafeteria/sales/',
         '/cafeteria/menu/',
         '/cafeteria/inventory/',
+        '/cafeteria/cash-supplies/',
         '/logout/',
         '/login/',
         '/static/',

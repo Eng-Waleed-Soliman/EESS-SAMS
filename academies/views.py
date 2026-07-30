@@ -1938,6 +1938,7 @@ def cafe_inventory(request):
 @login_required
 def cafe_cash_supply_create(request):
     active_branch, all_branches = selected_branch(request)
+    return_to_sales = request.GET.get('next') == 'sales' or request.POST.get('next') == 'sales'
     form = CafeteriaCashSupplyForm(
         request.POST or None,
         initial={'supply_date': date.today()},
@@ -1948,8 +1949,12 @@ def cafe_cash_supply_create(request):
         supply.created_by = request.user
         supply.save()
         messages.success(request, 'تم حفظ توريد مبلغ الكافيتريا بنجاح.')
-        return redirect('cafe_inventory')
-    return render(request, 'academies/cafe_cash_supply_form.html', {'form': form})
+        return redirect('cafe_sale_list' if return_to_sales else 'cafe_inventory')
+    return render(request, 'academies/cafe_cash_supply_form.html', {
+        'form': form,
+        'return_to_sales': return_to_sales,
+        'back_url': 'cafe_sale_list' if return_to_sales else 'cafe_inventory',
+    })
 
 
 @login_required
