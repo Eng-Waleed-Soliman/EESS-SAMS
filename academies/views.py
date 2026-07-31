@@ -1,6 +1,7 @@
 import json
 import re
 from io import BytesIO
+from pathlib import Path
 from calendar import monthrange
 from decimal import Decimal
 from django.contrib.auth.decorators import login_required
@@ -19,6 +20,7 @@ from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm,
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
+from .member_excel import parse_academy_members_xlsx
 
 
 def persistent_media(request, model_name, pk, field_name):
@@ -3762,6 +3764,65 @@ def academy_member_list(request, academy_id):
         'role_label': {'staff': 'مدربو وإداريو', 'player': 'لاعبو'}.get(role, 'أعضاء'),
         'role_singular': {'staff': 'مدرب أو إداري', 'player': 'لاعب'}.get(role, 'عضو'),
     })
+
+
+@login_required
+def academy_member_excel_template(request, academy_id):
+    get_object_or_404(Academy, pk=academy_id)
+    role = request.GET.get('role', '').strip()
+    if role not in {'staff', AcademyMember.ROLE_PLAYER}:
+        messages.error(request, 'اختر شاشة المدربين والإداريين أو شاشة اللاعبين أولًا.')
+        return redirect('academy_list')
+    filename = 'academy_staff_import_template.xlsx' if role == 'staff' else 'academy_players_import_template.xlsx'
+    template_path = Path(__file__).resolve().parent / 'excel_templates' / filename
+    if not template_path.exists():
+        raise Http404
+    response = HttpResponse(
+        template_path.read_bytes(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@login_required
+def academy_member_excel_import(request, academy_id):
+    academy = get_object_or_404(Academy, pk=academy_id)
+    role = request.POST.get('role', '').strip()
+    destination = f'/academies/{academy.id}/members/?role={role}'
+    if request.method != 'POST' or role not in {'staff', AcademyMember.ROLE_PLAYER}:
+        messages.error(request, 'طلب الاستيراد غير صحيح.')
+        return redirect('academy_list')
+    excel_file = request.FILES.get('excel_file')
+    if not excel_file:
+        messages.error(request, 'اختر ملف Excel للاستيراد.')
+        return redirect(destination)
+    if not excel_file.name.lower().endswith('.xlsx'):
+        messages.error(request, 'صيغة الملف غير مدعومة. استخدم ملف XLSX.')
+        return redirect(destination)
+    if excel_file.size > 5 * 1024 * 1024:
+        messages.error(request, 'حجم ملف Excel يجب ألا يتجاوز 5 ميجابايت.')
+        return redirect(destination)
+    try:
+        rows = parse_academy_members_xlsx(excel_file, role)
+    except ValueError as error:
+        messages.error(request, str(error))
+        return redirect(destination)
+    if not rows:
+        messages.warning(request, 'لم يحتوي الملف على صفوف بيانات قابلة للاستيراد.')
+        return redirect(destination)
+    members = [AcademyMember(academy=academy, **row) for row in rows]
+    with transaction.atomic():
+        AcademyMember.objects.bulk_create(members)
+    unnamed_count = sum(member.name.startswith('بدون اسم - صف ') for member in members)
+    messages.success(request, f'تم استيراد {len(members)} عضو بنجاح.')
+    if unnamed_count:
+        messages.warning(
+            request,
+            f'تم قبول {unnamed_count} صف بدون اسم، ويمكن استكمال أسمائها من زر تعديل.',
+        )
+    return redirect(destination)
 
 
 @login_required

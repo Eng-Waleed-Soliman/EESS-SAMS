@@ -1,6 +1,8 @@
 import json
+import zipfile
 from io import BytesIO
 from datetime import date, timedelta
+from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.db import OperationalError
@@ -1742,3 +1744,74 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'اختبار المنيو')
         self.assertContains(response, 'صنف منخفض')
         self.assertContains(response, 'menu-low-stock')
+
+    def test_academy_member_excel_templates_and_buttons_are_available_for_both_screens(self):
+        academy = Academy.objects.create(
+            name='Excel Academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000111',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=30),
+        )
+        for role in ('staff', 'player'):
+            list_url = reverse('academy_member_list', args=[academy.pk]) + f'?role={role}'
+            response = self.client.get(list_url)
+            self.assertContains(response, 'استيراد من Excel')
+            self.assertContains(response, 'نموذج ملف الإضافة')
+            self.assertContains(response, reverse('academy_member_excel_import', args=[academy.pk]))
+
+            template_url = reverse('academy_member_excel_template', args=[academy.pk]) + f'?role={role}'
+            response = self.client.get(template_url)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response['Content-Type'],
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            )
+            with zipfile.ZipFile(BytesIO(response.content)) as workbook:
+                worksheet_names = [
+                    name for name in workbook.namelist()
+                    if name.startswith('xl/worksheets/') and name.endswith('.xml')
+                ]
+                self.assertTrue(any(
+                    b'dataValidations' in workbook.read(name)
+                    for name in worksheet_names
+                ))
+
+    def test_academy_member_excel_import_accepts_incomplete_staff_and_player_rows(self):
+        academy = Academy.objects.create(
+            name='Import Academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000112',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=30),
+        )
+        fixtures = Path(__file__).resolve().parent / 'testdata'
+        import_url = reverse('academy_member_excel_import', args=[academy.pk])
+
+        staff_bytes = (fixtures / 'academy_staff_import_sample.xlsx').read_bytes()
+        response = self.client.post(import_url, {
+            'role': 'staff',
+            'excel_file': SimpleUploadedFile(
+                'staff.xlsx', staff_bytes,
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ),
+        })
+        self.assertRedirects(response, reverse('academy_member_list', args=[academy.pk]) + '?role=staff')
+        self.assertTrue(academy.members.filter(role=AcademyMember.ROLE_ADMIN, name='إداري مستورد').exists())
+        unnamed_staff = academy.members.get(role=AcademyMember.ROLE_COACH, name='بدون اسم - صف 6')
+        self.assertEqual(unnamed_staff.phone, '')
+        self.assertEqual(unnamed_staff.job_title, 'مدرب')
+
+        player_bytes = (fixtures / 'academy_players_import_sample.xlsx').read_bytes()
+        response = self.client.post(import_url, {
+            'role': 'player',
+            'excel_file': SimpleUploadedFile(
+                'players.xlsx', player_bytes,
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ),
+        })
+        self.assertRedirects(response, reverse('academy_member_list', args=[academy.pk]) + '?role=player')
+        player = academy.members.get(role=AcademyMember.ROLE_PLAYER, name='لاعب مستورد')
+        self.assertEqual(player.birth_date, date(2012, 5, 6))
+        self.assertEqual(player.monthly_subscription, 250)
+        unnamed_player = academy.members.get(role=AcademyMember.ROLE_PLAYER, name='بدون اسم - صف 6')
+        self.assertFalse(unnamed_player.is_active)
+        self.assertFalse(unnamed_player.is_published_on_website)

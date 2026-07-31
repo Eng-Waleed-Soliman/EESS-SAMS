@@ -8,6 +8,15 @@
     {% elif role == 'player' %}
     <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=player">إضافة لاعب</a>
     {% endif %}
+    {% if role == 'staff' or role == 'player' %}
+    <a class="btn btn-outline-success" href="{% url 'academy_member_excel_template' academy.id %}?role={{ role }}">نموذج ملف الإضافة</a>
+    <form class="d-inline" method="post" enctype="multipart/form-data" action="{% url 'academy_member_excel_import' academy.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="role" value="{{ role }}">
+      <input class="visually-hidden" type="file" id="member-excel-file-{{ role }}" name="excel_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required onchange="this.form.submit()">
+      <label class="btn btn-success mb-0" for="member-excel-file-{{ role }}">استيراد من Excel</label>
+    </form>
+    {% endif %}
     <a class="btn btn-secondary" href="{% url 'academy_list' %}">رجوع</a>
   </div>
 </div>
