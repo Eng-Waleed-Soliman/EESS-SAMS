@@ -2611,13 +2611,13 @@ def _academy_deposit_rows(rent_rows, month_start):
     return rows
 
 
-def _bonus_for_employee(employee, daily_income_total, cafe_sales_total):
+def _bonus_for_employee(employee, bonus_daily_income_total, cafe_sales_total):
     job = JobTitle.objects.filter(name=employee.job_title).first()
     if not job:
         return 0
     total_bonus = 0
     for tier in job.bonus_tiers.all():
-        source_total = daily_income_total if tier.source_type == BonusTier.SOURCE_DAILY_BOOKING else cafe_sales_total
+        source_total = bonus_daily_income_total if tier.source_type == BonusTier.SOURCE_DAILY_BOOKING else cafe_sales_total
         if source_total >= tier.from_amount and (not tier.to_amount or source_total <= tier.to_amount):
             total_bonus += int(tier.bonus_amount or 0)
     return total_bonus
@@ -2641,7 +2641,11 @@ def _month_financial_summary(year, month, start, end, branch=None):
         daily_qs = daily_qs.filter(branch=branch)
         operating_qs = operating_qs.filter(branch=branch)
         employee_qs = employee_qs.filter(branch=branch)
-    daily_income_total = checkout_qs.aggregate(total=Sum('total_amount'))['total'] or 0
+    daily_booking_income = checkout_qs.aggregate(total=Sum('total_amount'))['total'] or 0
+    ball_field_academy_income = sum(
+        row['paid'] for row in rent_rows if row['is_ball_field_academy']
+    )
+    daily_income_total = int(daily_booking_income or 0) + int(ball_field_academy_income or 0)
     cafe_sales_total = sum(s.total_amount for s in sale_qs)
     cafe_purchase_total = sum(p.total_amount for p in purchase_qs)
     monthly_expenses = monthly_qs.aggregate(total=Sum('amount'))['total'] or 0
@@ -2654,12 +2658,17 @@ def _month_financial_summary(year, month, start, end, branch=None):
         total = int(employee.salary or 0) + bonus
         payroll_total += total
         payroll_rows.append({'employee': employee, 'salary': employee.salary, 'bonus': bonus, 'total': total})
-    gross_income = int(academy_income or 0) + int(daily_income_total or 0) + int(cafe_sales_total or 0)
+    # Academy income is already included in full here, so gross income must add
+    # only daily bookings rather than the bonus daily-income total (which also
+    # contains the paid football/basketball academy income).
+    gross_income = int(academy_income or 0) + int(daily_booking_income or 0) + int(cafe_sales_total or 0)
     total_expenses = int(monthly_expenses or 0) + int(daily_expenses or 0) + int(operating_expenses or 0) + int(cafe_purchase_total or 0) + int(payroll_total or 0)
     net_profit = gross_income - total_expenses
     return {
         'rent_rows': rent_rows,
         'academy_income': academy_income,
+        'daily_booking_income': daily_booking_income,
+        'ball_field_academy_income': ball_field_academy_income,
         'daily_income_total': daily_income_total,
         'cafe_sales_total': cafe_sales_total,
         'cafe_purchase_total': cafe_purchase_total,

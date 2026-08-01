@@ -45,7 +45,7 @@
 <div class="row g-3 mb-4">
   <div class="col-md-3"><div class="card p-3"><b>إجمالي الدخل الشهري</b><h3>{{ summary.gross_income }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>دخل الأكاديميات</b><h3>{{ summary.academy_income }}</h3></div></div>
-  <div class="col-md-3"><div class="card p-3"><b>الدخل اليومي</b><h3>{{ summary.daily_income_total }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>الدخل اليومي المعتمد للبونص</b><h3>{{ summary.daily_income_total }}</h3><small class="text-muted">الحجز اليومي: {{ summary.daily_booking_income }} + أكاديميات ملاعب الكرة والباسكت: {{ summary.ball_field_academy_income }}</small></div></div>
   <div class="col-md-3"><div class="card p-3"><b>إجمالي المصروفات</b><h3>{{ summary.total_expenses }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>المرتبات + البونص</b><h3>{{ summary.payroll_total }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>المصروفات الشهرية</b><h3>{{ summary.monthly_expenses }}</h3></div></div>

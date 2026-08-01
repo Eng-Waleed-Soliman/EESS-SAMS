@@ -30,6 +30,7 @@ from .models import (
     AcademyMonthlyRentPayment,
     AcademyRentPaymentEntry,
     AppSetting,
+    BonusTier,
     Branch,
     BranchGalleryImage,
     CafeteriaCategory,
@@ -1724,6 +1725,67 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'إجمالي الربح القابل للتوزيع (صافي الدخل)')
         self.assertContains(response, 'شهر 2026-07')
         self.assertContains(response, f'<strong>{response.context["summary"]["net_profit"]}</strong>', html=True)
+
+    def test_bonus_daily_income_combines_bookings_with_paid_ball_field_academies_only(self):
+        target_day = date(2026, 7, 15)
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_accounts = True
+        profile.save()
+        job = JobTitle.objects.create(name='مسئول إداري أول')
+        BonusTier.objects.create(
+            job_title=job,
+            source_type=BonusTier.SOURCE_DAILY_BOOKING,
+            from_amount=1000,
+            to_amount=1500,
+            bonus_amount=300,
+        )
+        Employee.objects.create(name='مسئول اختبار البونص', job_title=job.name, salary=5000)
+
+        football_academy = Academy.objects.create(
+            name='أكاديمية ملاعب الكرة', sport_activity='كرة قدم', company_name='شركة الكرة',
+            manager_name='مدير الكرة', manager_phone='01000000201',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(2026, 1, 1), contract_end_date=date(2026, 12, 31),
+            subscription_type='fixed', monthly_subscription=700,
+        )
+        swimming_academy = Academy.objects.create(
+            name='أكاديمية حمام السباحة', sport_activity='سباحة', company_name='شركة السباحة',
+            manager_name='مدير السباحة', manager_phone='01000000202',
+            operation_place=OPERATION_PLACE_CHOICES[3][0],
+            contract_start_date=date(2026, 1, 1), contract_end_date=date(2026, 12, 31),
+            subscription_type='fixed', monthly_subscription=900,
+        )
+        AcademyMonthlyRentPayment.objects.create(
+            academy=football_academy, month=date(2026, 7, 1),
+            expected_amount=700, paid_amount=700, payment_date=target_day,
+        )
+        AcademyMonthlyRentPayment.objects.create(
+            academy=swimming_academy, month=date(2026, 7, 1),
+            expected_amount=900, paid_amount=900, payment_date=target_day,
+        )
+        booking = DailyBooking.objects.create(
+            venue=OPERATION_PLACE_CHOICES[0][0], booking_date=target_day,
+            start_time=TIME_CHOICES[0][0], end_time=TIME_CHOICES[2][0],
+            customer_name='عميل دخل يومي', customer_phone='01100000201',
+            total_amount=400, advance_payment=400, remaining_amount=0,
+        )
+        DailyBookingCheckout.objects.create(
+            booking=booking, income_date=target_day,
+            customer_name=booking.customer_name, customer_phone=booking.customer_phone,
+            venue=booking.venue, booking_date=booking.booking_date,
+            start_time=booking.start_time, end_time=booking.end_time,
+            total_amount=400, advance_payment=400, remaining_amount=0,
+        )
+
+        response = self.client.get(reverse('accounts_home'), {'month': '2026-07'})
+        summary = response.context['summary']
+        self.assertEqual(summary['daily_booking_income'], 400)
+        self.assertEqual(summary['ball_field_academy_income'], 700)
+        self.assertEqual(summary['daily_income_total'], 1100)
+        self.assertEqual(summary['gross_income'], 2000)
+        self.assertEqual(summary['payroll_rows'][0]['bonus'], 300)
+        self.assertContains(response, 'الدخل اليومي المعتمد للبونص')
+        self.assertContains(response, 'الحجز اليومي: 400 + أكاديميات ملاعب الكرة والباسكت: 700')
 
     def test_cafeteria_specialist_is_limited_to_sales_menu_and_inventory(self):
         specialist = User.objects.create_user(username='Cafeteria_Specialist', password='test-password')
