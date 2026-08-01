@@ -1714,6 +1714,17 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'المصروفات العامة')
         self.assertNotContains(response, 'إجمالي الدخل الشهري')
 
+    def test_accounts_profit_distribution_header_shows_net_income_and_month(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_accounts = True
+        profile.save()
+        response = self.client.get(reverse('accounts_home'), {'month': '2026-07'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'profit-distribution-header')
+        self.assertContains(response, 'إجمالي الربح القابل للتوزيع (صافي الدخل)')
+        self.assertContains(response, 'شهر 2026-07')
+        self.assertContains(response, f'<strong>{response.context["summary"]["net_profit"]}</strong>', html=True)
+
     def test_cafeteria_specialist_is_limited_to_sales_menu_and_inventory(self):
         specialist = User.objects.create_user(username='Cafeteria_Specialist', password='test-password')
         profile = UserPermission.objects.create(user=specialist, can_cafeteria=True)
