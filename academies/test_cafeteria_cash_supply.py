@@ -67,6 +67,17 @@ class CafeteriaCashSupplyTests(TestCase):
         self.assertNotContains(response, 'كود الفئة')
         self.assertNotContains(response, 'المتبقي هو رصيد بداية الفترة')
 
+    def test_cash_supply_cannot_exceed_available_cafeteria_cash(self):
+        response = self.client.post(reverse('cafe_cash_supply_create'), {
+            'supply_date': date.today().isoformat(),
+            'amount': 51,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(CafeteriaCashSupply.objects.exists())
+        self.assertContains(response, 'مبلغ التوريد أكبر من الكاش المتاح')
+        self.assertContains(response, '50')
+
     def test_cafeteria_report_shows_supplied_total_for_selected_period(self):
         CafeteriaCashSupply.objects.create(
             branch=self.branch,

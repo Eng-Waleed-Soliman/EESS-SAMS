@@ -1872,6 +1872,27 @@ def cafe_sale_prices(request):
     return render(request, 'academies/cafe_sale_prices.html', {'items': items})
 
 
+def _cafeteria_cash_balance(active_branch=None, all_branches=False):
+    items = CafeteriaItem.objects.all()
+    supplies = CafeteriaCashSupply.objects.all()
+    if not all_branches:
+        items = items.filter(branch=active_branch)
+        supplies = supplies.filter(branch=active_branch)
+
+    purchases = CafeteriaPurchase.objects.filter(item__in=items)
+    sales = CafeteriaSale.objects.filter(item__in=items)
+    purchase_cash_total = sum(
+        (row.quantity or 0) * (row.unit_price or 0)
+        for row in purchases.only('quantity', 'unit_price')
+    )
+    sales_cash_total = sum(
+        (row.quantity or 0) * (row.unit_price or 0)
+        for row in sales.only('quantity', 'unit_price')
+    )
+    supplied_cash_total = supplies.aggregate(total=Sum('amount'))['total'] or 0
+    return sales_cash_total - purchase_cash_total - supplied_cash_total
+
+
 @login_required
 def cafe_inventory(request):
     today = date.today()
@@ -1919,18 +1940,7 @@ def cafe_inventory(request):
             'available_stock': item.stock_quantity,
         })
 
-    purchases = CafeteriaPurchase.objects.filter(item__in=items)
-    sales = CafeteriaSale.objects.filter(item__in=items)
-    purchase_cash_total = sum(
-        (row.quantity or 0) * (row.unit_price or 0)
-        for row in purchases.only('quantity', 'unit_price')
-    )
-    sales_cash_total = sum(
-        (row.quantity or 0) * (row.unit_price or 0)
-        for row in sales.only('quantity', 'unit_price')
-    )
-    supplied_cash_total = supplies.aggregate(total=Sum('amount'))['total'] or 0
-    cafeteria_cash = sales_cash_total - purchase_cash_total - supplied_cash_total
+    cafeteria_cash = _cafeteria_cash_balance(active_branch, all_branches)
 
     return render(request, 'academies/cafe_inventory.html', {
         'rows': rows,
@@ -1950,12 +1960,19 @@ def cafe_cash_supply_create(request):
         initial={'supply_date': date.today()},
     )
     if request.method == 'POST' and form.is_valid():
-        supply = form.save(commit=False)
-        supply.branch = None if all_branches else active_branch
-        supply.created_by = request.user
-        supply.save()
-        messages.success(request, 'تم حفظ توريد مبلغ الكافيتريا بنجاح.')
-        return redirect('cafe_sale_list' if return_to_sales else 'cafe_inventory')
+        available_cash = _cafeteria_cash_balance(active_branch, all_branches)
+        if form.cleaned_data['amount'] > available_cash:
+            form.add_error(
+                'amount',
+                f'مبلغ التوريد أكبر من الكاش المتاح. الكاش المتاح حاليًا: {available_cash:,}',
+            )
+        else:
+            supply = form.save(commit=False)
+            supply.branch = None if all_branches else active_branch
+            supply.created_by = request.user
+            supply.save()
+            messages.success(request, 'تم حفظ توريد مبلغ الكافيتريا بنجاح.')
+            return redirect('cafe_sale_list' if return_to_sales else 'cafe_inventory')
     return render(request, 'academies/cafe_cash_supply_form.html', {
         'form': form,
         'return_to_sales': return_to_sales,
