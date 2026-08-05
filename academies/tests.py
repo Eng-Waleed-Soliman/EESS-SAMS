@@ -28,6 +28,7 @@ from .models import (
     AcademyDepositPlan,
     AcademyDepositInstallment,
     AcademyMonthlyRentPayment,
+    AcademyOperationOverride,
     AcademyRentPaymentEntry,
     AppSetting,
     BonusTier,
@@ -1068,6 +1069,57 @@ class ApplicationFlowsTests(TestCase):
         checkout = DailyBookingCheckout.objects.get(booking=booking)
         self.assertEqual(checkout.total_amount, 200)
         self.assertEqual(checkout.remaining_amount, 150)
+
+    def test_cancelled_variable_academy_slot_becomes_bookable_and_reduces_rent(self):
+        selected_date = date.today()
+        place = OPERATION_PLACE_CHOICES[0][0]
+        day_name = WEEKDAY_AR[selected_date.weekday()]
+        academy = Academy.objects.create(
+            name='Cancelled Slot Academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000777', operation_place=place,
+            contract_start_date=selected_date, contract_end_date=selected_date,
+            subscription_type='variable', variable_rent_type='hour', variable_rent_value=500,
+            training_schedule=[{
+                'place': place, 'day': day_name,
+                'start_time': TIME_CHOICES[0][0], 'end_time': TIME_CHOICES[2][0],
+                'hourly_rent': 500,
+            }],
+        )
+        self.assertEqual(
+            _calculate_variable_income_by_facility(academy, selected_date.year, selected_date.month),
+            500,
+        )
+
+        response = self.client.post(reverse('operation_card_action'), {
+            'action': 'delete', 'item_type': 'academy', 'item_id': academy.pk,
+            'date': selected_date.isoformat(), 'period': 'all',
+            'original_place': place, 'original_slot_index': 0,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(AcademyOperationOverride.objects.get(academy=academy).is_deleted)
+        self.assertEqual(
+            _calculate_variable_income_by_facility(academy, selected_date.year, selected_date.month),
+            250,
+        )
+
+        def booking_form(start_time, end_time):
+            return DailyBookingForm(data={
+                'customer_code': '', 'customer_name': 'Replacement Customer',
+                'customer_phone': '01010000777', 'national_id': '', 'players_count': 1,
+                'amount': 300, 'advance_payment': 0, 'total_amount': 0, 'remaining_amount': 0,
+                'venue': place, 'booking_date': selected_date.isoformat(),
+                'booking_dates': selected_date.isoformat(),
+                'booking_date_times': json.dumps([{
+                    'date': selected_date.isoformat(),
+                    'start_time': start_time, 'end_time': end_time,
+                }]),
+                'start_time': start_time, 'end_time': end_time, 'notes': '',
+            })
+
+        cancelled_slot = booking_form(TIME_CHOICES[0][0], TIME_CHOICES[1][0])
+        occupied_slot = booking_form(TIME_CHOICES[1][0], TIME_CHOICES[2][0])
+        self.assertTrue(cancelled_slot.is_valid(), cancelled_slot.errors.as_json())
+        self.assertFalse(occupied_slot.is_valid())
 
     def test_operation_daily_expense_records_user_and_is_in_reports(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)

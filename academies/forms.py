@@ -253,48 +253,56 @@ def _academy_slot_conflicts(academy, booking_date, venue, wanted_start, wanted_e
     deleted for that date, the hour becomes available for daily bookings. If it was moved,
     conflict is checked against the moved venue/hour, not the original one.
     """
-    def effective_conflict(days_text, places_text, hours_text):
-        if not _contains_value(days_text, selected_day_ar):
-            return False
-        for place in split_values(places_text):
-            for slot in split_values(hours_text):
-                idx = _slot_index(slot)
-                if idx is None:
-                    continue
-                override = AcademyOperationOverride.objects.filter(
-                    academy=academy,
-                    booking_date=booking_date,
-                    original_place=place,
-                    original_slot_index=idx,
-                ).first()
-                if override and override.is_deleted:
-                    # This academy hour was cancelled from the operation screen for this date.
-                    continue
-                final_place = override.new_place if override and override.new_place else place
-                final_idx = override.new_slot_index if override and override.new_slot_index is not None else idx
-                wanted_slots = set(_range_indexes(wanted_start, wanted_end))
-                if _norm(final_place) == _norm(venue) and final_idx in wanted_slots:
-                    return True
-        return False
+    wanted_slots = set(_range_indexes(wanted_start, wanted_end))
+    if not wanted_slots:
+        return ''
 
-    if academy.subscription_type == 'fixed' and any(
-        _norm(place) == _norm(venue) for place in academy.operation_places_list
-    ):
-        return 'base'
-    for row in academy.training_schedule or []:
-        if (
-            row.get('day') == selected_day_ar
-            and _norm(row.get('place')) == _norm(venue)
-            and _time_ranges_overlap(wanted_start, wanted_end, row.get('start_time'), row.get('end_time'))
-        ):
-            return 'base'
-
-    if effective_conflict(academy.training_days, academy.operation_place, academy.training_hours):
-        return 'base'
-    if academy.has_extra_hours:
+    source_occurrences = []
+    if academy.subscription_type == 'fixed':
+        for place in academy.operation_places_list:
+            for idx in range(len(TIME_CHOICES) - 1):
+                source_occurrences.append((place, idx, 'base'))
+    elif academy.training_schedule:
+        for row in academy.training_schedule:
+            if row.get('day') != selected_day_ar:
+                continue
+            place = row.get('place')
+            for idx in _range_indexes(row.get('start_time'), row.get('end_time')):
+                source_occurrences.append((place, idx, 'base'))
+    else:
+        if _contains_value(academy.training_days, selected_day_ar):
+            for place in split_values(academy.operation_place):
+                for slot in split_values(academy.training_hours):
+                    idx = _slot_index(slot)
+                    if idx is not None:
+                        source_occurrences.append((place, idx, 'base'))
         extra_days = academy.extra_training_days or academy.training_days
-        if effective_conflict(extra_days, academy.extra_training_place, academy.extra_training_hours):
-            return 'extra'
+        if academy.has_extra_hours and _contains_value(extra_days, selected_day_ar):
+            for place in split_values(academy.extra_training_place):
+                for slot in split_values(academy.extra_training_hours):
+                    idx = _slot_index(slot)
+                    if idx is not None:
+                        source_occurrences.append((place, idx, 'extra'))
+
+    override_map = {
+        (_norm(item.original_place), item.original_slot_index): item
+        for item in AcademyOperationOverride.objects.filter(
+            academy=academy,
+            booking_date=booking_date,
+        )
+    }
+    for original_place, original_idx, conflict_type in source_occurrences:
+        override = override_map.get((_norm(original_place), original_idx))
+        if override and override.is_deleted:
+            continue
+        final_place = override.new_place if override and override.new_place else original_place
+        final_idx = (
+            override.new_slot_index
+            if override and override.new_slot_index is not None
+            else original_idx
+        )
+        if _norm(final_place) == _norm(venue) and final_idx in wanted_slots:
+            return conflict_type
     return ''
 
 
