@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.core.files.uploadedfile import UploadedFile, SimpleUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -1612,20 +1612,36 @@ class CafeteriaPurchaseForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-select'
 
 
+class CafeteriaAddonForm(forms.ModelForm):
+    class Meta:
+        model = CafeteriaAddon
+        fields = ['name', 'sale_price']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'sale_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
+        }
+
+
 class CafeteriaSaleForm(forms.ModelForm):
     class Meta:
         model = CafeteriaSale
-        fields = ['item', 'sale_date', 'quantity', 'unit_price', 'notes']
+        fields = ['item', 'sale_date', 'quantity', 'unit_price', 'addon', 'addon_quantity', 'notes']
         widgets = {
             'sale_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+            'addon': forms.Select(attrs={'class': 'form-select'}),
+            'addon_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['item'].queryset = CafeteriaItem.objects.select_related('category').order_by('category__code', 'code', 'name')
         self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name}"
+        self.fields['addon'].queryset = CafeteriaAddon.objects.order_by('name')
+        self.fields['addon'].required = False
+        self.fields['addon'].empty_label = 'بدون إضافة'
+        self.fields['addon_quantity'].required = False
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
@@ -1638,6 +1654,8 @@ class CafeteriaSaleForm(forms.ModelForm):
         cleaned_data = super().clean()
         item = cleaned_data.get('item')
         quantity = cleaned_data.get('quantity') or 0
+        addon = cleaned_data.get('addon')
+        addon_quantity = cleaned_data.get('addon_quantity') or 0
         if item and self.instance and self.instance.pk and self.instance.item_id == item.id:
             available = item.stock_quantity + self.instance.quantity
         else:
@@ -1646,6 +1664,15 @@ class CafeteriaSaleForm(forms.ModelForm):
             raise forms.ValidationError(f'الكمية المطلوبة للبيع أكبر من المخزون المتاح. المتاح حاليًا: {available}')
         if item:
             cleaned_data['unit_price'] = item.sale_price
+        if addon:
+            if addon_quantity < 1:
+                self.add_error('addon_quantity', 'أدخل كمية الإضافة.')
+            self.instance.addon_name = addon.name
+            self.instance.addon_unit_price = addon.sale_price
+        else:
+            cleaned_data['addon_quantity'] = 0
+            self.instance.addon_name = ''
+            self.instance.addon_unit_price = 0
         return cleaned_data
 
 

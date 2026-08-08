@@ -1162,11 +1162,36 @@ class CafeteriaPurchase(models.Model):
         return f'{self.item} - {self.quantity}'
 
 
+class CafeteriaAddon(models.Model):
+    name = models.CharField(max_length=200, unique=True, verbose_name='اسم الإضافة')
+    sale_price = models.PositiveIntegerField(default=0, verbose_name='سعر البيع')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'إضافة كافيتريا'
+        verbose_name_plural = 'إضافات الكافيتريا'
+
+    def __str__(self):
+        return self.name
+
+
 class CafeteriaSale(models.Model):
     item = models.ForeignKey(CafeteriaItem, on_delete=models.CASCADE, related_name='sales', verbose_name='الصنف')
     sale_date = models.DateField(verbose_name='تاريخ البيع')
     quantity = models.PositiveIntegerField(default=1, verbose_name='الكمية')
     unit_price = models.PositiveIntegerField(default=0, verbose_name='سعر بيع الوحدة')
+    addon = models.ForeignKey(
+        CafeteriaAddon,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='sales',
+        verbose_name='الإضافة',
+    )
+    addon_name = models.CharField(max_length=200, blank=True, verbose_name='اسم الإضافة وقت البيع')
+    addon_quantity = models.PositiveIntegerField(default=0, verbose_name='كمية الإضافة')
+    addon_unit_price = models.PositiveIntegerField(default=0, verbose_name='سعر الإضافة وقت البيع')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -1177,12 +1202,16 @@ class CafeteriaSale(models.Model):
 
     @property
     def total_amount(self):
-        return int((self.quantity or 0) * (self.unit_price or 0))
+        item_total = (self.quantity or 0) * (self.unit_price or 0)
+        addon_total = (self.addon_quantity or 0) * (self.addon_unit_price or 0)
+        return int(item_total + addon_total)
 
     @property
     def estimated_profit(self):
         purchase_price = self.item.purchase_price if self.item_id else 0
-        return int((self.unit_price - purchase_price) * self.quantity)
+        item_profit = (self.unit_price - purchase_price) * self.quantity
+        addon_revenue = (self.addon_quantity or 0) * (self.addon_unit_price or 0)
+        return int(item_profit + addon_revenue)
 
     def __str__(self):
         return f'{self.item} - {self.quantity}'
@@ -1237,6 +1266,9 @@ class CafeteriaHospitalityItem(models.Model):
     item_name = models.CharField(max_length=200, verbose_name='اسم الصنف وقت الحركة')
     quantity = models.PositiveIntegerField(default=1, verbose_name='الكمية')
     unit_price = models.PositiveIntegerField(default=0, verbose_name='سعر البيع وقت الحركة')
+    addon_name = models.CharField(max_length=200, blank=True, verbose_name='اسم الإضافة وقت الحركة')
+    addon_quantity = models.PositiveIntegerField(default=0, verbose_name='كمية الإضافة')
+    addon_unit_price = models.PositiveIntegerField(default=0, verbose_name='سعر الإضافة وقت الحركة')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1246,7 +1278,9 @@ class CafeteriaHospitalityItem(models.Model):
 
     @property
     def total_amount(self):
-        return int((self.quantity or 0) * (self.unit_price or 0))
+        item_total = (self.quantity or 0) * (self.unit_price or 0)
+        addon_total = (self.addon_quantity or 0) * (self.addon_unit_price or 0)
+        return int(item_total + addon_total)
 
     def __str__(self):
         return f'{self.item_name} - {self.quantity}'

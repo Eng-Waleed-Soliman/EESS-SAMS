@@ -34,6 +34,7 @@ from .models import (
     BonusTier,
     Branch,
     BranchGalleryImage,
+    CafeteriaAddon,
     CafeteriaCategory,
     CafeteriaHospitality,
     CafeteriaHospitalityItem,
@@ -910,6 +911,53 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, '<td>8</td>', html=True)
         self.assertContains(response, '<td>3</td>', html=True)
         self.assertContains(response, '<td class="fw-bold">7</td>', html=True)
+
+    def test_cafeteria_sale_addon_uses_configured_price_and_updates_order_total(self):
+        category = CafeteriaCategory.objects.create(code=811, name='مشروبات الإضافات')
+        item = CafeteriaItem.objects.create(
+            category=category,
+            code=1,
+            name='قهوة تركي',
+            opening_quantity=10,
+            purchase_price=10,
+            sale_price=25,
+        )
+        addon = CafeteriaAddon.objects.create(name='لبن', sale_price=8)
+
+        response = self.client.post(reverse('cafe_sale_list'), {
+            'sale_date': date.today().isoformat(),
+            'notes': '',
+            'order_items': json.dumps([{
+                'item_id': item.pk,
+                'quantity': 2,
+                'unit_price': 999,
+                'addon_id': addon.pk,
+                'addon_quantity': 3,
+                'addon_unit_price': 999,
+            }]),
+        })
+
+        self.assertRedirects(response, reverse('cafe_sale_list'))
+        sale = CafeteriaSale.objects.get(item=item)
+        self.assertEqual(sale.unit_price, 25)
+        self.assertEqual(sale.addon, addon)
+        self.assertEqual(sale.addon_name, 'لبن')
+        self.assertEqual(sale.addon_quantity, 3)
+        self.assertEqual(sale.addon_unit_price, 8)
+        self.assertEqual(sale.total_amount, 74)
+        self.assertEqual(sale.estimated_profit, 54)
+
+        addon.delete()
+        sale.refresh_from_db()
+        self.assertIsNone(sale.addon)
+        self.assertEqual(sale.addon_name, 'لبن')
+        self.assertEqual(sale.total_amount, 74)
+
+    def test_cafeteria_settings_contains_addons_management(self):
+        response = self.client.get(reverse('cafe_settings'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'الإضافات')
+        self.assertContains(response, reverse('cafe_addon_list'))
 
     def test_cafeteria_hospitality_deducts_stock_and_appears_in_report(self):
         self.user.is_staff = True

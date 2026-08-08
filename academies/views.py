@@ -15,8 +15,8 @@ from django.db.models import Sum, Q, Count, Prefetch
 from django.http import HttpResponse, Http404
 from django.utils import timezone
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
@@ -1831,7 +1831,43 @@ def cafe_settings(request):
     return render(request, 'academies/cafe_settings.html', {
         'category_count': CafeteriaCategory.objects.count(),
         'item_count': CafeteriaItem.objects.count(),
+        'addon_count': CafeteriaAddon.objects.count(),
     })
+
+
+@login_required
+def cafe_addon_list(request):
+    query = request.GET.get('q', '').strip()
+    addons = CafeteriaAddon.objects.all().order_by('name')
+    if query:
+        addons = addons.filter(name__icontains=query)
+    return render(request, 'academies/cafe_addon_list.html', {'addons': addons, 'q': query})
+
+
+@login_required
+def cafe_addon_create(request):
+    return _generic_form(request, CafeteriaAddonForm, 'إضافة إضافة للكافيتريا', 'cafe_addon_list')
+
+
+@login_required
+def cafe_addon_update(request, pk):
+    return _generic_form(
+        request,
+        CafeteriaAddonForm,
+        'تعديل إضافة الكافيتريا',
+        'cafe_addon_list',
+        get_object_or_404(CafeteriaAddon, pk=pk),
+    )
+
+
+@login_required
+def cafe_addon_delete(request, pk):
+    return _generic_delete(
+        request,
+        get_object_or_404(CafeteriaAddon, pk=pk),
+        'حذف إضافة الكافيتريا',
+        'cafe_addon_list',
+    )
 
 @login_required
 def cafe_stock_adjust(request):
@@ -1888,8 +1924,8 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
         for row in purchases.only('quantity', 'unit_price')
     )
     sales_cash_total = sum(
-        (row.quantity or 0) * (row.unit_price or 0)
-        for row in sales.only('quantity', 'unit_price')
+        row.total_amount
+        for row in sales.only('quantity', 'unit_price', 'addon_quantity', 'addon_unit_price')
     )
     supplied_cash_total = supplies.aggregate(total=Sum('amount'))['total'] or 0
     operating_expense_total = operating_expenses.aggregate(total=Sum('amount'))['total'] or 0
@@ -2120,12 +2156,29 @@ def cafe_sale_list(request):
                     item = get_object_or_404(CafeteriaItem, pk=row.get('item_id'))
                     quantity = max(1, int(row.get('quantity') or 1))
                     unit_price = item.sale_price
-                    prepared_rows.append((item, quantity, unit_price))
+                    addon = None
+                    addon_quantity = 0
+                    addon_unit_price = 0
+                    addon_id = row.get('addon_id')
+                    if addon_id:
+                        addon = CafeteriaAddon.objects.filter(pk=addon_id).first()
+                        if not addon:
+                            raise ValueError('Invalid addon')
+                        addon_quantity = max(1, int(row.get('addon_quantity') or 1))
+                        addon_unit_price = addon.sale_price
+                    prepared_rows.append((
+                        item,
+                        quantity,
+                        unit_price,
+                        addon,
+                        addon_quantity,
+                        addon_unit_price,
+                    ))
             except (TypeError, ValueError):
                 messages.error(request, 'بيانات الأوردر غير صحيحة.')
                 return redirect('cafe_sale_list')
             requested_by_item = {}
-            for item, quantity, unit_price in prepared_rows:
+            for item, quantity, unit_price, addon, addon_quantity, addon_unit_price in prepared_rows:
                 requested_by_item[item.id] = requested_by_item.get(item.id, 0) + quantity
                 if requested_by_item[item.id] > item.stock_quantity:
                     messages.error(request, f'المخزون غير كاف للصنف {item.name}. المتاح: {item.stock_quantity}.')
@@ -2150,7 +2203,7 @@ def cafe_sale_list(request):
                         hospitality_date=sale_date,
                         created_by=request.user,
                     )
-                    for item, quantity, unit_price in prepared_rows:
+                    for item, quantity, unit_price, addon, addon_quantity, addon_unit_price in prepared_rows:
                         CafeteriaHospitalityItem.objects.create(
                             hospitality=hospitality,
                             item=item,
@@ -2158,14 +2211,21 @@ def cafe_sale_list(request):
                             item_name=item.name,
                             quantity=quantity,
                             unit_price=unit_price,
+                            addon_name=addon.name if addon else '',
+                            addon_quantity=addon_quantity,
+                            addon_unit_price=addon_unit_price,
                         )
                 else:
-                    for item, quantity, unit_price in prepared_rows:
+                    for item, quantity, unit_price, addon, addon_quantity, addon_unit_price in prepared_rows:
                         CafeteriaSale.objects.create(
                             item=item,
                             sale_date=sale_date,
                             quantity=quantity,
                             unit_price=unit_price,
+                            addon=addon,
+                            addon_name=addon.name if addon else '',
+                            addon_quantity=addon_quantity,
+                            addon_unit_price=addon_unit_price,
                             notes=notes,
                         )
             created_count = len(prepared_rows)
@@ -2181,7 +2241,7 @@ def cafe_sale_list(request):
             messages.success(request, 'تم تسجيل البيع بنجاح.')
             return redirect('cafe_sale_list')
 
-    sales = CafeteriaSale.objects.select_related('item', 'item__category').all()[:50]
+    sales = CafeteriaSale.objects.select_related('item', 'item__category', 'addon').all()[:50]
     today = date.today()
     today_sales = CafeteriaSale.objects.filter(sale_date=today).select_related('item')
     today_total = sum(sale.total_amount for sale in today_sales)
@@ -2213,6 +2273,7 @@ def cafe_sale_list(request):
         'today_count': today_sales.count(),
         'low_stock_items': low_stock_items,
         'board_members': Shareholder.objects.all().order_by('name'),
+        'addons': list(CafeteriaAddon.objects.all().order_by('name').values('id', 'name', 'sale_price')),
     })
 
 @login_required

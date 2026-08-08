@@ -39,20 +39,34 @@
           <label class="form-label fw-bold">المخزون المتاح</label>
           <input class="form-control fw-bold text-center" id="stock_quantity_display" value="0" readonly>
         </div>
-        <div class="col-md-5">
+        <div class="col-md-4">
           <label class="form-label fw-bold">{{ form.sale_date.label }}</label>
           {{ form.sale_date }}
           <div class="text-danger small">{{ form.sale_date.errors }}</div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-2">
           <label class="form-label fw-bold">{{ form.quantity.label }}</label>
           {{ form.quantity }}
           <div class="text-danger small">{{ form.quantity.errors }}</div>
         </div>
         <div class="col-md-4">
+          <label class="form-label fw-bold">إضافة</label>
+          {{ form.addon }}
+          <div class="text-danger small">{{ form.addon.errors }}</div>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-bold">كمية الإضافة</label>
+          {{ form.addon_quantity }}
+          <div class="text-danger small">{{ form.addon_quantity.errors }}</div>
+        </div>
+        <div class="col-md-4">
           <label class="form-label fw-bold">سعر البيع من الإعدادات</label>
           {{ form.unit_price.as_hidden }}
           <input class="form-control" id="display_unit_price" value="0" readonly>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-bold">سعر الإضافة</label>
+          <input class="form-control" id="display_addon_price" value="0" readonly>
         </div>
         <div class="col-md-4">
           <label class="form-label fw-bold">الإجمالي</label>
@@ -72,9 +86,9 @@
         <h6 class="fw-bold mb-2">الأوردر الحالي</h6>
         <div class="table-responsive">
           <table class="table table-sm align-middle text-center mb-2">
-            <thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th><th></th></tr></thead>
-            <tbody id="orderRows"><tr><td colspan="5" class="text-muted">لم يتم إضافة أصناف بعد</td></tr></tbody>
-            <tfoot><tr><th colspan="3">إجمالي الأوردر</th><th id="orderTotal">0</th><th></th></tr></tfoot>
+            <thead><tr><th>الصنف</th><th>الكمية</th><th>سعر الصنف</th><th>الإضافة</th><th>كمية الإضافة</th><th>سعر الإضافة</th><th>الإجمالي</th><th></th></tr></thead>
+            <tbody id="orderRows"><tr><td colspan="8" class="text-muted">لم يتم إضافة أصناف بعد</td></tr></tbody>
+            <tfoot><tr><th colspan="6">إجمالي الأوردر</th><th id="orderTotal">0</th><th></th></tr></tfoot>
           </table>
         </div>
         <div class="d-flex gap-2 justify-content-end flex-wrap">
@@ -142,7 +156,7 @@
 <div class="card p-3">
   <h5 class="fw-bold mb-3">آخر حركات البيع</h5>
   <table class="table table-striped align-middle text-center">
-    <thead><tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th>الربح التقديري</th><th></th></tr></thead>
+    <thead><tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإضافة</th><th>الإجمالي</th><th>الربح التقديري</th><th></th></tr></thead>
     <tbody>
       {% for s in sales %}
       <tr>
@@ -150,18 +164,20 @@
         <td>{{ s.item.name }}</td>
         <td>{{ s.quantity }}</td>
         <td>{{ s.unit_price }}</td>
+        <td>{% if s.addon_name %}{{ s.addon_name }} × {{ s.addon_quantity }}{% else %}-{% endif %}</td>
         <td>{{ s.total_amount }}</td>
         <td>{{ s.estimated_profit }}</td>
         <td><a class="btn btn-sm" href="{% url 'cafe_sale_update' s.pk %}">تعديل</a> <a class="btn btn-sm" href="{% url 'cafe_sale_delete' s.pk %}">حذف</a></td>
       </tr>
       {% empty %}
-      <tr><td colspan="7">لا توجد بيانات</td></tr>
+      <tr><td colspan="8">لا توجد بيانات</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
 {{ items|json_script:"items-data" }}
+{{ addons|json_script:"addons-data" }}
 <style>
 .cafe-category-card{width:100%;min-height:88px;border:1px solid #bae6fd;border-radius:10px;background:#e0f7ff;display:flex;flex-direction:column;gap:4px;align-items:flex-start;justify-content:center;padding:12px 14px;text-align:right;font-weight:800;color:#0f172a;transition:.15s}
 .cafe-category-card:hover,.cafe-category-card.active{background:#2563eb;color:#fff;border-color:#2563eb}
@@ -180,12 +196,18 @@
 const rawItems = JSON.parse(document.getElementById('items-data').textContent);
 const itemMap = {};
 rawItems.forEach(function(item){ itemMap[item.id] = item; });
+const rawAddons = JSON.parse(document.getElementById('addons-data').textContent);
+const addonMap = {};
+rawAddons.forEach(function(addon){ addonMap[addon.id] = addon; });
 
 const itemSelect = document.getElementById('id_item');
 const categoryFilter = document.getElementById('categoryFilter');
 const quantityInput = document.getElementById('id_quantity');
 const priceInput = document.getElementById('id_unit_price');
 const displayPriceInput = document.getElementById('display_unit_price');
+const addonSelect = document.getElementById('id_addon');
+const addonQuantityInput = document.getElementById('id_addon_quantity');
+const displayAddonPriceInput = document.getElementById('display_addon_price');
 const totalInput = document.getElementById('sale_total');
 const stockInfo = document.getElementById('stockInfo');
 const stockQuantityDisplay = document.getElementById('stock_quantity_display');
@@ -216,6 +238,14 @@ function selectedItem(){
   return itemSelect ? itemMap[itemSelect.value] : null;
 }
 
+function selectedAddon(){
+  return addonSelect ? addonMap[addonSelect.value] : null;
+}
+
+function rowTotal(row){
+  return (row.quantity * row.unit_price) + ((row.addon_quantity || 0) * (row.addon_unit_price || 0));
+}
+
 function refreshSale(){
   const item = selectedItem();
   if(item && (!priceInput.value || priceInput.value === '0')){
@@ -223,8 +253,13 @@ function refreshSale(){
   }
   const qty = parseInt(quantityInput.value || '0', 10);
   const price = parseInt(priceInput.value || '0', 10);
-  totalInput.value = Math.max(0, qty * price);
+  const addon = selectedAddon();
+  const addonQty = addon ? Math.max(1, parseInt(addonQuantityInput.value || '1', 10)) : 0;
+  const addonPrice = addon ? parseInt(addon.sale_price || '0', 10) : 0;
+  totalInput.value = Math.max(0, (qty * price) + (addonQty * addonPrice));
   if(displayPriceInput){ displayPriceInput.value = item ? (item.sale_price || 0) : 0; }
+  if(displayAddonPriceInput){ displayAddonPriceInput.value = addonPrice; }
+  if(addonQuantityInput){ addonQuantityInput.disabled = !addon; }
   if(item){
     if(stockQuantityDisplay){ stockQuantityDisplay.value = item.stock_quantity; }
     stockInfo.textContent = 'المخزون المتاح: ' + item.stock_quantity;
@@ -243,19 +278,22 @@ function escapeHtml(value){
 function renderOrder(){
   if(!orderRows || !orderTotal || !orderItemsInput) return;
   if(orderItems.length === 0){
-    orderRows.innerHTML = '<tr><td colspan="5" class="text-muted">لم يتم إضافة أصناف بعد</td></tr>';
+    orderRows.innerHTML = '<tr><td colspan="8" class="text-muted">لم يتم إضافة أصناف بعد</td></tr>';
   }else{
     orderRows.innerHTML = orderItems.map(function(row, index){
       return '<tr>' +
         '<td>' + escapeHtml(row.item_name) + '</td>' +
         '<td>' + row.quantity + '</td>' +
         '<td>' + row.unit_price + '</td>' +
-        '<td>' + (row.quantity * row.unit_price) + '</td>' +
+        '<td>' + escapeHtml(row.addon_name || '-') + '</td>' +
+        '<td>' + (row.addon_quantity || '-') + '</td>' +
+        '<td>' + (row.addon_unit_price || '-') + '</td>' +
+        '<td>' + rowTotal(row) + '</td>' +
         '<td><button type="button" class="btn btn-sm btn-danger remove-order-item" data-index="' + index + '">حذف</button></td>' +
       '</tr>';
     }).join('');
   }
-  const total = orderItems.reduce(function(sum, row){ return sum + (row.quantity * row.unit_price); }, 0);
+  const total = orderItems.reduce(function(sum, row){ return sum + rowTotal(row); }, 0);
   orderTotal.textContent = total;
   orderItemsInput.value = JSON.stringify(orderItems);
 }
@@ -268,7 +306,15 @@ function addCurrentItemToOrder(){
   }
   const qty = Math.max(1, parseInt(quantityInput.value || '1', 10));
   const price = Math.max(0, parseInt(priceInput.value || item.sale_price || '0', 10));
-  const existing = orderItems.find(function(row){ return String(row.item_id) === String(item.id) && row.unit_price === price; });
+  const addon = selectedAddon();
+  const addonQty = addon ? Math.max(1, parseInt(addonQuantityInput.value || '1', 10)) : 0;
+  const addonPrice = addon ? Math.max(0, parseInt(addon.sale_price || '0', 10)) : 0;
+  const existing = orderItems.find(function(row){
+    return String(row.item_id) === String(item.id) &&
+      String(row.addon_id || '') === String(addon ? addon.id : '') &&
+      row.unit_price === price &&
+      (row.addon_unit_price || 0) === addonPrice;
+  });
   const currentOrderQty = orderItems
     .filter(function(row){ return String(row.item_id) === String(item.id); })
     .reduce(function(sum, row){ return sum + row.quantity; }, 0);
@@ -278,17 +324,24 @@ function addCurrentItemToOrder(){
   }
   if(existing){
     existing.quantity += qty;
+    existing.addon_quantity = (existing.addon_quantity || 0) + addonQty;
   }else{
     orderItems.push({
       item_id: item.id,
       item_name: (item.code ? item.code + ' - ' : '') + item.name,
       quantity: qty,
-      unit_price: price
+      unit_price: price,
+      addon_id: addon ? addon.id : '',
+      addon_name: addon ? addon.name : '',
+      addon_quantity: addonQty,
+      addon_unit_price: addonPrice
     });
   }
   renderOrder();
   quantityInput.value = 1;
   itemSelect.value = '';
+  if(addonSelect){ addonSelect.value = ''; }
+  if(addonQuantityInput){ addonQuantityInput.value = 0; }
   priceInput.value = '';
   refreshSale();
 }
@@ -327,6 +380,13 @@ document.querySelectorAll('.cafe-category-card').forEach(function(card){
 if(categoryFilter){ categoryFilter.addEventListener('change', filterItemsByCategory); }
 if(itemSelect){ itemSelect.addEventListener('change', function(){ priceInput.value=''; refreshSale(); }); }
 if(quantityInput){ quantityInput.addEventListener('input', refreshSale); }
+if(addonSelect){
+  addonSelect.addEventListener('change', function(){
+    if(addonQuantityInput){ addonQuantityInput.value = addonSelect.value ? 1 : 0; }
+    refreshSale();
+  });
+}
+if(addonQuantityInput){ addonQuantityInput.addEventListener('input', refreshSale); }
 if(addOrderItemBtn){ addOrderItemBtn.addEventListener('click', addCurrentItemToOrder); }
 if(clearOrderBtn){ clearOrderBtn.addEventListener('click', function(){ orderItems = []; renderOrder(); }); }
 if(checkoutOrderBtn){
