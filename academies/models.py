@@ -1280,3 +1280,35 @@ class CafeteriaCashSupply(models.Model):
 
     def __str__(self):
         return f'{self.supply_date} - {self.amount}'
+
+
+class CafeteriaOperatingExpense(models.Model):
+    branch = models.ForeignKey(
+        Branch,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='cafeteria_operating_expenses',
+        verbose_name='الفرع',
+    )
+    expense_date = models.DateField(default=datetime.date.today, verbose_name='تاريخ المصروف')
+    title = models.CharField(max_length=200, verbose_name='بيان المصروف')
+    amount = models.PositiveIntegerField(verbose_name='قيمة المصروفات')
+    created_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='cafeteria_operating_expenses_created',
+        verbose_name='سُجل بواسطة',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-expense_date', '-id']
+        verbose_name = 'مصروف تشغيل كافيتريا'
+        verbose_name_plural = 'مصاريف تشغيل الكافيتريا'
+
+    def __str__(self):
+        return f'{self.expense_date} - {self.title} - {self.amount}'

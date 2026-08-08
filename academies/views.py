@@ -15,8 +15,8 @@ from django.db.models import Sum, Q, Count, Prefetch
 from django.http import HttpResponse, Http404
 from django.utils import timezone
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
@@ -1875,9 +1875,11 @@ def cafe_sale_prices(request):
 def _cafeteria_cash_balance(active_branch=None, all_branches=False):
     items = CafeteriaItem.objects.all()
     supplies = CafeteriaCashSupply.objects.all()
+    operating_expenses = CafeteriaOperatingExpense.objects.all()
     if not all_branches:
         items = items.filter(branch=active_branch)
         supplies = supplies.filter(branch=active_branch)
+        operating_expenses = operating_expenses.filter(branch=active_branch)
 
     purchases = CafeteriaPurchase.objects.filter(item__in=items)
     sales = CafeteriaSale.objects.filter(item__in=items)
@@ -1890,7 +1892,8 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
         for row in sales.only('quantity', 'unit_price')
     )
     supplied_cash_total = supplies.aggregate(total=Sum('amount'))['total'] or 0
-    return sales_cash_total - purchase_cash_total - supplied_cash_total
+    operating_expense_total = operating_expenses.aggregate(total=Sum('amount'))['total'] or 0
+    return sales_cash_total - purchase_cash_total - supplied_cash_total - operating_expense_total
 
 
 @login_required
@@ -1978,6 +1981,72 @@ def cafe_cash_supply_create(request):
         'return_to_sales': return_to_sales,
         'back_url': 'cafe_sale_list' if return_to_sales else 'cafe_inventory',
     })
+
+
+def _cafeteria_operating_expense_queryset(request):
+    active_branch, all_branches = selected_branch(request)
+    queryset = CafeteriaOperatingExpense.objects.select_related('branch', 'created_by')
+    if not all_branches:
+        queryset = queryset.filter(branch=active_branch)
+    return queryset, active_branch, all_branches
+
+
+@login_required
+def cafe_operating_expense_list(request):
+    expenses, _, _ = _cafeteria_operating_expense_queryset(request)
+    return render(request, 'academies/cafe_operating_expense_list.html', {
+        'expenses': expenses,
+        'total': expenses.aggregate(total=Sum('amount'))['total'] or 0,
+    })
+
+
+@login_required
+def cafe_operating_expense_create(request):
+    _, active_branch, all_branches = _cafeteria_operating_expense_queryset(request)
+    form = CafeteriaOperatingExpenseForm(
+        request.POST or None,
+        initial={'expense_date': date.today()},
+    )
+    if request.method == 'POST' and form.is_valid():
+        expense = form.save(commit=False)
+        expense.branch = None if all_branches else active_branch
+        expense.created_by = request.user
+        expense.save()
+        messages.success(request, 'تم حفظ مصروف تشغيل الكافيتريا بنجاح.')
+        return redirect('cafe_operating_expense_list')
+    return render(request, 'academies/cafe_operating_expense_form.html', {
+        'form': form,
+        'title': 'إضافة مصروف تشغيل الكافيتريا',
+        'cancel_url': reverse('cafe_inventory'),
+    })
+
+
+@login_required
+def cafe_operating_expense_update(request, pk):
+    expenses, _, _ = _cafeteria_operating_expense_queryset(request)
+    expense = get_object_or_404(expenses, pk=pk)
+    form = CafeteriaOperatingExpenseForm(request.POST or None, instance=expense)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'تم تعديل مصروف تشغيل الكافيتريا بنجاح.')
+        return redirect('cafe_operating_expense_list')
+    return render(request, 'academies/cafe_operating_expense_form.html', {
+        'form': form,
+        'title': 'تعديل مصروف تشغيل الكافيتريا',
+        'cancel_url': reverse('cafe_operating_expense_list'),
+    })
+
+
+@login_required
+def cafe_operating_expense_delete(request, pk):
+    expenses, _, _ = _cafeteria_operating_expense_queryset(request)
+    expense = get_object_or_404(expenses, pk=pk)
+    return _generic_delete(
+        request,
+        expense,
+        'حذف مصروف تشغيل الكافيتريا',
+        'cafe_operating_expense_list',
+    )
 
 
 @login_required
@@ -2646,6 +2715,7 @@ def _month_financial_summary(year, month, start, end, branch=None):
     checkout_qs = DailyBookingCheckout.objects.filter(income_date__range=(start, end))
     sale_qs = CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item')
     purchase_qs = CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)).select_related('item')
+    cafe_operating_expense_qs = CafeteriaOperatingExpense.objects.filter(expense_date__range=(start, end))
     monthly_qs = MonthlyExpense.objects.filter(expense_month__range=(start, end))
     daily_qs = DailyExpense.objects.filter(expense_date__range=(start, end))
     operating_qs = OperatingExpense.objects.filter(expense_date__range=(start, end))
@@ -2654,6 +2724,7 @@ def _month_financial_summary(year, month, start, end, branch=None):
         checkout_qs = checkout_qs.filter(booking__branch=branch)
         sale_qs = sale_qs.filter(item__branch=branch)
         purchase_qs = purchase_qs.filter(item__branch=branch)
+        cafe_operating_expense_qs = cafe_operating_expense_qs.filter(branch=branch)
         monthly_qs = monthly_qs.filter(branch=branch)
         daily_qs = daily_qs.filter(branch=branch)
         operating_qs = operating_qs.filter(branch=branch)
@@ -2665,6 +2736,7 @@ def _month_financial_summary(year, month, start, end, branch=None):
     daily_income_total = int(daily_booking_income or 0) + int(ball_field_academy_income or 0)
     cafe_sales_total = sum(s.total_amount for s in sale_qs)
     cafe_purchase_total = sum(p.total_amount for p in purchase_qs)
+    cafe_operating_expenses = cafe_operating_expense_qs.aggregate(total=Sum('amount'))['total'] or 0
     monthly_expenses = monthly_qs.aggregate(total=Sum('amount'))['total'] or 0
     daily_expenses = daily_qs.aggregate(total=Sum('amount'))['total'] or 0
     operating_expenses = operating_qs.aggregate(total=Sum('amount'))['total'] or 0
@@ -2679,7 +2751,7 @@ def _month_financial_summary(year, month, start, end, branch=None):
     # only daily bookings rather than the bonus daily-income total (which also
     # contains the paid football/basketball academy income).
     gross_income = int(academy_income or 0) + int(daily_booking_income or 0) + int(cafe_sales_total or 0)
-    total_expenses = int(monthly_expenses or 0) + int(daily_expenses or 0) + int(operating_expenses or 0) + int(cafe_purchase_total or 0) + int(payroll_total or 0)
+    total_expenses = int(monthly_expenses or 0) + int(daily_expenses or 0) + int(operating_expenses or 0) + int(cafe_purchase_total or 0) + int(cafe_operating_expenses or 0) + int(payroll_total or 0)
     net_profit = gross_income - total_expenses
     return {
         'rent_rows': rent_rows,
@@ -2689,6 +2761,7 @@ def _month_financial_summary(year, month, start, end, branch=None):
         'daily_income_total': daily_income_total,
         'cafe_sales_total': cafe_sales_total,
         'cafe_purchase_total': cafe_purchase_total,
+        'cafe_operating_expenses': cafe_operating_expenses,
         'monthly_expenses': monthly_expenses,
         'daily_expenses': daily_expenses,
         'operating_expenses': operating_expenses,
@@ -3213,12 +3286,14 @@ def reports_home_v2(request):
     monthly_expense_qs = MonthlyExpense.objects.all()
     daily_expense_qs = DailyExpense.objects.all()
     cafeteria_item_qs = CafeteriaItem.objects.all()
+    cafeteria_operating_expense_qs = CafeteriaOperatingExpense.objects.all()
     if not all_branches:
         employee_qs = employee_qs.filter(branch=active_branch)
         booking_checkout_qs = booking_checkout_qs.filter(booking__branch=active_branch)
         monthly_expense_qs = monthly_expense_qs.filter(branch=active_branch)
         daily_expense_qs = daily_expense_qs.filter(branch=active_branch)
         cafeteria_item_qs = cafeteria_item_qs.filter(branch=active_branch)
+        cafeteria_operating_expense_qs = cafeteria_operating_expense_qs.filter(branch=active_branch)
 
     if report_type == 'employees':
         context['employees'] = employee_qs
@@ -3333,6 +3408,14 @@ def reports_home_v2(request):
                 'title': f'{purchase.item.name} - كمية {purchase.quantity}',
                 'amount': purchase.total_amount,
                 'notes': purchase.notes or (f'المورد: {purchase.supplier}' if purchase.supplier else ''),
+            })
+        for expense in cafeteria_operating_expense_qs.filter(expense_date__range=(start, end)):
+            expense_rows.append({
+                'type': 'مصاريف تشغيل الكافيتريا',
+                'date': expense.expense_date,
+                'title': expense.title,
+                'amount': expense.amount,
+                'notes': '',
             })
         expense_rows.sort(key=lambda item: (item['date'], item['title']))
         academy_income_total = sum(row['paid'] for row in rows)

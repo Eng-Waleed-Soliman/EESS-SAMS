@@ -1,0 +1,33 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3>مصاريف تشغيل الكافيتريا</h3>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-primary" href="{% url 'cafe_operating_expense_create' %}">إضافة مصروف</a>
+    <a class="btn btn-secondary" href="{% url 'cafe_inventory' %}">رجوع للجرد</a>
+  </div>
+</div>
+<div class="card p-3 mb-3">
+  <b>إجمالي مصاريف التشغيل</b>
+  <h3>{{ total }}</h3>
+</div>
+<div class="card p-3 table-responsive">
+  <table class="table table-striped align-middle text-center">
+    <thead><tr><th>التاريخ</th><th>بيان المصروف</th><th>قيمة المصروفات</th><th>سُجل بواسطة</th><th>إجراءات</th></tr></thead>
+    <tbody>
+      {% for expense in expenses %}
+      <tr>
+        <td>{{ expense.expense_date|date:'d/m/Y' }}</td>
+        <td>{{ expense.title }}</td>
+        <td>{{ expense.amount }}</td>
+        <td>{% if expense.created_by %}{{ expense.created_by.get_full_name|default:expense.created_by.username }}{% else %}-{% endif %}</td>
+        <td>
+          <a class="btn btn-sm btn-primary" href="{% url 'cafe_operating_expense_update' expense.pk %}">تعديل</a>
+          <a class="btn btn-sm btn-danger" href="{% url 'cafe_operating_expense_delete' expense.pk %}">حذف</a>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="5">لا توجد مصاريف تشغيل كافيتريا مسجلة</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
