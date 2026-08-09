@@ -154,7 +154,18 @@
 </div>
 
 <div class="card p-3">
-  <h5 class="fw-bold mb-3">آخر حركات البيع</h5>
+  <div class="d-flex justify-content-between align-items-end gap-3 flex-wrap mb-3">
+    <h5 class="fw-bold mb-0">أوردرات يوم {{ history_date|date:'d/m/Y' }}</h5>
+    <form method="get" class="d-flex align-items-end gap-2 flex-wrap">
+      {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category }}">{% endif %}
+      <div>
+        <label class="form-label fw-bold mb-1" for="history_date">اختيار اليوم</label>
+        <input class="form-control" type="date" id="history_date" name="history_date" value="{{ history_date|date:'Y-m-d' }}">
+      </div>
+      <button class="btn btn-primary" type="submit">عرض</button>
+      <a class="btn btn-outline-secondary" href="?history_date={% now 'Y-m-d' %}">اليوم</a>
+    </form>
+  </div>
   <table class="table table-striped align-middle text-center">
     <thead><tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإضافة</th><th>الإجمالي</th><th>الربح التقديري</th><th></th></tr></thead>
     <tbody>

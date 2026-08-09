@@ -2241,8 +2241,16 @@ def cafe_sale_list(request):
             messages.success(request, 'تم تسجيل البيع بنجاح.')
             return redirect('cafe_sale_list')
 
-    sales = CafeteriaSale.objects.select_related('item', 'item__category', 'addon').all()[:50]
     today = date.today()
+    try:
+        history_date = date.fromisoformat(request.GET.get('history_date', ''))
+    except (TypeError, ValueError):
+        history_date = today
+    sales = (
+        CafeteriaSale.objects.select_related('item', 'item__category', 'addon')
+        .filter(sale_date=history_date)
+        .order_by('-created_at', '-id')
+    )
     today_sales = CafeteriaSale.objects.filter(sale_date=today).select_related('item')
     today_total = sum(sale.total_amount for sale in today_sales)
     today_profit = sum(sale.estimated_profit for sale in today_sales)
@@ -2265,6 +2273,7 @@ def cafe_sale_list(request):
     return render(request, 'academies/cafe_sale_list.html', {
         'form': form,
         'sales': sales,
+        'history_date': history_date,
         'items': items,
         'categories': categories,
         'selected_category': category_id,

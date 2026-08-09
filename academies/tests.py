@@ -912,6 +912,39 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, '<td>3</td>', html=True)
         self.assertContains(response, '<td class="fw-bold">7</td>', html=True)
 
+    def test_cafeteria_sales_history_shows_all_selected_day_sales_newest_first(self):
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        category = CafeteriaCategory.objects.create(code=812, name='Sales History')
+        item = CafeteriaItem.objects.create(
+            category=category, code=812, name='History Item', opening_quantity=100,
+            purchase_price=5, sale_price=10,
+        )
+        old_sale = CafeteriaSale.objects.create(
+            item=item, sale_date=yesterday, quantity=1, unit_price=10,
+        )
+        today_sales = [
+            CafeteriaSale.objects.create(
+                item=item, sale_date=today, quantity=index + 1, unit_price=10,
+            )
+            for index in range(55)
+        ]
+
+        response = self.client.get(reverse('cafe_sale_list'))
+        displayed_sales = list(response.context['sales'])
+        self.assertEqual(len(displayed_sales), 55)
+        self.assertEqual(displayed_sales[0], today_sales[-1])
+        self.assertEqual(displayed_sales[-1], today_sales[0])
+        self.assertNotIn(old_sale, displayed_sales)
+        self.assertEqual(response.context['history_date'], today)
+
+        response = self.client.get(reverse('cafe_sale_list'), {
+            'history_date': yesterday.isoformat(),
+        })
+        self.assertEqual(list(response.context['sales']), [old_sale])
+        self.assertEqual(response.context['history_date'], yesterday)
+        self.assertContains(response, 'اختيار اليوم')
+
     def test_cafeteria_sale_addon_uses_configured_price_and_updates_order_total(self):
         category = CafeteriaCategory.objects.create(code=811, name='مشروبات الإضافات')
         item = CafeteriaItem.objects.create(
