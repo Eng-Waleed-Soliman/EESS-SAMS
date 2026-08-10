@@ -1086,10 +1086,25 @@ class CafeteriaCategory(models.Model):
 
 
 class CafeteriaItem(models.Model):
+    TYPE_COUNT = 'count'
+    TYPE_WEIGHT = 'weight'
+    TYPE_MIXED = 'mixed'
+    ITEM_TYPE_CHOICES = [
+        (TYPE_COUNT, 'عددي'),
+        (TYPE_WEIGHT, 'كمي (بالوزن)'),
+        (TYPE_MIXED, 'مختلط (وصفة)'),
+    ]
+
     branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='cafeteria_items', verbose_name='الفرع')
     category = models.ForeignKey(CafeteriaCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name='items', verbose_name='فئة الصنف')
     code = models.PositiveIntegerField(default=0, verbose_name='كود الصنف')
     name = models.CharField(max_length=200, verbose_name='اسم الصنف')
+    item_type = models.CharField(
+        max_length=10,
+        choices=ITEM_TYPE_CHOICES,
+        default=TYPE_COUNT,
+        verbose_name='نوع الصنف',
+    )
     opening_quantity = models.PositiveIntegerField(default=0, verbose_name='رصيد افتتاحي')
     stock_adjustment = models.IntegerField(default=0, verbose_name='تسوية المخزون')
     purchase_price = models.PositiveIntegerField(default=0, verbose_name='سعر الشراء')
@@ -1119,14 +1134,49 @@ class CafeteriaItem(models.Model):
         return self.hospitality_items.aggregate(total=models.Sum('quantity'))['total'] or 0
 
     @property
+    def ingredient_quantity(self):
+        return self.ingredient_usages.aggregate(total=models.Sum('quantity'))['total'] or 0
+
+    @property
     def stock_quantity(self):
+        if self.item_type == self.TYPE_MIXED:
+            components = list(self.recipe_components.select_related('component').all())
+            if not components:
+                return 0
+            return min(component.component.stock_quantity // component.quantity for component in components)
         return int(
             self.opening_quantity
             + self.purchased_quantity
             - self.sold_quantity
             - self.hospitality_quantity
+            - self.ingredient_quantity
             + self.stock_adjustment
         )
+
+    @property
+    def unit_label(self):
+        return 'جرام' if self.item_type == self.TYPE_WEIGHT else ('حصة' if self.item_type == self.TYPE_MIXED else 'قطعة')
+
+    @property
+    def price_unit_label(self):
+        return 'للكيلوجرام' if self.item_type == self.TYPE_WEIGHT else ('للحصة' if self.item_type == self.TYPE_MIXED else 'للقطعة')
+
+    @property
+    def base_unit_cost(self):
+        if self.item_type == self.TYPE_WEIGHT:
+            return Decimal(self.purchase_price or 0) / Decimal('1000')
+        if self.item_type == self.TYPE_MIXED:
+            return sum(
+                (row.component.base_unit_cost * row.quantity for row in self.recipe_components.select_related('component').all()),
+                Decimal('0'),
+            )
+        return Decimal(self.purchase_price or 0)
+
+    def amount_for_quantity(self, quantity, price):
+        amount = Decimal(quantity or 0) * Decimal(price or 0)
+        if self.item_type == self.TYPE_WEIGHT:
+            amount /= Decimal('1000')
+        return int(amount)
 
     @property
     def alert_limit(self):
@@ -1138,6 +1188,31 @@ class CafeteriaItem(models.Model):
     @property
     def is_low_stock(self):
         return self.alert_limit > 0 and self.stock_quantity < self.alert_limit
+
+
+class CafeteriaRecipeComponent(models.Model):
+    product = models.ForeignKey(
+        CafeteriaItem,
+        on_delete=models.CASCADE,
+        related_name='recipe_components',
+        verbose_name='الصنف المختلط',
+    )
+    component = models.ForeignKey(
+        CafeteriaItem,
+        on_delete=models.PROTECT,
+        related_name='used_in_recipes',
+        verbose_name='المكوّن',
+    )
+    quantity = models.PositiveIntegerField(verbose_name='الكمية المستخدمة في الحصة')
+
+    class Meta:
+        ordering = ['id']
+        unique_together = [('product', 'component')]
+        verbose_name = 'مكوّن وصفة كافيتريا'
+        verbose_name_plural = 'مكونات وصفات الكافيتريا'
+
+    def __str__(self):
+        return f'{self.product.name}: {self.component.name} ({self.quantity} {self.component.unit_label})'
 
 
 class CafeteriaPurchase(models.Model):
@@ -1156,7 +1231,7 @@ class CafeteriaPurchase(models.Model):
 
     @property
     def total_amount(self):
-        return int((self.quantity or 0) * (self.unit_price or 0))
+        return self.item.amount_for_quantity(self.quantity, self.unit_price)
 
     def __str__(self):
         return f'{self.item} - {self.quantity}'
@@ -1202,14 +1277,15 @@ class CafeteriaSale(models.Model):
 
     @property
     def total_amount(self):
-        item_total = (self.quantity or 0) * (self.unit_price or 0)
+        item_total = self.item.amount_for_quantity(self.quantity, self.unit_price)
         addon_total = (self.addon_quantity or 0) * (self.addon_unit_price or 0)
         return int(item_total + addon_total)
 
     @property
     def estimated_profit(self):
-        purchase_price = self.item.purchase_price if self.item_id else 0
-        item_profit = (self.unit_price - purchase_price) * self.quantity
+        item_revenue = self.item.amount_for_quantity(self.quantity, self.unit_price)
+        item_cost = self.item.base_unit_cost * Decimal(self.quantity or 0)
+        item_profit = Decimal(item_revenue) - item_cost
         addon_revenue = (self.addon_quantity or 0) * (self.addon_unit_price or 0)
         return int(item_profit + addon_revenue)
 
@@ -1278,12 +1354,45 @@ class CafeteriaHospitalityItem(models.Model):
 
     @property
     def total_amount(self):
-        item_total = (self.quantity or 0) * (self.unit_price or 0)
+        item_total = self.item.amount_for_quantity(self.quantity, self.unit_price)
         addon_total = (self.addon_quantity or 0) * (self.addon_unit_price or 0)
         return int(item_total + addon_total)
 
     def __str__(self):
         return f'{self.item_name} - {self.quantity}'
+
+
+class CafeteriaIngredientUsage(models.Model):
+    component = models.ForeignKey(
+        CafeteriaItem,
+        on_delete=models.PROTECT,
+        related_name='ingredient_usages',
+        verbose_name='المكوّن المستهلك',
+    )
+    sale = models.ForeignKey(
+        CafeteriaSale,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='ingredient_usages',
+        verbose_name='حركة البيع',
+    )
+    hospitality_item = models.ForeignKey(
+        CafeteriaHospitalityItem,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='ingredient_usages',
+        verbose_name='حركة الضيافة',
+    )
+    quantity = models.PositiveIntegerField(verbose_name='الكمية المستهلكة')
+
+    class Meta:
+        verbose_name = 'استهلاك مكوّن كافيتريا'
+        verbose_name_plural = 'استهلاك مكونات الكافيتريا'
+
+    def __str__(self):
+        return f'{self.component.name} - {self.quantity} {self.component.unit_label}'
 
 
 class CafeteriaCashSupply(models.Model):

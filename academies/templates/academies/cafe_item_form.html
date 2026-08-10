@@ -1,0 +1,73 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<h3 class="mb-3">{{ title }}</h3>
+<form method="post" class="card p-4" id="itemForm">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="row g-3">
+    {% for field in form %}
+    <div class="col-md-6 field-{{ field.name }}">
+      <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      <div class="text-danger small">{{ field.errors }}</div>
+      {% if field.name == 'purchase_price' %}<div class="form-text" id="purchaseHelp"></div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div id="recipeSection" class="mt-4 border rounded p-3 bg-light">
+    <h5 class="fw-bold">مكونات الوصفة للحصة الواحدة</h5>
+    <p class="text-muted">اختر المواد الخام وحدد كمية كل مكوّن. الصنف الوزني تكون كميته بالجرام، والعددي بالقطعة.</p>
+    {{ recipe_formset.management_form }}
+    {% if recipe_formset.non_form_errors %}<div class="alert alert-danger">{{ recipe_formset.non_form_errors }}</div>{% endif %}
+    <div class="row g-2">
+      {% for recipe_form in recipe_formset %}
+      <div class="col-12 recipe-row">
+        {{ recipe_form.id }}
+        <div class="row g-2 align-items-end">
+          <div class="col-md-6"><label class="form-label">المكوّن</label>{{ recipe_form.component }}{{ recipe_form.component.errors }}</div>
+          <div class="col-md-4"><label class="form-label">الكمية في الحصة</label>{{ recipe_form.quantity }}{{ recipe_form.quantity.errors }}</div>
+          <div class="col-md-2">{% if recipe_form.instance.pk %}<label class="form-label d-block">حذف</label>{{ recipe_form.DELETE }}{% endif %}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="alert alert-info mt-3 mb-0" id="costInfo"></div>
+  <div class="mt-4"><button class="btn btn-success">حفظ</button> <a class="btn btn-secondary" href="{% url 'cafe_item_list' %}">إلغاء</a></div>
+</form>
+<script>
+const typeSelect = document.getElementById('id_item_type');
+const recipeSection = document.getElementById('recipeSection');
+const openingWrap = document.querySelector('.field-opening_quantity');
+const purchaseWrap = document.querySelector('.field-purchase_price');
+const openingLabel = openingWrap ? openingWrap.querySelector('label') : null;
+const purchaseLabel = purchaseWrap ? purchaseWrap.querySelector('label') : null;
+const saleLabel = document.querySelector('.field-sale_price label');
+const purchaseHelp = document.getElementById('purchaseHelp');
+const costInfo = document.getElementById('costInfo');
+function updateTypeFields(){
+  const type = typeSelect.value;
+  recipeSection.style.display = type === 'mixed' ? '' : 'none';
+  openingWrap.style.display = type === 'mixed' ? 'none' : '';
+  purchaseWrap.style.display = type === 'mixed' ? 'none' : '';
+  costInfo.style.display = type === 'mixed' ? '' : 'none';
+  if(type === 'weight'){
+    openingLabel.textContent = 'الوزن الافتتاحي بالجرام';
+    purchaseLabel.textContent = 'سعر الشراء للكيلوجرام';
+    saleLabel.textContent = 'سعر البيع للكيلوجرام';
+    purchaseHelp.textContent = 'النظام يحسب تكلفة الجرام تلقائياً بقسمة سعر الكيلو على 1000.';
+  }else if(type === 'mixed'){
+    saleLabel.textContent = 'سعر بيع الحصة';
+    costInfo.textContent = 'تكلفة الحصة تُحسب تلقائياً من كميات المكونات × تكلفة الوحدة أو الجرام لكل مكوّن.';
+  }else{
+    openingLabel.textContent = 'الرصيد الافتتاحي بالعدد';
+    purchaseLabel.textContent = 'سعر الشراء للقطعة';
+    saleLabel.textContent = 'سعر البيع للقطعة';
+    purchaseHelp.textContent = '';
+  }
+}
+typeSelect.addEventListener('change', updateTypeFields);
+updateTypeFields();
+</script>
+{% endblock %}

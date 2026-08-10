@@ -173,8 +173,8 @@
       <tr>
         <td>{{ s.sale_date }}</td>
         <td>{{ s.item.name }}</td>
-        <td>{{ s.quantity }}</td>
-        <td>{{ s.unit_price }}</td>
+        <td>{{ s.quantity }} {{ s.item.unit_label }}</td>
+        <td>{{ s.unit_price }} {{ s.item.price_unit_label }}</td>
         <td>{% if s.addon_name %}{{ s.addon_name }} × {{ s.addon_quantity }}{% else %}-{% endif %}</td>
         <td>{{ s.total_amount }}</td>
         <td>{{ s.estimated_profit }}</td>
@@ -254,7 +254,10 @@ function selectedAddon(){
 }
 
 function rowTotal(row){
-  return (row.quantity * row.unit_price) + ((row.addon_quantity || 0) * (row.addon_unit_price || 0));
+  const itemAmount = row.item_type === 'weight'
+    ? Math.floor((row.quantity * row.unit_price) / 1000)
+    : row.quantity * row.unit_price;
+  return itemAmount + ((row.addon_quantity || 0) * (row.addon_unit_price || 0));
 }
 
 function refreshSale(){
@@ -267,13 +270,14 @@ function refreshSale(){
   const addon = selectedAddon();
   const addonQty = addon ? Math.max(1, parseInt(addonQuantityInput.value || '1', 10)) : 0;
   const addonPrice = addon ? parseInt(addon.sale_price || '0', 10) : 0;
-  totalInput.value = Math.max(0, (qty * price) + (addonQty * addonPrice));
+  const itemAmount = item && item.item_type === 'weight' ? Math.floor((qty * price) / 1000) : qty * price;
+  totalInput.value = Math.max(0, itemAmount + (addonQty * addonPrice));
   if(displayPriceInput){ displayPriceInput.value = item ? (item.sale_price || 0) : 0; }
   if(displayAddonPriceInput){ displayAddonPriceInput.value = addonPrice; }
   if(addonQuantityInput){ addonQuantityInput.disabled = !addon; }
   if(item){
-    if(stockQuantityDisplay){ stockQuantityDisplay.value = item.stock_quantity; }
-    stockInfo.textContent = 'المخزون المتاح: ' + item.stock_quantity;
+    if(stockQuantityDisplay){ stockQuantityDisplay.value = item.stock_quantity + ' ' + item.unit_label; }
+    stockInfo.textContent = 'المخزون المتاح: ' + item.stock_quantity + ' ' + item.unit_label;
   }else{
     if(stockQuantityDisplay){ stockQuantityDisplay.value = 0; }
     stockInfo.textContent = 'اختر الصنف لعرض المخزون المتاح.';
@@ -294,8 +298,8 @@ function renderOrder(){
     orderRows.innerHTML = orderItems.map(function(row, index){
       return '<tr>' +
         '<td>' + escapeHtml(row.item_name) + '</td>' +
-        '<td>' + row.quantity + '</td>' +
-        '<td>' + row.unit_price + '</td>' +
+        '<td>' + row.quantity + ' ' + escapeHtml(row.unit_label) + '</td>' +
+        '<td>' + row.unit_price + (row.item_type === 'weight' ? ' / كجم' : '') + '</td>' +
         '<td>' + escapeHtml(row.addon_name || '-') + '</td>' +
         '<td>' + (row.addon_quantity || '-') + '</td>' +
         '<td>' + (row.addon_unit_price || '-') + '</td>' +
@@ -340,6 +344,8 @@ function addCurrentItemToOrder(){
     orderItems.push({
       item_id: item.id,
       item_name: (item.code ? item.code + ' - ' : '') + item.name,
+      item_type: item.item_type,
+      unit_label: item.unit_label,
       quantity: qty,
       unit_price: price,
       addon_id: addon ? addon.id : '',

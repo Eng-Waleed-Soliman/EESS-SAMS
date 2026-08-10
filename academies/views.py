@@ -15,8 +15,8 @@ from django.db.models import Sum, Q, Count, Prefetch
 from django.http import HttpResponse, Http404
 from django.utils import timezone
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaRecipeComponentFormSet, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
@@ -1871,7 +1871,7 @@ def cafe_addon_delete(request, pk):
 
 @login_required
 def cafe_stock_adjust(request):
-    items = CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name')
+    items = CafeteriaItem.objects.exclude(item_type=CafeteriaItem.TYPE_MIXED).select_related('category').order_by('category__code', 'code', 'name')
     if request.method == 'POST':
         for item in items:
             value = request.POST.get(f'quantity_{item.id}', '').strip()
@@ -1880,6 +1880,7 @@ def cafe_stock_adjust(request):
                     desired_quantity = max(0, int(value))
                     quantity_before_adjustment = (
                         item.opening_quantity + item.purchased_quantity - item.sold_quantity
+                        - item.hospitality_quantity - item.ingredient_quantity
                     )
                     item.stock_adjustment = desired_quantity - quantity_before_adjustment
                     item.save(update_fields=['stock_adjustment'])
@@ -1920,8 +1921,8 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
     purchases = CafeteriaPurchase.objects.filter(item__in=items)
     sales = CafeteriaSale.objects.filter(item__in=items)
     purchase_cash_total = sum(
-        (row.quantity or 0) * (row.unit_price or 0)
-        for row in purchases.only('quantity', 'unit_price')
+        row.total_amount
+        for row in purchases.select_related('item').only('quantity', 'unit_price', 'item__item_type')
     )
     sales_cash_total = sum(
         row.total_amount
@@ -2103,13 +2104,56 @@ def cafe_menu(request):
         groups.append({'category': None, 'label': 'بدون فئة', 'rows': orphan_rows})
     return render(request, 'academies/cafe_menu.html', {'groups': groups})
 
+def _prepare_recipe_formset(formset, product=None):
+    queryset = CafeteriaItem.objects.exclude(item_type=CafeteriaItem.TYPE_MIXED).order_by('category__code', 'code', 'name')
+    if product and product.pk:
+        queryset = queryset.exclude(pk=product.pk)
+    for recipe_form in formset.forms:
+        recipe_form.fields['component'].queryset = queryset
+        recipe_form.fields['component'].label_from_instance = lambda obj: f'{obj.name} ({obj.unit_label})'
+
+
+def _cafeteria_item_form(request, instance=None):
+    item = instance or CafeteriaItem()
+    form = CafeteriaItemForm(request.POST or None, instance=item)
+    recipe_formset = CafeteriaRecipeComponentFormSet(request.POST or None, instance=item, prefix='recipe')
+    _prepare_recipe_formset(recipe_formset, item)
+    if request.method == 'POST' and form.is_valid():
+        item = form.save(commit=False)
+        recipe_formset.instance = item
+        recipes_valid = recipe_formset.is_valid() if item.item_type == CafeteriaItem.TYPE_MIXED else True
+        if item.item_type == CafeteriaItem.TYPE_MIXED and recipes_valid:
+            active_rows = [
+                row for row in recipe_formset.forms
+                if row.cleaned_data and not row.cleaned_data.get('DELETE') and row.cleaned_data.get('component')
+            ]
+            if not active_rows:
+                recipe_formset._non_form_errors = recipe_formset.error_class(['أضف مكوّنًا واحدًا على الأقل للصنف المختلط.'])
+                recipes_valid = False
+        if recipes_valid:
+            with transaction.atomic():
+                item.save()
+                if item.item_type == CafeteriaItem.TYPE_MIXED:
+                    recipe_formset.instance = item
+                    recipe_formset.save()
+                else:
+                    item.recipe_components.all().delete()
+            messages.success(request, 'تم حفظ صنف الكافيتريا والوصفة بنجاح.')
+            return redirect('cafe_item_list')
+    return render(request, 'academies/cafe_item_form.html', {
+        'form': form,
+        'recipe_formset': recipe_formset,
+        'title': 'تعديل صنف كافيتريا' if instance else 'إضافة صنف كافيتريا',
+    })
+
+
 @login_required
 def cafe_item_create(request):
-    return _generic_form(request, CafeteriaItemForm, 'إضافة صنف كافيتريا', 'cafe_item_list')
+    return _cafeteria_item_form(request)
 
 @login_required
 def cafe_item_update(request, pk):
-    return _generic_form(request, CafeteriaItemForm, 'تعديل صنف كافيتريا', 'cafe_item_list', get_object_or_404(CafeteriaItem, pk=pk))
+    return _cafeteria_item_form(request, get_object_or_404(CafeteriaItem, pk=pk))
 
 @login_required
 def cafe_item_delete(request, pk):
@@ -2121,17 +2165,62 @@ def cafe_purchase_list(request):
     purchases = CafeteriaPurchase.objects.select_related('item').all()
     return render(request, 'academies/cafe_purchase_list.html', {'purchases': purchases})
 
+
+def _cafeteria_purchase_form(request, instance=None):
+    form = CafeteriaPurchaseForm(request.POST or None, instance=instance)
+    if request.method == 'POST' and form.is_valid():
+        purchase = form.save()
+        if purchase.unit_price != purchase.item.purchase_price:
+            purchase.item.purchase_price = purchase.unit_price
+            purchase.item.save(update_fields=['purchase_price'])
+        messages.success(request, 'تم حفظ حركة شراء الكافيتريا بنجاح.')
+        return redirect('cafe_purchase_list')
+    item_units = list(
+        CafeteriaItem.objects.exclude(item_type=CafeteriaItem.TYPE_MIXED)
+        .values('id', 'item_type')
+    )
+    return render(request, 'academies/cafe_purchase_form.html', {
+        'form': form,
+        'title': 'تعديل حركة شراء كافيتريا' if instance else 'إضافة حركة شراء كافيتريا',
+        'item_units': item_units,
+    })
+
 @login_required
 def cafe_purchase_create(request):
-    return _generic_form(request, CafeteriaPurchaseForm, 'إضافة حركة شراء كافيتريا', 'cafe_purchase_list')
+    return _cafeteria_purchase_form(request)
 
 @login_required
 def cafe_purchase_update(request, pk):
-    return _generic_form(request, CafeteriaPurchaseForm, 'تعديل حركة شراء كافيتريا', 'cafe_purchase_list', get_object_or_404(CafeteriaPurchase, pk=pk))
+    return _cafeteria_purchase_form(request, get_object_or_404(CafeteriaPurchase, pk=pk))
 
 @login_required
 def cafe_purchase_delete(request, pk):
     return _generic_delete(request, get_object_or_404(CafeteriaPurchase, pk=pk), 'حذف حركة شراء كافيتريا', 'cafe_purchase_list')
+
+
+def _cafeteria_requirements(item, quantity):
+    if item.item_type != CafeteriaItem.TYPE_MIXED:
+        return {item.id: quantity}
+    return {
+        row.component_id: row.quantity * quantity
+        for row in item.recipe_components.all()
+    }
+
+
+def _sync_cafeteria_ingredient_usage(source):
+    source.ingredient_usages.all().delete()
+    if source.item.item_type != CafeteriaItem.TYPE_MIXED:
+        return
+    rows = [
+        CafeteriaIngredientUsage(
+            component=recipe.component,
+            quantity=recipe.quantity * source.quantity,
+            sale=source if isinstance(source, CafeteriaSale) else None,
+            hospitality_item=source if isinstance(source, CafeteriaHospitalityItem) else None,
+        )
+        for recipe in source.item.recipe_components.select_related('component').all()
+    ]
+    CafeteriaIngredientUsage.objects.bulk_create(rows)
 
 
 @login_required
@@ -2179,9 +2268,16 @@ def cafe_sale_list(request):
                 return redirect('cafe_sale_list')
             requested_by_item = {}
             for item, quantity, unit_price, addon, addon_quantity, addon_unit_price in prepared_rows:
-                requested_by_item[item.id] = requested_by_item.get(item.id, 0) + quantity
-                if requested_by_item[item.id] > item.stock_quantity:
-                    messages.error(request, f'المخزون غير كاف للصنف {item.name}. المتاح: {item.stock_quantity}.')
+                requirements = _cafeteria_requirements(item, quantity)
+                if item.item_type == CafeteriaItem.TYPE_MIXED and not requirements:
+                    messages.error(request, f'الصنف {item.name} لا توجد له وصفة مكونات.')
+                    return redirect('cafe_sale_list')
+                for component_id, required in requirements.items():
+                    requested_by_item[component_id] = requested_by_item.get(component_id, 0) + required
+            for component_id, required in requested_by_item.items():
+                component = get_object_or_404(CafeteriaItem, pk=component_id)
+                if required > component.stock_quantity:
+                    messages.error(request, f'المخزون غير كاف للمكوّن {component.name}. المتاح: {component.stock_quantity} {component.unit_label}.')
                     return redirect('cafe_sale_list')
             board_member = None
             employee_name = ''
@@ -2204,7 +2300,7 @@ def cafe_sale_list(request):
                         created_by=request.user,
                     )
                     for item, quantity, unit_price, addon, addon_quantity, addon_unit_price in prepared_rows:
-                        CafeteriaHospitalityItem.objects.create(
+                        hospitality_item = CafeteriaHospitalityItem.objects.create(
                             hospitality=hospitality,
                             item=item,
                             item_code=item.code,
@@ -2215,9 +2311,10 @@ def cafe_sale_list(request):
                             addon_quantity=addon_quantity,
                             addon_unit_price=addon_unit_price,
                         )
+                        _sync_cafeteria_ingredient_usage(hospitality_item)
                 else:
                     for item, quantity, unit_price, addon, addon_quantity, addon_unit_price in prepared_rows:
-                        CafeteriaSale.objects.create(
+                        sale = CafeteriaSale.objects.create(
                             item=item,
                             sale_date=sale_date,
                             quantity=quantity,
@@ -2228,6 +2325,7 @@ def cafe_sale_list(request):
                             addon_unit_price=addon_unit_price,
                             notes=notes,
                         )
+                        _sync_cafeteria_ingredient_usage(sale)
             created_count = len(prepared_rows)
             if checkout_action == 'hospitality':
                 messages.success(request, f'تم تسجيل الضيافة وخصم {created_count} صنف من المخزون بنجاح.')
@@ -2238,6 +2336,7 @@ def cafe_sale_list(request):
             sale = form.save(commit=False)
             sale.unit_price = sale.item.sale_price
             sale.save()
+            _sync_cafeteria_ingredient_usage(sale)
             messages.success(request, 'تم تسجيل البيع بنجاح.')
             return redirect('cafe_sale_list')
 
@@ -2267,6 +2366,8 @@ def cafe_sale_list(request):
             'category_name': item.category.name if item.category_id else 'بدون فئة',
             'sale_price': item.sale_price,
             'stock_quantity': item.stock_quantity,
+            'item_type': item.item_type,
+            'unit_label': item.unit_label,
         }
         for item in item_queryset
     ]
@@ -2292,6 +2393,7 @@ def cafe_sale_create(request):
         sale = form.save(commit=False)
         sale.unit_price = sale.item.sale_price
         sale.save()
+        _sync_cafeteria_ingredient_usage(sale)
         messages.success(request, 'تم حفظ حركة البيع بنجاح.')
         return redirect('cafe_sale_list')
     return render(request, 'academies/cafe_sale_form.html', {'form': form, 'title': 'إضافة حركة بيع كافيتريا', 'back_url': 'cafe_sale_list', 'items': list(CafeteriaItem.objects.values('id', 'sale_price'))})
@@ -2304,6 +2406,7 @@ def cafe_sale_update(request, pk):
         sale = form.save(commit=False)
         sale.unit_price = sale.item.sale_price
         sale.save()
+        _sync_cafeteria_ingredient_usage(sale)
         messages.success(request, 'تم تعديل حركة البيع بنجاح.')
         return redirect('cafe_sale_list')
     return render(request, 'academies/cafe_sale_form.html', {'form': form, 'title': 'تعديل حركة بيع كافيتريا', 'back_url': 'cafe_sale_list', 'items': list(CafeteriaItem.objects.values('id', 'sale_price'))})
@@ -3541,18 +3644,6 @@ def reports_home_v2(request):
         sold_quantities = {}
         revenue_by_item = {}
         profit_by_item = {}
-        all_purchased_quantities = {
-            row['item_id']: row['total'] or 0
-            for row in CafeteriaPurchase.objects.values('item_id').annotate(total=Sum('quantity'))
-        }
-        all_sold_quantities = {
-            row['item_id']: row['total'] or 0
-            for row in CafeteriaSale.objects.values('item_id').annotate(total=Sum('quantity'))
-        }
-        all_hospitality_quantities = {
-            row['item_id']: row['total'] or 0
-            for row in CafeteriaHospitalityItem.objects.values('item_id').annotate(total=Sum('quantity'))
-        }
         for purchase in purchases:
             purchased_quantities[purchase.item_id] = purchased_quantities.get(purchase.item_id, 0) + purchase.quantity
         for sale in sales:
@@ -3567,12 +3658,7 @@ def reports_home_v2(request):
                 'item': item,
                 'purchased': purchased_quantities.get(item.id, 0),
                 'sold': sold_quantities.get(item.id, 0),
-                'remaining': (
-                    int(item.opening_quantity or 0)
-                    + int(all_purchased_quantities.get(item.id, 0))
-                    - int(all_sold_quantities.get(item.id, 0))
-                    - int(all_hospitality_quantities.get(item.id, 0))
-                ),
+                'remaining': item.stock_quantity,
                 'revenue': revenue,
                 'profit': profit,
                 'profit_percentage': round((profit / revenue) * 100, 1) if revenue else 0,

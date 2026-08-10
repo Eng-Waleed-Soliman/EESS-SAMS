@@ -1,0 +1,36 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<h3 class="mb-3">{{ title }}</h3>
+<form method="post" class="card p-4">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="row g-3">
+    {% for field in form %}
+    <div class="col-md-6 field-{{ field.name }}"><label class="form-label fw-bold">{{ field.label }}</label>{{ field }}<div class="text-danger small">{{ field.errors }}</div></div>
+    {% endfor %}
+  </div>
+  <div class="alert alert-info mt-3" id="unitHelp">اختر الصنف لعرض وحدة الإدخال.</div>
+  <div><button class="btn btn-success">حفظ</button> <a class="btn btn-secondary" href="{% url 'cafe_purchase_list' %}">إلغاء</a></div>
+</form>
+{{ item_units|json_script:'item-units' }}
+<script>
+const units = {};
+JSON.parse(document.getElementById('item-units').textContent).forEach(row => units[row.id] = row.item_type);
+const itemSelect = document.getElementById('id_item');
+const quantityLabel = document.querySelector('.field-quantity label');
+const priceLabel = document.querySelector('.field-unit_price label');
+const unitHelp = document.getElementById('unitHelp');
+function updateUnits(){
+  if(units[itemSelect.value] === 'weight'){
+    quantityLabel.textContent = 'الوزن المشترى بالجرام';
+    priceLabel.textContent = 'سعر شراء الكيلوجرام';
+    unitHelp.textContent = 'أدخل الوزن الفعلي بالجرام وسعر الكيلو؛ يحسب النظام الإجمالي وتكلفة الجرام تلقائياً.';
+  }else{
+    quantityLabel.textContent = 'الكمية بالعدد';
+    priceLabel.textContent = 'سعر شراء القطعة';
+    unitHelp.textContent = 'أدخل عدد القطع وسعر شراء القطعة.';
+  }
+}
+itemSelect.addEventListener('change', updateUnits); updateUnits();
+</script>
+{% endblock %}

@@ -2,6 +2,7 @@ import json
 import zipfile
 from io import BytesIO
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 from django.contrib.auth.models import User
@@ -38,8 +39,10 @@ from .models import (
     CafeteriaCategory,
     CafeteriaHospitality,
     CafeteriaHospitalityItem,
+    CafeteriaIngredientUsage,
     CafeteriaItem,
     CafeteriaPurchase,
+    CafeteriaRecipeComponent,
     CafeteriaSale,
     Customer,
     DailyBooking,
@@ -2021,3 +2024,53 @@ class ApplicationFlowsTests(TestCase):
         unnamed_player = academy.members.get(role=AcademyMember.ROLE_PLAYER, name='بدون اسم - صف 6')
         self.assertFalse(unnamed_player.is_active)
         self.assertFalse(unnamed_player.is_published_on_website)
+
+    def test_weight_item_uses_kilogram_price_and_gram_stock(self):
+        item = CafeteriaItem.objects.create(
+            code=801, name='Coffee beans', item_type=CafeteriaItem.TYPE_WEIGHT,
+            opening_quantity=1000, purchase_price=600, sale_price=1000,
+        )
+        purchase = CafeteriaPurchase.objects.create(
+            item=item, purchase_date=date.today(), quantity=500, unit_price=600,
+        )
+        sale = CafeteriaSale.objects.create(
+            item=item, sale_date=date.today(), quantity=250, unit_price=1000,
+        )
+        self.assertEqual(purchase.total_amount, 300)
+        self.assertEqual(sale.total_amount, 250)
+        self.assertEqual(sale.estimated_profit, 100)
+        self.assertEqual(item.stock_quantity, 1250)
+
+    def test_mixed_recipe_checkout_deducts_components_and_delete_restores_them(self):
+        beans = CafeteriaItem.objects.create(
+            code=811, name='Beans', item_type=CafeteriaItem.TYPE_WEIGHT,
+            opening_quantity=100, purchase_price=500,
+        )
+        sugar = CafeteriaItem.objects.create(
+            code=812, name='Sugar', item_type=CafeteriaItem.TYPE_WEIGHT,
+            opening_quantity=100, purchase_price=100,
+        )
+        coffee = CafeteriaItem.objects.create(
+            code=813, name='Turkish coffee', item_type=CafeteriaItem.TYPE_MIXED,
+            sale_price=20,
+        )
+        CafeteriaRecipeComponent.objects.create(product=coffee, component=beans, quantity=10)
+        CafeteriaRecipeComponent.objects.create(product=coffee, component=sugar, quantity=10)
+        self.assertEqual(coffee.stock_quantity, 10)
+        self.assertEqual(coffee.base_unit_cost, Decimal('6'))
+
+        response = self.client.post(reverse('cafe_sale_list'), {
+            'sale_date': date.today().isoformat(),
+            'checkout_action': 'sale',
+            'order_items': json.dumps([{'item_id': coffee.id, 'quantity': 2}]),
+        })
+        self.assertRedirects(response, reverse('cafe_sale_list'))
+        sale = CafeteriaSale.objects.get(item=coffee)
+        self.assertEqual(CafeteriaIngredientUsage.objects.filter(sale=sale).count(), 2)
+        self.assertEqual(beans.stock_quantity, 80)
+        self.assertEqual(sugar.stock_quantity, 80)
+        self.assertEqual(sale.estimated_profit, 28)
+
+        sale.delete()
+        self.assertEqual(beans.stock_quantity, 100)
+        self.assertEqual(sugar.stock_quantity, 100)

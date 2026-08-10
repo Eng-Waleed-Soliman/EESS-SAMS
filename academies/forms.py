@@ -3,12 +3,12 @@ from io import BytesIO
 from pathlib import Path
 from decimal import Decimal
 from django import forms
-from django.forms import inlineformset_factory
+from django.forms import inlineformset_factory, BaseInlineFormSet
 from django.db.models import Q
 from django.core.files.uploadedfile import UploadedFile, SimpleUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -1573,9 +1573,10 @@ class CafeteriaCategoryForm(forms.ModelForm):
 class CafeteriaItemForm(forms.ModelForm):
     class Meta:
         model = CafeteriaItem
-        fields = ['category', 'code', 'name', 'opening_quantity', 'purchase_price', 'sale_price', 'notes']
+        fields = ['category', 'code', 'name', 'item_type', 'opening_quantity', 'purchase_price', 'sale_price', 'notes']
         widgets = {
             'category': forms.Select(attrs={'class': 'form-select'}),
+            'item_type': forms.Select(attrs={'class': 'form-select'}),
             'code': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '1'}),
             'opening_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
@@ -1584,10 +1585,59 @@ class CafeteriaItemForm(forms.ModelForm):
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['item_type'].required = False
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        cleaned_data['item_type'] = cleaned_data.get('item_type') or CafeteriaItem.TYPE_COUNT
+        if cleaned_data.get('item_type') == CafeteriaItem.TYPE_MIXED:
+            cleaned_data['opening_quantity'] = 0
+            cleaned_data['purchase_price'] = 0
+        return cleaned_data
+
+
+class BaseCafeteriaRecipeComponentFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        components = []
+        for form in self.forms:
+            if not form.cleaned_data or form.cleaned_data.get('DELETE'):
+                continue
+            component = form.cleaned_data.get('component')
+            quantity = form.cleaned_data.get('quantity') or 0
+            if component:
+                if component.item_type == CafeteriaItem.TYPE_MIXED:
+                    raise forms.ValidationError('لا يمكن استخدام صنف مختلط كمكوّن داخل وصفة أخرى.')
+                if component.pk == self.instance.pk:
+                    raise forms.ValidationError('لا يمكن أن يحتوي الصنف على نفسه كمكوّن.')
+                if component.pk in components:
+                    raise forms.ValidationError('لا يمكن تكرار نفس المكوّن في الوصفة.')
+                components.append(component.pk)
+            if component and quantity < 1:
+                raise forms.ValidationError('كمية كل مكوّن يجب أن تكون أكبر من صفر.')
+        if self.instance.item_type == CafeteriaItem.TYPE_MIXED and not components:
+            raise forms.ValidationError('أضف مكوّنًا واحدًا على الأقل للصنف المختلط.')
+
+
+CafeteriaRecipeComponentFormSet = inlineformset_factory(
+    CafeteriaItem,
+    CafeteriaRecipeComponent,
+    fk_name='product',
+    fields=['component', 'quantity'],
+    formset=BaseCafeteriaRecipeComponentFormSet,
+    extra=4,
+    can_delete=True,
+    widgets={
+        'component': forms.Select(attrs={'class': 'form-select'}),
+        'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
+    },
+)
 
 
 class CafeteriaPurchaseForm(forms.ModelForm):
@@ -1602,14 +1652,21 @@ class CafeteriaPurchaseForm(forms.ModelForm):
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['item'].queryset = CafeteriaItem.objects.select_related('category').order_by('category__code', 'code', 'name')
-        self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name}"
+        self.fields['item'].queryset = CafeteriaItem.objects.exclude(item_type=CafeteriaItem.TYPE_MIXED).select_related('category').order_by('category__code', 'code', 'name')
+        self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name} ({obj.get_item_type_display()})"
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
             if field.widget.__class__.__name__ == 'Select':
                 field.widget.attrs['class'] = 'form-select'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        item = cleaned_data.get('item')
+        if item and item.item_type == CafeteriaItem.TYPE_MIXED:
+            self.add_error('item', 'الصنف المختلط يُنتج من وصفته ولا تُسجل له حركة شراء مباشرة.')
+        return cleaned_data
 
 
 class CafeteriaAddonForm(forms.ModelForm):
@@ -1656,12 +1713,28 @@ class CafeteriaSaleForm(forms.ModelForm):
         quantity = cleaned_data.get('quantity') or 0
         addon = cleaned_data.get('addon')
         addon_quantity = cleaned_data.get('addon_quantity') or 0
-        if item and self.instance and self.instance.pk and self.instance.item_id == item.id:
-            available = item.stock_quantity + self.instance.quantity
-        else:
-            available = item.stock_quantity if item else 0
-        if item and quantity > available:
-            raise forms.ValidationError(f'الكمية المطلوبة للبيع أكبر من المخزون المتاح. المتاح حاليًا: {available}')
+        if item:
+            requirements = {}
+            if item.item_type == CafeteriaItem.TYPE_MIXED:
+                components = list(item.recipe_components.select_related('component').all())
+                if not components:
+                    raise forms.ValidationError('هذا الصنف المختلط لا توجد له وصفة.')
+                for row in components:
+                    requirements[row.component_id] = requirements.get(row.component_id, 0) + row.quantity * quantity
+            else:
+                requirements[item.id] = quantity
+            restored = {}
+            if self.instance and self.instance.pk:
+                if self.instance.item.item_type == CafeteriaItem.TYPE_MIXED:
+                    for usage in self.instance.ingredient_usages.all():
+                        restored[usage.component_id] = restored.get(usage.component_id, 0) + usage.quantity
+                else:
+                    restored[self.instance.item_id] = self.instance.quantity
+            for component_id, required in requirements.items():
+                component = CafeteriaItem.objects.get(pk=component_id)
+                available = component.stock_quantity + restored.get(component_id, 0)
+                if required > available:
+                    raise forms.ValidationError(f'المخزون غير كافٍ للمكوّن {component.name}. المتاح: {available} {component.unit_label}.')
         if item:
             cleaned_data['unit_price'] = item.sale_price
         if addon:
