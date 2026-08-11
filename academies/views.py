@@ -2202,8 +2202,30 @@ def cafe_item_delete(request, pk):
 
 @login_required
 def cafe_purchase_list(request):
-    purchases = CafeteriaPurchase.objects.select_related('item').all()
-    return render(request, 'academies/cafe_purchase_list.html', {'purchases': purchases})
+    purchases = list(
+        CafeteriaPurchase.objects.select_related('item')
+        .order_by('-purchase_date', '-id')
+    )
+    daily_groups = []
+    groups_by_date = {}
+    for purchase in purchases:
+        group = groups_by_date.get(purchase.purchase_date)
+        if group is None:
+            group = {
+                'date': purchase.purchase_date,
+                'purchases': [],
+                'movement_count': 0,
+                'total_amount': 0,
+            }
+            groups_by_date[purchase.purchase_date] = group
+            daily_groups.append(group)
+        group['purchases'].append(purchase)
+        group['movement_count'] += 1
+        group['total_amount'] += purchase.total_amount
+    return render(request, 'academies/cafe_purchase_list.html', {
+        'daily_groups': daily_groups,
+        'grand_total': sum(group['total_amount'] for group in daily_groups),
+    })
 
 
 def _cafeteria_purchase_form(request, instance=None):

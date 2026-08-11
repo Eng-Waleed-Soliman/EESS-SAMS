@@ -1,7 +1,64 @@
 {% extends 'academies/base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between mb-3"><h3>الكافيتريا - حركات الشراء</h3><div><a class="btn btn-secondary" href="{% url 'cafe_item_list' %}">الأصناف</a> <a class="btn btn-success" href="{% url 'cafe_purchase_create' %}">إضافة شراء</a></div></div>
-<div class="card p-3 table-responsive"><table class="table table-striped"><thead><tr><th>التاريخ</th><th>الصنف</th><th>النوع</th><th>الكمية/الوزن</th><th>سعر الشراء</th><th>الإجمالي</th><th>المورد</th><th></th></tr></thead><tbody>
-{% for p in purchases %}<tr><td>{{ p.purchase_date }}</td><td>{{ p.item.name }}</td><td>{{ p.item.get_item_type_display }}</td><td>{{ p.quantity }} {{ p.item.unit_label }}</td><td>{{ p.unit_price }} {{ p.item.price_unit_label }}</td><td>{{ p.total_amount }}</td><td>{{ p.supplier }}</td><td><a class="btn btn-sm btn-primary" href="{% url 'cafe_purchase_update' p.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'cafe_purchase_delete' p.pk %}">حذف</a></td></tr>
-{% empty %}<tr><td colspan="8">لا توجد بيانات</td></tr>{% endfor %}</tbody></table></div>
+<div class="d-flex justify-content-between mb-3 flex-wrap gap-2">
+  <h3>الكافيتريا - حركات الشراء</h3>
+  <div><a class="btn btn-secondary" href="{% url 'cafe_item_list' %}">الأصناف</a> <a class="btn btn-success" href="{% url 'cafe_purchase_create' %}">إضافة شراء</a></div>
+</div>
+
+<div class="alert alert-info">اضغط دبل كليك على صف اليوم لعرض أو إخفاء تفاصيل مشتريات هذا اليوم.</div>
+<div class="card p-3 table-responsive">
+  <table class="table table-striped align-middle text-center" id="dailyPurchasesTable">
+    <thead><tr><th>التاريخ</th><th>عدد حركات الشراء</th><th>إجمالي الشراء عن اليوم</th></tr></thead>
+    <tbody>
+      {% for group in daily_groups %}
+      <tr class="daily-summary-row" data-target="purchase-details-{{ forloop.counter }}" tabindex="0" title="دبل كليك لعرض التفاصيل">
+        <td class="fw-bold">{{ group.date }}</td>
+        <td>{{ group.movement_count }}</td>
+        <td class="fw-bold">{{ group.total_amount }}</td>
+      </tr>
+      <tr class="daily-details-row d-none" id="purchase-details-{{ forloop.counter }}">
+        <td colspan="3" class="p-3">
+          <div class="detail-title mb-2">تفاصيل مشتريات يوم {{ group.date }}</div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm mb-0 text-center align-middle">
+              <thead><tr><th>الصنف</th><th>النوع</th><th>الكمية/الوزن</th><th>سعر الشراء</th><th>الإجمالي</th><th>المورد</th><th></th></tr></thead>
+              <tbody>
+                {% for p in group.purchases %}
+                <tr>
+                  <td>{{ p.item.name }}</td>
+                  <td>{{ p.item.get_item_type_display }}</td>
+                  <td>{{ p.quantity }} {{ p.item.unit_label }}</td>
+                  <td>{{ p.unit_price }} {{ p.item.price_unit_label }}</td>
+                  <td class="fw-bold">{{ p.total_amount }}</td>
+                  <td>{{ p.supplier|default:'-' }}</td>
+                  <td><a class="btn btn-sm btn-primary" href="{% url 'cafe_purchase_update' p.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'cafe_purchase_delete' p.pk %}">حذف</a></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="3">لا توجد حركات شراء مسجلة</td></tr>{% endfor %}
+    </tbody>
+    {% if daily_groups %}<tfoot><tr class="table-light fw-bold"><th colspan="2">إجمالي كل المشتريات</th><th>{{ grand_total }}</th></tr></tfoot>{% endif %}
+  </table>
+</div>
+<style>
+.daily-summary-row{cursor:pointer}.daily-summary-row:hover,.daily-summary-row.is-open{background:#dbeafe!important}.daily-details-row>td{background:#f8fafc!important}.detail-title{font-size:20px;font-weight:900;text-align:right}
+</style>
+<script>
+function togglePurchaseDay(row){
+  const details = document.getElementById(row.dataset.target);
+  if(!details) return;
+  const willOpen = details.classList.contains('d-none');
+  document.querySelectorAll('.daily-details-row').forEach(item => item.classList.add('d-none'));
+  document.querySelectorAll('.daily-summary-row').forEach(item => item.classList.remove('is-open'));
+  if(willOpen){ details.classList.remove('d-none'); row.classList.add('is-open'); }
+}
+document.querySelectorAll('.daily-summary-row').forEach(function(row){
+  row.addEventListener('dblclick', function(){ togglePurchaseDay(row); });
+  row.addEventListener('keydown', function(event){ if(event.key === 'Enter'){ togglePurchaseDay(row); } });
+});
+</script>
 {% endblock %}
