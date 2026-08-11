@@ -1919,14 +1919,14 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
         operating_expenses = operating_expenses.filter(branch=active_branch)
 
     purchases = CafeteriaPurchase.objects.filter(item__in=items)
-    sales = CafeteriaSale.objects.filter(item__in=items)
+    sales = CafeteriaSale.objects.filter(item__in=items).select_related('item')
     purchase_cash_total = sum(
         row.total_amount
         for row in purchases.select_related('item').only('quantity', 'unit_price', 'item__item_type')
     )
     sales_cash_total = sum(
         row.total_amount
-        for row in sales.only('quantity', 'unit_price', 'addon_quantity', 'addon_unit_price')
+        for row in sales.only('quantity', 'unit_price', 'addon_quantity', 'addon_unit_price', 'item__item_type')
     )
     supplied_cash_total = supplies.aggregate(total=Sum('amount'))['total'] or 0
     operating_expense_total = operating_expenses.aggregate(total=Sum('amount'))['total'] or 0
@@ -1961,12 +1961,52 @@ def cafe_inventory(request):
         items = items.filter(branch=active_branch)
         supplies = supplies.filter(branch=active_branch)
 
+    item_list = list(items.prefetch_related('recipe_components'))
+    item_ids = [item.id for item in item_list]
+
+    def totals_by_item(queryset, key='item_id'):
+        return {
+            row[key]: row['total'] or 0
+            for row in queryset.values(key).annotate(total=Sum('quantity'))
+        }
+
+    purchased_before_map = totals_by_item(CafeteriaPurchase.objects.filter(item_id__in=item_ids, purchase_date__lt=date_from))
+    sold_before_map = totals_by_item(CafeteriaSale.objects.filter(item_id__in=item_ids, sale_date__lt=date_from))
+    purchased_map = totals_by_item(CafeteriaPurchase.objects.filter(item_id__in=item_ids, purchase_date__range=(date_from, date_to)))
+    sold_map = totals_by_item(CafeteriaSale.objects.filter(item_id__in=item_ids, sale_date__range=(date_from, date_to)))
+    purchased_all_map = totals_by_item(CafeteriaPurchase.objects.filter(item_id__in=item_ids))
+    sold_all_map = totals_by_item(CafeteriaSale.objects.filter(item_id__in=item_ids))
+    hospitality_all_map = totals_by_item(CafeteriaHospitalityItem.objects.filter(item_id__in=item_ids))
+    ingredient_all_map = totals_by_item(
+        CafeteriaIngredientUsage.objects.filter(component_id__in=item_ids),
+        key='component_id',
+    )
+    live_stock = {
+        item.id: int(
+            item.opening_quantity
+            + purchased_all_map.get(item.id, 0)
+            - sold_all_map.get(item.id, 0)
+            - hospitality_all_map.get(item.id, 0)
+            - ingredient_all_map.get(item.id, 0)
+            + item.stock_adjustment
+        )
+        for item in item_list
+        if item.item_type != CafeteriaItem.TYPE_MIXED
+    }
+    for item in item_list:
+        if item.item_type == CafeteriaItem.TYPE_MIXED:
+            recipe = list(item.recipe_components.all())
+            live_stock[item.id] = min(
+                (live_stock.get(row.component_id, 0) // row.quantity for row in recipe),
+                default=0,
+            )
+
     rows = []
-    for item in items:
-        purchased_before = item.purchases.filter(purchase_date__lt=date_from).aggregate(total=Sum('quantity'))['total'] or 0
-        sold_before = item.sales.filter(sale_date__lt=date_from).aggregate(total=Sum('quantity'))['total'] or 0
-        purchased = item.purchases.filter(purchase_date__range=(date_from, date_to)).aggregate(total=Sum('quantity'))['total'] or 0
-        sold = item.sales.filter(sale_date__range=(date_from, date_to)).aggregate(total=Sum('quantity'))['total'] or 0
+    for item in item_list:
+        purchased_before = purchased_before_map.get(item.id, 0)
+        sold_before = sold_before_map.get(item.id, 0)
+        purchased = purchased_map.get(item.id, 0)
+        sold = sold_map.get(item.id, 0)
         opening_balance = item.opening_quantity + purchased_before - sold_before
         rows.append({
             'item': item,
@@ -1977,7 +2017,7 @@ def cafe_inventory(request):
             # live balance, but are not represented by the period movement
             # columns above.  Always use the model's canonical live stock so
             # inventory, sales, and item screens cannot disagree.
-            'available_stock': item.stock_quantity,
+            'available_stock': live_stock.get(item.id, 0),
         })
 
     cafeteria_cash = _cafeteria_cash_balance(active_branch, all_branches)
