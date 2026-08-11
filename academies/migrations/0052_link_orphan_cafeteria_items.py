@@ -18,5 +18,9 @@ class Migration(migrations.Migration):
     dependencies = [('academies', '0051_cafeteria_item_types_and_recipes')]
 
     operations = [
+        migrations.AlterUniqueTogether(
+            name='cafeteriaitem',
+            unique_together=set(),
+        ),
         migrations.RunPython(link_orphan_items_to_code_category, migrations.RunPython.noop),
     ]

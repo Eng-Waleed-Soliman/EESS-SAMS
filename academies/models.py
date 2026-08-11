@@ -1114,7 +1114,6 @@ class CafeteriaItem(models.Model):
 
     class Meta:
         ordering = ['category__code', 'code', 'name']
-        unique_together = [('category', 'code')]
         verbose_name = 'صنف كافيتريا'
         verbose_name_plural = 'أصناف الكافيتريا'
 
