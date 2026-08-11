@@ -4,6 +4,8 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from .views import _month_financial_summary
+
 from .models import (
     Branch,
     CafeteriaCategory,
@@ -112,3 +114,34 @@ class CafeteriaOperatingExpenseTests(TestCase):
         self.assertRedirects(response, reverse('cafe_operating_expense_list'))
         self.assertFalse(CafeteriaOperatingExpense.objects.exists())
         self.assertEqual(self.client.get(reverse('cafe_inventory')).context['cafeteria_cash'], 50)
+
+    def test_cafeteria_profit_treats_operating_expenses_as_part_of_purchases(self):
+        today = date.today()
+        CafeteriaOperatingExpense.objects.create(
+            branch=self.branch,
+            expense_date=today,
+            title='Machine maintenance',
+            amount=20,
+            created_by=self.user,
+        )
+
+        report = self.client.get(reverse('reports_home'), {
+            'report_type': 'cafeteria',
+            'month': today.strftime('%Y-%m'),
+        })
+        self.assertEqual(report.context['cafeteria_stock_purchase_total'], 50)
+        self.assertEqual(report.context['cafeteria_operating_expense_total'], 20)
+        self.assertEqual(report.context['cafeteria_purchase_total'], 70)
+        self.assertEqual(report.context['cafeteria_sales_total'], 100)
+        self.assertEqual(report.context['cafeteria_net_profit'], 30)
+        self.assertContains(report, 'المشتريات شاملة مصاريف التشغيل')
+
+        month_start = today.replace(day=1)
+        summary = _month_financial_summary(
+            today.year, today.month, month_start, today, branch=self.branch,
+        )
+        self.assertEqual(summary['cafe_stock_purchase_total'], 50)
+        self.assertEqual(summary['cafe_operating_expenses'], 20)
+        self.assertEqual(summary['cafe_purchase_total'], 70)
+        self.assertEqual(summary['total_expenses'], 70)
+        self.assertEqual(summary['net_profit'], 30)

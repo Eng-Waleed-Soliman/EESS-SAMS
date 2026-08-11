@@ -2970,8 +2970,9 @@ def _month_financial_summary(year, month, start, end, branch=None):
     )
     daily_income_total = int(daily_booking_income or 0) + int(ball_field_academy_income or 0)
     cafe_sales_total = sum(s.total_amount for s in sale_qs)
-    cafe_purchase_total = sum(p.total_amount for p in purchase_qs)
+    cafe_stock_purchase_total = sum(p.total_amount for p in purchase_qs)
     cafe_operating_expenses = cafe_operating_expense_qs.aggregate(total=Sum('amount'))['total'] or 0
+    cafe_purchase_total = int(cafe_stock_purchase_total or 0) + int(cafe_operating_expenses or 0)
     monthly_expenses = monthly_qs.aggregate(total=Sum('amount'))['total'] or 0
     daily_expenses = daily_qs.aggregate(total=Sum('amount'))['total'] or 0
     operating_expenses = operating_qs.aggregate(total=Sum('amount'))['total'] or 0
@@ -2986,7 +2987,7 @@ def _month_financial_summary(year, month, start, end, branch=None):
     # only daily bookings rather than the bonus daily-income total (which also
     # contains the paid football/basketball academy income).
     gross_income = int(academy_income or 0) + int(daily_booking_income or 0) + int(cafe_sales_total or 0)
-    total_expenses = int(monthly_expenses or 0) + int(daily_expenses or 0) + int(operating_expenses or 0) + int(cafe_purchase_total or 0) + int(cafe_operating_expenses or 0) + int(payroll_total or 0)
+    total_expenses = int(monthly_expenses or 0) + int(daily_expenses or 0) + int(operating_expenses or 0) + int(cafe_purchase_total or 0) + int(payroll_total or 0)
     net_profit = gross_income - total_expenses
     return {
         'rent_rows': rent_rows,
@@ -2996,6 +2997,7 @@ def _month_financial_summary(year, month, start, end, branch=None):
         'daily_income_total': daily_income_total,
         'cafe_sales_total': cafe_sales_total,
         'cafe_purchase_total': cafe_purchase_total,
+        'cafe_stock_purchase_total': cafe_stock_purchase_total,
         'cafe_operating_expenses': cafe_operating_expenses,
         'monthly_expenses': monthly_expenses,
         'daily_expenses': daily_expenses,
@@ -3237,12 +3239,18 @@ def reports_home(request):
     elif report_type == 'cafeteria':
         cafe_purchases = CafeteriaPurchase.objects.filter(purchase_date__range=(start, end))
         cafe_sales = CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item')
-        cafe_purchase_total = sum(p.total_amount for p in cafe_purchases)
+        cafe_stock_purchase_total = sum(p.total_amount for p in cafe_purchases)
+        cafe_operating_expenses = CafeteriaOperatingExpense.objects.filter(
+            expense_date__range=(start, end)
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        cafe_purchase_total = int(cafe_stock_purchase_total or 0) + int(cafe_operating_expenses or 0)
         cafe_sales_total = sum(s.total_amount for s in cafe_sales)
         context.update({
             'cafe_purchases': cafe_purchases,
             'cafe_sales': cafe_sales,
             'cafe_purchase_total': cafe_purchase_total,
+            'cafe_stock_purchase_total': cafe_stock_purchase_total,
+            'cafe_operating_expenses': cafe_operating_expenses,
             'cafe_sales_total': cafe_sales_total,
             'cafe_profit': cafe_sales_total - cafe_purchase_total,
             'low_stock_items': [item for item in CafeteriaItem.objects.all() if item.is_low_stock],
@@ -3696,7 +3704,11 @@ def reports_home_v2(request):
         sales = list(CafeteriaSale.objects.filter(
             sale_date__range=(start, end), item__in=cafeteria_item_qs
         ).select_related('item'))
-        purchase_total = sum(row.total_amount for row in purchases)
+        stock_purchase_total = sum(row.total_amount for row in purchases)
+        cafeteria_operating_expense_total = cafeteria_operating_expense_qs.filter(
+            expense_date__range=(start, end)
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        purchase_total = int(stock_purchase_total or 0) + int(cafeteria_operating_expense_total or 0)
         sales_total = sum(row.total_amount for row in sales)
         cash_supplies = CafeteriaCashSupply.objects.filter(supply_date__range=(start, end))
         if not all_branches:
@@ -3755,6 +3767,8 @@ def reports_home_v2(request):
 
         context.update({
             'cafeteria_purchase_total': purchase_total,
+            'cafeteria_stock_purchase_total': stock_purchase_total,
+            'cafeteria_operating_expense_total': cafeteria_operating_expense_total,
             'cafeteria_sales_total': sales_total,
             'cafeteria_net_profit': sales_total - purchase_total,
             'cafeteria_supplied_total': supplied_total,
