@@ -43,7 +43,7 @@
       {% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_shareholders or p.can_employees %}<a href="{% url 'company_management_home' %}">إدارة الشركة</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_accounts or p.can_general_expenses or p.can_access_any_report %}<a href="{% url 'accounts_home' %}">الحسابات</a>{% endif %}
-      {% if request.user.is_superuser or request.user.is_staff or p.can_cafeteria %}<a href="{% url 'cafe_item_list' %}">الكافيتريا</a>{% endif %}
+      {% if request.user.is_superuser or request.user.is_staff or p.can_cafeteria %}<a href="{% url 'cafe_sale_list' %}">الكافيتريا</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_access_any_report %}<a href="{% url 'reports_home' %}">التقارير</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_settings or p.can_users %}<a href="{% url 'settings_home' %}">الإعدادات</a>{% endif %}
       {% endwith %}
