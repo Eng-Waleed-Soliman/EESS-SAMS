@@ -1585,6 +1585,7 @@ class CafeteriaItemForm(forms.ModelForm):
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['category'].required = True
         self.fields['item_type'].required = False
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
