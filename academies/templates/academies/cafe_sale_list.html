@@ -26,6 +26,7 @@
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
       <input type="hidden" name="order_items" id="order_items">
+      <input type="hidden" name="order_token" value="{{ order_token }}">
       <input type="hidden" name="checkout_action" id="checkout_action" value="sale">
       <h5 class="fw-bold mb-3">إضافة حركة بيع</h5>
       <div class="row g-3">

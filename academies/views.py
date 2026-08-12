@@ -1,5 +1,6 @@
 import json
 import re
+import uuid
 from io import BytesIO
 from pathlib import Path
 from calendar import monthrange
@@ -2172,6 +2173,9 @@ def _cafeteria_item_form(request, instance=None):
                 recipes_valid = False
         if recipes_valid:
             with transaction.atomic():
+                active_branch, all_branches = selected_branch(request)
+                if not all_branches:
+                    item.branch = active_branch
                 item.save()
                 if item.item_type == CafeteriaItem.TYPE_MIXED:
                     recipe_formset.instance = item
@@ -2292,6 +2296,11 @@ def cafe_sale_list(request):
         raw_order = request.POST.get('order_items', '').strip()
         checkout_action = request.POST.get('checkout_action', 'sale').strip()
         if raw_order:
+            order_token = request.POST.get('order_token', '').strip()
+            processed_tokens = request.session.get('processed_cafeteria_order_tokens', [])
+            if order_token and order_token in processed_tokens:
+                messages.info(request, 'تم تسجيل هذا الأوردر بالفعل، ولم تتم إضافته مرة أخرى.')
+                return redirect('cafe_sale_list')
             try:
                 order_items = json.loads(raw_order)
             except json.JSONDecodeError:
@@ -2389,6 +2398,8 @@ def cafe_sale_list(request):
                         )
                         _sync_cafeteria_ingredient_usage(sale)
             created_count = len(prepared_rows)
+            if order_token:
+                request.session['processed_cafeteria_order_tokens'] = (processed_tokens + [order_token])[-30:]
             if checkout_action == 'hospitality':
                 messages.success(request, f'تم تسجيل الضيافة وخصم {created_count} صنف من المخزون بنجاح.')
                 return redirect('cafe_sale_list')
@@ -2446,6 +2457,7 @@ def cafe_sale_list(request):
         'low_stock_items': low_stock_items,
         'board_members': Shareholder.objects.all().order_by('name'),
         'addons': list(CafeteriaAddon.objects.all().order_by('name').values('id', 'name', 'sale_price')),
+        'order_token': uuid.uuid4().hex,
     })
 
 @login_required
