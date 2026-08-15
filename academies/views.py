@@ -386,6 +386,11 @@ def public_website(request):
                 )
             ),
             'media': activity_media.get(name.casefold()),
+            'fallback_image': (
+                'academies/images/basketball-card.webp'
+                if 'سلة' in name.casefold() or 'basket' in name.casefold()
+                else ''
+            ),
             'academy_count': sum(1 for academy in academies if (academy.sport_activity or '').strip() == name),
             'description': (
                 activity_media.get(name.casefold()).description_en

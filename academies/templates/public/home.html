@@ -1,4 +1,5 @@
 {% extends 'public/base_public.html' %}
+{% load static %}
 {% block title %}{{ branding.public_company_name }} | {{ branding.company_short_name|default:'EESS' }}{% endblock %}
 {% block content %}
 <header class="hero" style="--hero-image:url('{% if website.hero_image_name %}{% url 'persistent_media' 'website' website.pk 'hero_image' %}{% elif website.hero_image %}{{ website.hero_image.url }}{% elif branding.main_screen_image_name %}{% url 'persistent_media' 'branding' branding.pk 'main_screen_image' %}{% elif branding.main_screen_image %}{{ branding.main_screen_image.url }}{% endif %}')">
@@ -42,6 +43,7 @@
       <div class="activity-image">
         {% if item.media and item.media.image_name %}<img src="{% url 'persistent_media' 'sport' item.media.pk 'image' %}" alt="{{ item.name }}">
         {% elif item.media and item.media.image %}<img src="{{ item.media.image.url }}" alt="{{ item.name }}">
+        {% elif item.fallback_image %}<img src="{% static item.fallback_image %}" alt="{{ item.name }}">
         {% else %}<div class="fallback">◈</div>{% endif %}
       </div>
       <div class="card-body">

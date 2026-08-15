@@ -312,6 +312,23 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(arabic, '<html lang="ar" dir="rtl">')
         self.assertContains(arabic, 'عن الشركة')
 
+    def test_public_basketball_activity_uses_card_fallback_image(self):
+        Academy.objects.create(
+            name='Basketball website academy',
+            sport_activity='كرة سلة',
+            sport_activity_en='Basketball',
+            company_name='Basketball company',
+            manager_name='Basketball manager',
+            manager_phone='01000000009',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(),
+            contract_end_date=date.today() + timedelta(days=30),
+            is_published_on_website=True,
+        )
+        response = self.client.get(reverse('public_website'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '/static/academies/images/basketball-card.webp')
+
     def test_sport_media_form_uses_registered_activities_dropdown_and_prevents_duplicates(self):
         Activity.objects.create(name='كرة يد', is_active=True)
         form = SportActivityMediaForm()
