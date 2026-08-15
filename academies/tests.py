@@ -1133,6 +1133,36 @@ class ApplicationFlowsTests(TestCase):
             )
         self.assertEqual(calculated_income, 300)
 
+    def test_revenue_share_academy_saves_schedule_without_hourly_rent(self):
+        place = OPERATION_PLACE_CHOICES[0][0]
+        selected_date = date.today()
+        day_name = WEEKDAY_AR[selected_date.weekday()]
+        schedule = [{
+            'place': place,
+            'day': day_name,
+            'start_time': TIME_CHOICES[0][0],
+            'end_time': TIME_CHOICES[2][0],
+        }]
+        form = AcademyForm(data={
+            'name': 'Revenue share schedule academy', 'sport_activity': 'كرة قدم',
+            'company_name': 'Test company', 'manager_name': 'Test manager',
+            'manager_phone': '01000000002', 'contract_start_date': selected_date.isoformat(),
+            'contract_end_date': selected_date.isoformat(), 'subscription_type': 'revenue_share',
+            'monthly_subscription': 0, 'variable_rent_type': '', 'variable_rent_value': 0,
+            'eess_share_percentage': 40, 'security_deposit': 0,
+            'training_schedule_data': json.dumps(schedule), 'operation_place': [place],
+        })
+        self.assertTrue(form.is_valid(), form.errors.as_json())
+        academy = form.save()
+        self.assertEqual(academy.operation_place, place)
+        self.assertEqual(academy.training_days, day_name)
+        self.assertEqual(len(academy.training_schedule), 1)
+        self.assertEqual(academy.training_schedule[0]['hourly_rent'], 0)
+        occurrences = _academy_schedule_occurrences_for_date(academy, selected_date)
+        self.assertEqual(len(occurrences), 2)
+        self.assertTrue(all(row['place'] == place for row in occurrences))
+        self.assertTrue(all(row['hourly_rent'] == 0 for row in occurrences))
+
     def test_daily_booking_checkout_from_operation(self):
         booking = DailyBooking.objects.create(
             venue=OPERATION_PLACE_CHOICES[0][0], booking_date=date.today(),

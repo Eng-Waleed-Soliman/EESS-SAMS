@@ -56,7 +56,7 @@
         {{ form.training_schedule_data }}
         <label class="form-label fw-bold">جدول أماكن وأيام وساعات التدريب</label>
         <div class="alert alert-light border mb-3">
-          في القيمة المتغيرة اختر المكان ثم اليوم ثم توقيت البداية والنهاية وقيمة إيجار الساعة. في القيمة الثابتة يكفي اختيار مكان التدريب فقط.
+          في القيمة المتغيرة اختر المكان ثم اليوم ثم توقيت البداية والنهاية وقيمة إيجار الساعة. في نسبة المشاركة اختر المكان والأيام والساعات بدون إيجار ساعة. في القيمة الثابتة يكفي اختيار مكان التدريب فقط.
         </div>
         <div class="training-schedule-grid" id="trainingScheduleGrid"></div>
       </div>
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return '<div class="training-interval-row row g-2 align-items-end">' +
       '<div class="col-md-3"><label class="form-label">من الساعة</label><select class="form-select start-time">' + timeOptions(row.start_time, 0) + '</select></div>' +
       '<div class="col-md-3"><label class="form-label">إلى الساعة</label><select class="form-select end-time">' + timeOptions(row.end_time, 1) + '</select></div>' +
-      '<div class="col-md-3"><label class="form-label">إيجار الساعة</label><input class="form-control hourly-rent" type="number" min="0" step="1" value="' + (row.hourly_rent || '') + '"></div>' +
+      '<div class="col-md-3 hourly-rent-field"><label class="form-label">إيجار الساعة</label><input class="form-control hourly-rent" type="number" min="0" step="1" value="' + (row.hourly_rent || '') + '"></div>' +
       '<div class="col-md-3"><button type="button" class="btn btn-outline-danger btn-sm remove-interval">حذف الميعاد</button></div>' +
     '</div>';
   }
@@ -228,7 +228,8 @@ document.addEventListener('DOMContentLoaded', function(){
       placeRow.classList.toggle('active', placeChecked);
       if(!placeChecked) return;
       selectedPlaces.push(place);
-      if(subscriptionType !== 'variable'){
+      const hasDetailedSchedule = subscriptionType === 'variable' || subscriptionType === 'revenue_share';
+      if(!hasDetailedSchedule){
         rows.push({place: place});
         return;
       }
@@ -241,7 +242,7 @@ document.addEventListener('DOMContentLoaded', function(){
         dayRow.querySelectorAll('.training-interval-row').forEach(function(intervalRow){
           const startTime = intervalRow.querySelector('.start-time').value;
           const endTime = intervalRow.querySelector('.end-time').value;
-          const hourlyRent = intervalRow.querySelector('.hourly-rent').value;
+          const hourlyRent = subscriptionType === 'variable' ? intervalRow.querySelector('.hourly-rent').value : 0;
           rows.push({place: place, day: day, start_time: startTime, end_time: endTime, hourly_rent: hourlyRent});
           const startIndex = endpointChoices.indexOf(startTime);
           const endIndex = endpointChoices.indexOf(endTime);
@@ -268,7 +269,9 @@ document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('.variable-subscription').forEach(el => el.style.display = type === 'variable' ? '' : 'none');
     document.querySelectorAll('.fixed-subscription').forEach(el => el.style.display = type === 'fixed' ? '' : 'none');
     document.querySelectorAll('.share-subscription').forEach(el => el.style.display = type === 'revenue_share' ? '' : 'none');
-    document.querySelectorAll('.training-days').forEach(el => el.style.display = type === 'variable' ? '' : 'none');
+    const hasDetailedSchedule = type === 'variable' || type === 'revenue_share';
+    document.querySelectorAll('.training-days').forEach(el => el.style.display = hasDetailedSchedule ? '' : 'none');
+    document.querySelectorAll('.hourly-rent-field').forEach(el => el.style.display = type === 'variable' ? '' : 'none');
     collectSchedule();
   }
   const sub = document.getElementById('id_subscription_type');

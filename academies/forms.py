@@ -524,15 +524,16 @@ class AcademyForm(forms.ModelForm):
                 selected_places = cleaned_data.get('operation_place') or []
             if not selected_places:
                 raise forms.ValidationError('اختر مكان تدريب واحد على الأقل للأكاديمية الثابتة.')
-        elif subscription_type == 'variable':
-            if not variable_rent_type:
+        elif subscription_type in {'variable', 'revenue_share'}:
+            requires_hourly_rent = subscription_type == 'variable'
+            if requires_hourly_rent and not variable_rent_type:
                 cleaned_data['variable_rent_type'] = 'hour'
             for row in parsed_rows:
                 place = row.get('place')
                 day = row.get('day')
                 start_time = row.get('start_time')
                 end_time = row.get('end_time')
-                hourly_rent = row.get('hourly_rent')
+                hourly_rent = row.get('hourly_rent') if requires_hourly_rent else 0
                 slots = _range_indexes(start_time, end_time)
                 try:
                     hourly_rent = max(0, int(hourly_rent or 0))
@@ -540,7 +541,7 @@ class AcademyForm(forms.ModelForm):
                     hourly_rent = 0
                 if not (place and day and slots):
                     continue
-                if hourly_rent <= 0:
+                if requires_hourly_rent and hourly_rent <= 0:
                     raise forms.ValidationError(f'أدخل قيمة إيجار الساعة للمكان {place} يوم {day}.')
                 normalized_rows.append({'place': place, 'day': day, 'start_time': start_time, 'end_time': end_time, 'hourly_rent': hourly_rent})
                 if place not in selected_places:
@@ -551,12 +552,14 @@ class AcademyForm(forms.ModelForm):
                     if label not in selected_hours:
                         selected_hours.append(label)
             if not normalized_rows:
-                raise forms.ValidationError('أضف جدول تدريب واحد على الأقل: مكان التدريب، اليوم، من الساعة، إلى الساعة، وقيمة إيجار الساعة.')
-        cleaned_data['parsed_training_schedule'] = normalized_rows if subscription_type == 'variable' else [{'place': place} for place in selected_places]
+                required_details = '، وقيمة إيجار الساعة' if requires_hourly_rent else ''
+                raise forms.ValidationError(f'أضف جدول تدريب واحد على الأقل: مكان التدريب، اليوم، من الساعة، إلى الساعة{required_details}.')
+        cleaned_data['parsed_training_schedule'] = normalized_rows if subscription_type in {'variable', 'revenue_share'} else [{'place': place} for place in selected_places]
         cleaned_data['operation_place'] = selected_places
-        if subscription_type == 'variable':
+        if subscription_type in {'variable', 'revenue_share'}:
             cleaned_data['training_days'] = selected_days
             cleaned_data['training_hours'] = selected_hours
+        if subscription_type == 'variable':
             cleaned_data['variable_rent_value'] = variable_rent_value or 0
         if subscription_type == 'fixed':
             cleaned_data['training_days'] = []
