@@ -12,7 +12,7 @@
       <tbody>
         {% for facility in facilities %}
         <tr>
-          <td>{% if facility.image %}<img class="media-thumb" src="{{ facility.image.url }}" alt="{{ facility.name }}">{% else %}-{% endif %}</td>
+          <td>{% if facility.image_name %}<img class="media-thumb" src="{% url 'persistent_media' 'facility' facility.pk 'image' %}" alt="{{ facility.name }}">{% elif facility.image %}<span class="text-muted">أعد رفع الصورة</span>{% else %}-{% endif %}</td>
           <td>{{ facility.name }}</td>
           <td>{{ facility.branch.display_name }}</td>
           <td>{{ facility.get_facility_type_display }}</td>

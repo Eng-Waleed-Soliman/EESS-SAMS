@@ -82,9 +82,9 @@
           <h2 id="branch-gallery-title-{{ branch.pk }}">{{ branch.public_name }}</h2>
           <div class="branch-gallery-modal-grid">
             {% for facility in branch.facilities.all %}
-              {% if facility.image %}
+              {% if facility.image_name %}
               <figure class="branch-gallery-modal-item">
-                <a href="{{ facility.image.url }}" target="_blank" rel="noopener"><img src="{{ facility.image.url }}" alt="{{ facility.name }}"><figcaption>{{ facility.name }}</figcaption></a>
+                <a href="{% url 'persistent_media' 'facility' facility.pk 'image' %}" target="_blank" rel="noopener"><img src="{% url 'persistent_media' 'facility' facility.pk 'image' %}" alt="{{ facility.name }}"><figcaption>{{ facility.name }}</figcaption></a>
               </figure>
               {% endif %}
               {% for gallery_image in facility.gallery_images.all %}

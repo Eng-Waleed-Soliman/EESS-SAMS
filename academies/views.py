@@ -33,6 +33,7 @@ def persistent_media(request, model_name, pk, field_name):
         'branch': (Branch, {'logo', 'image'}),
         'branch_gallery': (BranchGalleryImage, {'image'}),
         'facility_gallery': (FacilityGalleryImage, {'image'}),
+        'facility': (Facility, {'image'}),
         'sport': (SportActivityMedia, {'image'}),
         'academy': (Academy, {'logo', 'website_image', 'manager_photo'}),
         'member': (AcademyMember, {'photo'}),
@@ -356,7 +357,7 @@ def public_website(request):
             ),
             Prefetch(
                 'facilities',
-                queryset=Facility.objects.prefetch_related(
+                queryset=Facility.objects.defer('image_data').prefetch_related(
                     Prefetch('gallery_images', queryset=FacilityGalleryImage.objects.defer('image_data').order_by('id'))
                 ).order_by('name'),
             ),

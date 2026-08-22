@@ -947,6 +947,7 @@ class FacilityForm(forms.ModelForm):
             'facility_type': forms.Select(attrs={'class': 'form-select'}),
             'hourly_rent': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
             'daily_rent': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
+            'image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
 
@@ -958,6 +959,21 @@ class FacilityForm(forms.ModelForm):
                 field.widget.attrs['class'] = 'form-select'
             elif 'form-control' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
+        if self.instance and self.instance.pk:
+            if self.instance.image_name:
+                self.fields['image'].help_text = 'الصورة الأساسية محفوظة دائمًا. اختر ملفًا فقط لاستبدالها.'
+            elif self.instance.image:
+                self.fields['image'].help_text = 'ملف الصورة القديمة غير متاح على الخادم؛ أعد رفع الصورة مرة واحدة لحفظها دائمًا.'
+
+    def save(self, commit=True):
+        facility = super().save(commit=False)
+        image = _resize_image_upload(self.cleaned_data.get('image'))
+        if isinstance(image, UploadedFile):
+            facility.image = image
+        _store_uploaded_image(facility, image, 'image')
+        if commit:
+            facility.save()
+        return facility
 
 
 class FacilityGalleryImageForm(forms.ModelForm):

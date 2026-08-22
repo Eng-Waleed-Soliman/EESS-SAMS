@@ -189,6 +189,9 @@ class Facility(models.Model):
     hourly_rent = models.PositiveIntegerField(default=0, verbose_name='قيمة إيجار الساعة')
     daily_rent = models.PositiveIntegerField(default=0, verbose_name='قيمة إيجار اليوم')
     image = models.FileField(upload_to='facilities/', blank=True, verbose_name='الصورة')
+    image_data = models.BinaryField(null=True, blank=True, editable=False)
+    image_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    image_name = models.CharField(max_length=255, blank=True, editable=False)
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
 

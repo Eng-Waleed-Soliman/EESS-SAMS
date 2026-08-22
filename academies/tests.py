@@ -18,7 +18,7 @@ from PIL import Image
 from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
 from .forms import (
     AcademyForm, AppSettingForm, BranchForm, BranchGalleryImageFormSet, DailyBookingForm,
-    FacilityGalleryImageFormSet,
+    FacilityForm, FacilityGalleryImageFormSet,
     EESSUserUpdateForm, SportActivityMediaForm,
 )
 from .middleware import DatabaseRetryMiddleware
@@ -496,6 +496,31 @@ class ApplicationFlowsTests(TestCase):
             facility_type='field',
         )
 
+        primary_stream = BytesIO()
+        Image.new('RGB', (1100, 750), color='#153a5f').save(primary_stream, format='PNG')
+        primary_form = FacilityForm(
+            data={
+                'branch': str(branch.pk),
+                'name': facility.name,
+                'facility_type': facility.facility_type,
+                'hourly_rent': '0',
+                'daily_rent': '0',
+                'notes': '',
+            },
+            files={
+                'image': SimpleUploadedFile(
+                    'main-court.png',
+                    primary_stream.getvalue(),
+                    content_type='image/png',
+                ),
+            },
+            instance=facility,
+        )
+        self.assertTrue(primary_form.is_valid(), primary_form.errors)
+        facility = primary_form.save()
+        self.assertTrue(facility.image_data)
+        self.assertEqual(facility.image_content_type, 'image/jpeg')
+
         uploads = []
         for filename, colour in (
             ('court-one.png', '#1769aa'),
@@ -543,6 +568,12 @@ class ApplicationFlowsTests(TestCase):
             media_response = self.client.get(media_url)
             self.assertEqual(media_response.status_code, 200)
             self.assertEqual(media_response['Content-Type'], 'image/jpeg')
+
+        primary_media_url = reverse('persistent_media', args=['facility', facility.pk, 'image'])
+        self.assertContains(public_response, primary_media_url)
+        primary_media_response = self.client.get(primary_media_url)
+        self.assertEqual(primary_media_response.status_code, 200)
+        self.assertEqual(primary_media_response['Content-Type'], 'image/jpeg')
 
         self.user.is_staff = True
         self.user.is_superuser = True
