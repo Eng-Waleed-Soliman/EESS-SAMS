@@ -201,6 +201,33 @@ class Facility(models.Model):
         return f'{self.branch} - {self.name}'
 
 
+class FacilityGalleryImage(models.Model):
+    facility = models.ForeignKey(
+        Facility,
+        on_delete=models.CASCADE,
+        related_name='gallery_images',
+        verbose_name='الملعب / الصالة',
+    )
+    image = models.FileField(upload_to='facilities/gallery/', verbose_name='الصورة')
+    caption = models.CharField(max_length=250, verbose_name='التعليق أسفل الصورة')
+    image_data = models.BinaryField(null=True, blank=True, editable=False)
+    image_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    image_name = models.CharField(max_length=255, blank=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+        verbose_name = 'صورة ملعب / صالة'
+        verbose_name_plural = 'صور الملاعب والصالات'
+
+    def __str__(self):
+        return f'{self.facility} - {self.caption}'
+
+    @property
+    def image_data_uri(self):
+        return image_data_uri(self.image_data, self.image_content_type)
+
+
 class SportActivityMedia(models.Model):
     name = models.CharField(max_length=200, verbose_name='اسم الرياضة / النشاط')
     name_en = models.CharField(max_length=200, blank=True, verbose_name='اسم الرياضة / النشاط بالإنجليزية')

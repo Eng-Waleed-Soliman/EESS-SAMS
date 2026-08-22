@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.core.files.uploadedfile import UploadedFile, SimpleUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, FacilityGalleryImage, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -959,6 +959,51 @@ class FacilityForm(forms.ModelForm):
             elif 'form-control' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
 
+
+class FacilityGalleryImageForm(forms.ModelForm):
+    class Meta:
+        model = FacilityGalleryImage
+        fields = ['image', 'caption']
+        widgets = {
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/jpeg,image/png,image/webp,image/gif',
+            }),
+            'caption': forms.TextInput(attrs={
+                'class': 'form-control',
+                'maxlength': 250,
+                'placeholder': 'اكتب التعليق الذي سيظهر أسفل الصورة في الموقع',
+            }),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        image = cleaned.get('image')
+        caption = (cleaned.get('caption') or '').strip()
+        if image and not caption:
+            self.add_error('caption', 'اكتب تعليقًا للصورة.')
+        if caption and not image and not self.instance.pk:
+            self.add_error('image', 'اختر صورة لهذا التعليق.')
+        return cleaned
+
+    def save(self, commit=True):
+        gallery_image = super().save(commit=False)
+        image = _resize_image_upload(self.cleaned_data.get('image'))
+        if isinstance(image, UploadedFile):
+            gallery_image.image = image
+        _store_uploaded_image(gallery_image, image, 'image')
+        if commit:
+            gallery_image.save()
+        return gallery_image
+
+
+FacilityGalleryImageFormSet = inlineformset_factory(
+    Facility,
+    FacilityGalleryImage,
+    form=FacilityGalleryImageForm,
+    extra=1,
+    can_delete=True,
+)
 
 class SportActivityMediaForm(forms.ModelForm):
     name = forms.ChoiceField(

@@ -19,6 +19,8 @@ from datetime import date, timedelta
 from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaRecipeComponentFormSet, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
+from .models import FacilityGalleryImage
+from .forms import FacilityGalleryImageFormSet
 from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
 from .member_excel import parse_academy_members_xlsx
@@ -30,6 +32,7 @@ def persistent_media(request, model_name, pk, field_name):
         'website': (WebsiteSetting, {'hero_image', 'about_image'}),
         'branch': (Branch, {'logo', 'image'}),
         'branch_gallery': (BranchGalleryImage, {'image'}),
+        'facility_gallery': (FacilityGalleryImage, {'image'}),
         'sport': (SportActivityMedia, {'image'}),
         'academy': (Academy, {'logo', 'website_image', 'manager_photo'}),
         'member': (AcademyMember, {'photo'}),
@@ -350,7 +353,13 @@ def public_website(request):
             Prefetch(
                 'gallery_images',
                 queryset=BranchGalleryImage.objects.defer('image_data').order_by('id'),
-            )
+            ),
+            Prefetch(
+                'facilities',
+                queryset=Facility.objects.prefetch_related(
+                    Prefetch('gallery_images', queryset=FacilityGalleryImage.objects.defer('image_data').order_by('id'))
+                ).order_by('name'),
+            ),
         )
         .order_by('name')
     )
@@ -4000,7 +4009,7 @@ def facility_list(request):
         messages.error(request, 'ليس لديك صلاحية الإعدادات.')
         return redirect('dashboard')
     q = request.GET.get('q', '').strip()
-    facilities = Facility.objects.select_related('branch').all()
+    facilities = Facility.objects.select_related('branch').prefetch_related('gallery_images').all()
     if q:
         facilities = facilities.filter(Q(name__icontains=q) | Q(branch__name__icontains=q) | Q(notes__icontains=q))
     return render(request, 'academies/facility_list.html', {'facilities': facilities, 'q': q})
@@ -4011,7 +4020,7 @@ def facility_create(request):
     if not _can_manage_users(request.user):
         messages.error(request, 'ليس لديك صلاحية الإعدادات.')
         return redirect('dashboard')
-    return _generic_form(request, FacilityForm, 'إضافة ملعب / صالة', 'facility_list')
+    return _facility_form(request, Facility(), 'إضافة ملعب / صالة')
 
 
 @login_required
@@ -4019,8 +4028,33 @@ def facility_update(request, pk):
     if not _can_manage_users(request.user):
         messages.error(request, 'ليس لديك صلاحية الإعدادات.')
         return redirect('dashboard')
-    return _generic_form(request, FacilityForm, 'تعديل ملعب / صالة', 'facility_list', get_object_or_404(Facility, pk=pk))
+    return _facility_form(request, get_object_or_404(Facility, pk=pk), 'تعديل ملعب / صالة')
 
+
+def _facility_form(request, facility, title):
+    form = FacilityForm(request.POST or None, request.FILES or None, instance=facility)
+    gallery_formset = FacilityGalleryImageFormSet(
+        request.POST or None,
+        request.FILES or None,
+        instance=facility,
+        prefix='gallery',
+    )
+    if request.method == 'POST' and form.is_valid() and gallery_formset.is_valid():
+        with transaction.atomic():
+            facility = form.save(commit=False)
+            active_branch, all_branches = selected_branch(request)
+            if not all_branches:
+                facility.branch = active_branch
+            facility.save()
+            gallery_formset.instance = facility
+            gallery_formset.save()
+        messages.success(request, 'تم حفظ بيانات الملعب / الصالة وصوره بنجاح.')
+        return redirect('facility_list')
+    return render(request, 'academies/facility_form.html', {
+        'form': form,
+        'gallery_formset': gallery_formset,
+        'title': title,
+    })
 
 @login_required
 def facility_delete(request, pk):

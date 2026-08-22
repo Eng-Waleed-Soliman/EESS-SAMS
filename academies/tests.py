@@ -18,6 +18,7 @@ from PIL import Image
 from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
 from .forms import (
     AcademyForm, AppSettingForm, BranchForm, BranchGalleryImageFormSet, DailyBookingForm,
+    FacilityGalleryImageFormSet,
     EESSUserUpdateForm, SportActivityMediaForm,
 )
 from .middleware import DatabaseRetryMiddleware
@@ -35,6 +36,8 @@ from .models import (
     BonusTier,
     Branch,
     BranchGalleryImage,
+    Facility,
+    FacilityGalleryImage,
     CafeteriaAddon,
     CafeteriaCategory,
     CafeteriaHospitality,
@@ -480,6 +483,96 @@ class ApplicationFlowsTests(TestCase):
         self.assertTrue(delete_formset.is_valid(), delete_formset.errors)
         delete_formset.save()
         self.assertFalse(BranchGalleryImage.objects.filter(pk=gallery_image.pk).exists())
+
+    def test_facility_gallery_supports_multiple_images_captions_and_deletion(self):
+        branch = Branch.objects.create(
+            name='Facility Gallery Branch',
+            short_name='FGB',
+            is_published_on_website=True,
+        )
+        facility = Facility.objects.create(
+            branch=branch,
+            name='Main basketball court',
+            facility_type='field',
+        )
+
+        uploads = []
+        for filename, colour in (
+            ('court-one.png', '#1769aa'),
+            ('court-two.png', '#d9ae55'),
+        ):
+            image_stream = BytesIO()
+            Image.new('RGB', (1000, 700), color=colour).save(image_stream, format='PNG')
+            uploads.append(SimpleUploadedFile(
+                filename,
+                image_stream.getvalue(),
+                content_type='image/png',
+            ))
+
+        formset = FacilityGalleryImageFormSet(
+            data={
+                'gallery-TOTAL_FORMS': '2',
+                'gallery-INITIAL_FORMS': '0',
+                'gallery-MIN_NUM_FORMS': '0',
+                'gallery-MAX_NUM_FORMS': '1000',
+                'gallery-0-caption': 'واجهة ملعب كرة السلة',
+                'gallery-1-caption': 'أرضية الملعب',
+            },
+            files={
+                'gallery-0-image': uploads[0],
+                'gallery-1-image': uploads[1],
+            },
+            instance=facility,
+            prefix='gallery',
+        )
+        self.assertTrue(formset.is_valid(), formset.errors)
+        formset.save()
+
+        photos = list(FacilityGalleryImage.objects.filter(facility=facility).order_by('id'))
+        self.assertEqual(len(photos), 2)
+        self.assertTrue(all(photo.image_data for photo in photos))
+
+        self.client.logout()
+        public_response = self.client.get(reverse('public_website'))
+        self.assertContains(public_response, 'data-branch-gallery-open')
+        self.assertContains(public_response, 'واجهة ملعب كرة السلة')
+        self.assertContains(public_response, 'أرضية الملعب')
+        for photo in photos:
+            media_url = reverse('persistent_media', args=['facility_gallery', photo.pk, 'image'])
+            self.assertContains(public_response, media_url)
+            media_response = self.client.get(media_url)
+            self.assertEqual(media_response.status_code, 200)
+            self.assertEqual(media_response['Content-Type'], 'image/jpeg')
+
+        self.user.is_staff = True
+        self.user.is_superuser = True
+        self.user.save(update_fields=['is_staff', 'is_superuser'])
+        self.client.force_login(self.user)
+        edit_response = self.client.get(reverse('facility_update', args=[facility.pk]))
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertContains(edit_response, 'add-facility-gallery-image')
+        self.assertContains(edit_response, 'واجهة ملعب كرة السلة')
+
+        delete_formset = FacilityGalleryImageFormSet(
+            data={
+                'gallery-TOTAL_FORMS': '2',
+                'gallery-INITIAL_FORMS': '2',
+                'gallery-MIN_NUM_FORMS': '0',
+                'gallery-MAX_NUM_FORMS': '1000',
+                'gallery-0-id': str(photos[0].pk),
+                'gallery-0-caption': photos[0].caption,
+                'gallery-0-DELETE': 'on',
+                'gallery-1-id': str(photos[1].pk),
+                'gallery-1-caption': 'تعليق تم تعديله',
+            },
+            instance=facility,
+            prefix='gallery',
+        )
+        self.assertTrue(delete_formset.is_valid(), delete_formset.errors)
+        delete_formset.save()
+        self.assertFalse(FacilityGalleryImage.objects.filter(pk=photos[0].pk).exists())
+        photos[1].refresh_from_db()
+        self.assertEqual(photos[1].caption, 'تعليق تم تعديله')
 
     def test_security_entry_exit_visitors_qr_and_report(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)

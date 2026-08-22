@@ -62,21 +62,42 @@
   </div>
   <div class="card-grid">
     {% for branch in branches %}<article class="branch-card">
-      <div class="branch-image">
-        {% if branch.image_name %}<img src="{% url 'persistent_media' 'branch' branch.pk 'image' %}" alt="{{ branch.public_name }}">
-        {% elif branch.image %}<img src="{{ branch.image.url }}" alt="{{ branch.public_name }}">
-        {% elif branch.logo_name %}<img src="{% url 'persistent_media' 'branch' branch.pk 'logo' %}" alt="{{ branch.public_name }}" style="object-fit:contain;padding:45px">
-        {% elif branch.logo %}<img src="{{ branch.logo.url }}" alt="{{ branch.public_name }}" style="object-fit:contain;padding:45px">{% endif %}
-      </div>
-      <div class="card-body">
-        <span class="card-meta">{{ branch.public_location|default:"EESS" }}</span>
-        <h3>{{ branch.public_name }}</h3>
-        <p>{{ branch.public_description|default:t.branch_default }}</p>
-        {% with gallery=branch.gallery_images.all %}
-          {% if gallery %}
-          <div class="branch-gallery" aria-label="صور {{ branch.public_name }}">
-            {% for gallery_image in gallery %}
-            <figure class="branch-gallery-item">
+      <button type="button" class="branch-card-open" data-branch-gallery-open="branch-gallery-{{ branch.pk }}" aria-label="{% if is_english %}View photos of {{ branch.public_name }}{% else %}عرض صور {{ branch.public_name }}{% endif %}">
+        <div class="branch-image">
+          {% if branch.image_name %}<img src="{% url 'persistent_media' 'branch' branch.pk 'image' %}" alt="{{ branch.public_name }}">
+          {% elif branch.image %}<img src="{{ branch.image.url }}" alt="{{ branch.public_name }}">
+          {% elif branch.logo_name %}<img src="{% url 'persistent_media' 'branch' branch.pk 'logo' %}" alt="{{ branch.public_name }}" style="object-fit:contain;padding:45px">
+          {% elif branch.logo %}<img src="{{ branch.logo.url }}" alt="{{ branch.public_name }}" style="object-fit:contain;padding:45px">{% endif %}
+        </div>
+        <div class="card-body">
+          <span class="card-meta">{{ branch.public_location|default:"EESS" }}</span>
+          <h3>{{ branch.public_name }}</h3>
+          <p>{{ branch.public_description|default:t.branch_default }}</p>
+          <span class="inline-link">{% if is_english %}View branch photos →{% else %}عرض صور الفرع ←{% endif %}</span>
+        </div>
+      </button>
+      <div class="branch-gallery-modal" id="branch-gallery-{{ branch.pk }}" role="dialog" aria-modal="true" aria-labelledby="branch-gallery-title-{{ branch.pk }}" hidden>
+        <div class="branch-gallery-dialog">
+          <button type="button" class="branch-gallery-close" data-branch-gallery-close aria-label="{% if is_english %}Close{% else %}إغلاق{% endif %}">×</button>
+          <h2 id="branch-gallery-title-{{ branch.pk }}">{{ branch.public_name }}</h2>
+          <div class="branch-gallery-modal-grid">
+            {% for facility in branch.facilities.all %}
+              {% if facility.image %}
+              <figure class="branch-gallery-modal-item">
+                <a href="{{ facility.image.url }}" target="_blank" rel="noopener"><img src="{{ facility.image.url }}" alt="{{ facility.name }}"><figcaption>{{ facility.name }}</figcaption></a>
+              </figure>
+              {% endif %}
+              {% for gallery_image in facility.gallery_images.all %}
+              <figure class="branch-gallery-modal-item">
+                <a href="{% url 'persistent_media' 'facility_gallery' gallery_image.pk 'image' %}" target="_blank" rel="noopener">
+                  <img src="{% url 'persistent_media' 'facility_gallery' gallery_image.pk 'image' %}" alt="{{ gallery_image.caption|default:facility.name }}">
+                  <figcaption>{{ gallery_image.caption|default:facility.name }}</figcaption>
+                </a>
+              </figure>
+              {% endfor %}
+            {% endfor %}
+            {% for gallery_image in branch.gallery_images.all %}
+            <figure class="branch-gallery-modal-item">
               <a href="{% url 'persistent_media' 'branch_gallery' gallery_image.pk 'image' %}" target="_blank" rel="noopener">
                 <img src="{% url 'persistent_media' 'branch_gallery' gallery_image.pk 'image' %}" alt="{{ gallery_image.caption }}">
                 <figcaption>{{ gallery_image.caption }}</figcaption>
@@ -84,8 +105,7 @@
             </figure>
             {% endfor %}
           </div>
-          {% endif %}
-        {% endwith %}
+        </div>
       </div>
     </article>{% empty %}<div class="empty">{{ t.branches_empty }}</div>{% endfor %}
   </div>
