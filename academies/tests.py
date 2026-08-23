@@ -15,7 +15,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
 
-from .constants import OPERATION_PLACE_CHOICES, TIME_CHOICES, WEEKDAY_AR
+from .constants import OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TIME_CHOICES, WEEKDAY_AR
 from .forms import (
     AcademyForm, AppSettingForm, BranchForm, BranchGalleryImageFormSet, DailyBookingForm,
     FacilityForm, FacilityGalleryImageFormSet,
@@ -1303,6 +1303,30 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(len(occurrences), 2)
         self.assertTrue(all(row['place'] == place for row in occurrences))
         self.assertTrue(all(row['hourly_rent'] == 0 for row in occurrences))
+
+    def test_operation_keeps_football_fields_with_partially_configured_facilities(self):
+        branch = Branch.objects.create(name='BICC operation branch', short_name='BICC')
+        Facility.objects.create(
+            branch=branch,
+            name='حمام السباحة',
+            facility_type='other',
+        )
+        session = self.client.session
+        session['active_branch_id'] = branch.pk
+        session.save()
+
+        response = self.client.get(reverse('operation_screen'), {
+            'date': date.today().isoformat(),
+            'period': 'evening',
+            'branch_id': str(branch.pk),
+        })
+
+        self.assertEqual(response.status_code, 200)
+        places = [row['place'] for row in response.context['rows']]
+        self.assertIn(OPERATION_SCREEN_PLACES[0], places)
+        self.assertIn(OPERATION_SCREEN_PLACES[1], places)
+        self.assertIn('حمام السباحة', places)
+        self.assertEqual(len(places), len({_norm_place.casefold() for _norm_place in places}))
 
     def test_daily_booking_checkout_from_operation(self):
         booking = DailyBooking.objects.create(

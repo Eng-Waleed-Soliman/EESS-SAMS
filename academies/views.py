@@ -1410,8 +1410,13 @@ def operation_screen(request):
     place_names = list(OPERATION_SCREEN_PLACES)
     if not all_branches:
         configured_places = list(active_branch.facilities.values_list('name', flat=True))
-        if configured_places:
-            place_names = configured_places
+        place_names = []
+        seen_places = set()
+        for place in [*OPERATION_SCREEN_PLACES[:3], *configured_places]:
+            normalized_place = _norm(place)
+            if normalized_place and normalized_place not in seen_places:
+                seen_places.add(normalized_place)
+                place_names.append(place)
     for place in place_names:
         cards = []
         for slot_index in visible_slot_indexes:
