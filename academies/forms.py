@@ -675,11 +675,11 @@ class AcademyMemberForm(forms.ModelForm):
 
     class Meta:
         model = AcademyMember
-        fields = ['role', 'name', 'name_en', 'phone', 'national_id', 'job_title', 'job_title_en', 'birth_date', 'monthly_subscription', 'photo', 'is_active', 'notes', 'website_bio', 'website_bio_en', 'is_published_on_website']
+        fields = ['role', 'name', 'name_en', 'phone', 'national_id', 'job_title', 'job_title_en', 'birth_date', 'photo', 'is_active', 'notes', 'website_bio', 'website_bio_en', 'is_published_on_website']
         widgets = {
             'role': forms.Select(attrs={'class': 'form-select'}),
             'birth_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '1'}),
+
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'website_bio': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),

@@ -1,0 +1,126 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h3 class="mb-1">الاشتراكات الشهرية - {{ academy.name }}</h3>
+    <div class="text-muted">إدارة المبلغ المستحق والمسدد لكل لاعب حسب الشهر.</div>
+  </div>
+  <a class="btn btn-secondary" href="{% url 'academy_member_list' academy.id %}?role=player">رجوع للاعبين</a>
+</div>
+
+<form method="get" class="card p-3 mb-3">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-2">
+      <label class="form-label fw-bold">السنة</label>
+      <select class="form-select" name="year">
+        {% for year in year_choices %}<option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label fw-bold">الشهر</label>
+      <select class="form-select" name="month">
+        {% for value, label in month_choices %}<option value="{{ value }}" {% if value == selected_month %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label fw-bold">اسم اللاعب</label>
+      <input class="form-control" type="search" name="q" value="{{ search }}" placeholder="ابحث باسم اللاعب">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label fw-bold">حالة السداد</label>
+      <select class="form-select" name="status">
+        <option value="" {% if not payment_status %}selected{% endif %}>كل اللاعبين</option>
+        <option value="paid" {% if payment_status == 'paid' %}selected{% endif %}>المسددون بالكامل</option>
+        <option value="due" {% if payment_status == 'due' %}selected{% endif %}>عليهم مبالغ متبقية</option>
+      </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">عرض</button></div>
+  </div>
+</form>
+
+<div class="subscription-summary-grid mb-3">
+  <div class="subscription-summary-card expected"><span>إجمالي الاشتراكات</span><strong>{{ totals.expected }}</strong></div>
+  <div class="subscription-summary-card paid"><span>إجمالي المبلغ المسدد</span><strong>{{ totals.paid }}</strong></div>
+  <div class="subscription-summary-card remaining"><span>إجمالي المبلغ المتبقي</span><strong>{{ totals.remaining }}</strong></div>
+</div>
+
+<form method="post" class="card p-3" id="monthlySubscriptionsForm">
+  {% csrf_token %}
+  <input type="hidden" name="year" value="{{ selected_year }}">
+  <input type="hidden" name="month" value="{{ selected_month }}">
+  <div class="row g-3 align-items-end mb-4">
+    <div class="col-md-5">
+      <label class="form-label fw-bold" for="defaultSubscriptionAmount">الاشتراك الشهري الافتراضي</label>
+      <input class="form-control" type="number" min="0" step="1" id="defaultSubscriptionAmount" name="default_amount" value="{{ default_amount }}">
+      <div class="form-text">يمكن تطبيق هذا المبلغ على كل اللاعبين الظاهرين، ثم تغييره لأي لاعب بصورة منفردة.</div>
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-outline-primary w-100" type="button" onclick="applyDefaultSubscription()">تطبيق على كل اللاعبين الظاهرين</button>
+    </div>
+    <div class="col-md-2 ms-md-auto">
+      <button class="btn btn-success w-100" type="submit">حفظ الاشتراكات</button>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-striped align-middle subscription-table">
+      <thead>
+        <tr>
+          <th>اسم اللاعب</th>
+          <th>الحالة</th>
+          <th>مبلغ الاشتراك الشهري</th>
+          <th>المبلغ المسدد</th>
+          <th>المبلغ المتبقي</th>
+          <th>حالة السداد</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="subscription-row">
+          <td>
+            <input type="hidden" name="player_id" value="{{ row.player.pk }}">
+            <strong>{{ row.player.name }}</strong>
+          </td>
+          <td>{% if row.player.is_active %}<span class="badge bg-success">نشط</span>{% else %}<span class="badge bg-secondary">غير نشط</span>{% endif %}</td>
+          <td><input class="form-control expected-input" type="number" min="0" step="1" name="expected_{{ row.player.pk }}" value="{{ row.expected_amount }}"></td>
+          <td><input class="form-control paid-input" type="number" min="0" step="1" name="paid_{{ row.player.pk }}" value="{{ row.paid_amount }}"></td>
+          <td><strong class="remaining-value">{{ row.remaining_amount }}</strong></td>
+          <td>{% if row.is_paid %}<span class="badge bg-success">مسدد بالكامل</span>{% elif row.remaining_amount > 0 %}<span class="badge bg-warning text-dark">متبقي</span>{% else %}<span class="badge bg-secondary">غير محدد</span>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">لا يوجد لاعبون مطابقون للفلاتر المختارة.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+<style>
+.subscription-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.subscription-summary-card{padding:22px;border-radius:18px;color:#fff;box-shadow:0 12px 28px rgba(15,45,70,.12)}
+.subscription-summary-card span{display:block;font-size:.95rem;opacity:.9}.subscription-summary-card strong{display:block;font-size:2rem;margin-top:6px}
+.subscription-summary-card.expected{background:linear-gradient(135deg,#1769aa,#1f8ac0)}
+.subscription-summary-card.paid{background:linear-gradient(135deg,#148558,#20a66c)}
+.subscription-summary-card.remaining{background:linear-gradient(135deg,#b56b00,#df931d)}
+.subscription-table input[type=number]{min-width:145px}
+@media(max-width:760px){.subscription-summary-grid{grid-template-columns:1fr}}
+</style>
+<script>
+function updateSubscriptionRemaining(row){
+  const expected = Number(row.querySelector('.expected-input').value || 0);
+  const paid = Number(row.querySelector('.paid-input').value || 0);
+  row.querySelector('.remaining-value').textContent = Math.max(0, expected - paid).toLocaleString('en-US');
+}
+function applyDefaultSubscription(){
+  const amount = document.getElementById('defaultSubscriptionAmount').value || 0;
+  document.querySelectorAll('.subscription-row').forEach(row => {
+    row.querySelector('.expected-input').value = amount;
+    updateSubscriptionRemaining(row);
+  });
+}
+document.getElementById('defaultSubscriptionAmount').addEventListener('change', applyDefaultSubscription);
+document.querySelectorAll('.subscription-row input[type=number]').forEach(input => {
+  input.addEventListener('input', () => updateSubscriptionRemaining(input.closest('.subscription-row')));
+});
+</script>
+{% endblock %}

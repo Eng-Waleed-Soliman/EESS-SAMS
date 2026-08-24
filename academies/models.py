@@ -459,6 +459,42 @@ class AcademyMember(models.Model):
         return f'data:{content_type};base64,{encoded}'
 
 
+class AcademyPlayerMonthlySubscription(models.Model):
+    player = models.ForeignKey(
+        AcademyMember,
+        on_delete=models.CASCADE,
+        related_name='monthly_subscriptions',
+        limit_choices_to={'role': AcademyMember.ROLE_PLAYER},
+        verbose_name='اللاعب',
+    )
+    month = models.DateField(verbose_name='الشهر')
+    expected_amount = models.PositiveIntegerField(default=0, verbose_name='مبلغ الاشتراك')
+    paid_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المسدد')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['player', 'month'],
+                name='unique_player_monthly_subscription',
+            ),
+        ]
+        ordering = ['month', 'player__name']
+        verbose_name = 'اشتراك شهري للاعب'
+        verbose_name_plural = 'الاشتراكات الشهرية للاعبين'
+
+    @property
+    def remaining_amount(self):
+        return max(0, int(self.expected_amount or 0) - int(self.paid_amount or 0))
+
+    @property
+    def is_paid(self):
+        return int(self.expected_amount or 0) > 0 and int(self.paid_amount or 0) >= int(self.expected_amount or 0)
+
+    def __str__(self):
+        return f'{self.player} - {self.month:%Y-%m}'
+
+
 class SecurityMovement(models.Model):
     MOVEMENT_ENTRY = 'entry'
     MOVEMENT_EXIT = 'exit'

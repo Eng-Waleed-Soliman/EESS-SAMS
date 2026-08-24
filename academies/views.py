@@ -19,6 +19,7 @@ from datetime import date, timedelta
 from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaRecipeComponentFormSet, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
+from .models import AcademyPlayerMonthlySubscription
 from .models import FacilityGalleryImage
 from .forms import FacilityGalleryImageFormSet
 from .middleware import is_cafeteria_specialist
@@ -4161,6 +4162,155 @@ def academy_member_list(request, academy_id):
         'role': role,
         'role_label': {'staff': 'مدربو وإداريو', 'player': 'لاعبو'}.get(role, 'أعضاء'),
         'role_singular': {'staff': 'مدرب أو إداري', 'player': 'لاعب'}.get(role, 'عضو'),
+    })
+
+
+@login_required
+def academy_player_subscriptions(request, academy_id):
+    academy = get_object_or_404(Academy, pk=academy_id)
+    today = date.today()
+
+    def positive_int(value, default):
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return default
+
+    selected_year = positive_int(
+        request.POST.get('year') if request.method == 'POST' else request.GET.get('year'),
+        today.year,
+    )
+    selected_month = positive_int(
+        request.POST.get('month') if request.method == 'POST' else request.GET.get('month'),
+        today.month,
+    )
+    if selected_year < 2000 or selected_year > 2100:
+        selected_year = today.year
+    if selected_month < 1 or selected_month > 12:
+        selected_month = today.month
+    month_date = date(selected_year, selected_month, 1)
+
+    all_players = list(
+        academy.members.filter(role=AcademyMember.ROLE_PLAYER)
+        .order_by('-is_active', 'name', 'id')
+    )
+    players_by_id = {player.pk: player for player in all_players}
+
+    if request.method == 'POST':
+        default_amount = positive_int(request.POST.get('default_amount'), 0)
+        saved_count = 0
+        with transaction.atomic():
+            for raw_player_id in request.POST.getlist('player_id'):
+                player_id = positive_int(raw_player_id, 0)
+                player = players_by_id.get(player_id)
+                if not player:
+                    continue
+                current = AcademyPlayerMonthlySubscription.objects.filter(
+                    player=player,
+                    month=month_date,
+                ).first()
+                current_expected = (
+                    current.expected_amount
+                    if current
+                    else int(player.monthly_subscription or 0)
+                )
+                current_paid = current.paid_amount if current else 0
+                expected_amount = positive_int(
+                    request.POST.get(f'expected_{player_id}'),
+                    default_amount if default_amount else current_expected,
+                )
+                paid_amount = positive_int(
+                    request.POST.get(f'paid_{player_id}'),
+                    current_paid,
+                )
+                AcademyPlayerMonthlySubscription.objects.update_or_create(
+                    player=player,
+                    month=month_date,
+                    defaults={
+                        'expected_amount': expected_amount,
+                        'paid_amount': paid_amount,
+                    },
+                )
+                saved_count += 1
+        messages.success(request, f'تم حفظ اشتراكات {saved_count} لاعب لشهر {selected_month:02d}/{selected_year}.')
+        return redirect(
+            f"{reverse('academy_player_subscriptions', args=[academy.pk])}"
+            f'?year={selected_year}&month={selected_month}'
+        )
+
+    subscriptions = {
+        subscription.player_id: subscription
+        for subscription in AcademyPlayerMonthlySubscription.objects.filter(
+            player__academy=academy,
+            player__role=AcademyMember.ROLE_PLAYER,
+            month=month_date,
+        )
+    }
+    all_rows = []
+    for player in all_players:
+        subscription = subscriptions.get(player.pk)
+        expected_amount = (
+            int(subscription.expected_amount or 0)
+            if subscription
+            else int(player.monthly_subscription or 0)
+        )
+        paid_amount = int(subscription.paid_amount or 0) if subscription else 0
+        remaining_amount = max(0, expected_amount - paid_amount)
+        all_rows.append({
+            'player': player,
+            'expected_amount': expected_amount,
+            'paid_amount': paid_amount,
+            'remaining_amount': remaining_amount,
+            'is_paid': expected_amount > 0 and paid_amount >= expected_amount,
+        })
+
+    totals = {
+        'expected': sum(row['expected_amount'] for row in all_rows),
+        'paid': sum(row['paid_amount'] for row in all_rows),
+        'remaining': sum(row['remaining_amount'] for row in all_rows),
+    }
+    search = request.GET.get('q', '').strip()
+    payment_status = request.GET.get('status', '').strip()
+    if payment_status not in {'paid', 'due'}:
+        payment_status = ''
+    rows = all_rows
+    if search:
+        rows = [row for row in rows if search.casefold() in row['player'].name.casefold()]
+    if payment_status == 'paid':
+        rows = [row for row in rows if row['is_paid']]
+    elif payment_status == 'due':
+        rows = [row for row in rows if row['remaining_amount'] > 0]
+
+    default_amount = next(
+        (row['expected_amount'] for row in all_rows if row['expected_amount'] > 0),
+        0,
+    )
+    stored_years = list(
+        AcademyPlayerMonthlySubscription.objects.filter(player__academy=academy)
+        .values_list('month__year', flat=True)
+        .distinct()
+    )
+    year_choices = sorted(set([
+        *stored_years,
+        *range(today.year - 2, today.year + 3),
+        selected_year,
+    ]))
+    month_choices = [
+        (1, 'يناير'), (2, 'فبراير'), (3, 'مارس'), (4, 'أبريل'),
+        (5, 'مايو'), (6, 'يونيو'), (7, 'يوليو'), (8, 'أغسطس'),
+        (9, 'سبتمبر'), (10, 'أكتوبر'), (11, 'نوفمبر'), (12, 'ديسمبر'),
+    ]
+    return render(request, 'academies/academy_player_subscriptions.html', {
+        'academy': academy,
+        'rows': rows,
+        'totals': totals,
+        'selected_year': selected_year,
+        'selected_month': selected_month,
+        'year_choices': year_choices,
+        'month_choices': month_choices,
+        'search': search,
+        'payment_status': payment_status,
+        'default_amount': default_amount,
     })
 
 

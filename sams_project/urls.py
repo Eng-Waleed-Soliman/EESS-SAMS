@@ -17,6 +17,7 @@ urlpatterns = [
     path('academies/<int:pk>/edit/', views.academy_update, name='academy_update'),
     path('academies/<int:pk>/delete/', views.academy_delete, name='academy_delete'),
     path('academies/<int:academy_id>/members/', views.academy_member_list, name='academy_member_list'),
+    path('academies/<int:academy_id>/members/monthly-subscriptions/', views.academy_player_subscriptions, name='academy_player_subscriptions'),
     path('academies/<int:academy_id>/members/excel-template/', views.academy_member_excel_template, name='academy_member_excel_template'),
     path('academies/<int:academy_id>/members/import-excel/', views.academy_member_excel_import, name='academy_member_excel_import'),
     path('academies/<int:academy_id>/members/add/', views.academy_member_create, name='academy_member_create'),

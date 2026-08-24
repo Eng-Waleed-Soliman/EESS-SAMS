@@ -30,6 +30,7 @@ from .models import (
     AcademyDepositPlan,
     AcademyDepositInstallment,
     AcademyMonthlyRentPayment,
+    AcademyPlayerMonthlySubscription,
     AcademyOperationOverride,
     AcademyRentPaymentEntry,
     AppSetting,
@@ -1951,9 +1952,108 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.get(player_url)
         self.assertContains(response, 'id_birth_date')
         self.assertContains(response, 'type="date"')
-        self.assertContains(response, 'id_monthly_subscription')
+        self.assertNotContains(response, 'id_monthly_subscription')
         self.assertContains(response, 'id_photo')
         self.assertNotContains(response, 'id_job_title')
+    def test_player_monthly_subscriptions_save_totals_and_filters(self):
+        academy = Academy.objects.create(
+            name='Monthly Players Academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000991',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(),
+            contract_end_date=date.today() + timedelta(days=30),
+        )
+        first_player = AcademyMember.objects.create(
+            academy=academy,
+            role=AcademyMember.ROLE_PLAYER,
+            name='لاعب عليه متبقي',
+            monthly_subscription=1500,
+        )
+        paid_player = AcademyMember.objects.create(
+            academy=academy,
+            role=AcademyMember.ROLE_PLAYER,
+            name='لاعب مسدد بالكامل',
+            monthly_subscription=1500,
+        )
+        list_response = self.client.get(
+            reverse('academy_member_list', args=[academy.pk]),
+            {'role': 'player'},
+        )
+        subscriptions_url = reverse('academy_player_subscriptions', args=[academy.pk])
+        self.assertContains(list_response, subscriptions_url)
+        self.assertContains(list_response, 'الاشتراكات الشهرية')
+        self.assertNotContains(list_response, 'اشتراك اللاعب')
+
+        today = date.today()
+        page = self.client.get(subscriptions_url, {
+            'year': today.year,
+            'month': today.month,
+        })
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, first_player.name)
+        self.assertContains(page, paid_player.name)
+        self.assertEqual(page.context['totals']['expected'], 3000)
+        self.assertContains(page, 'إجمالي الاشتراكات')
+        self.assertContains(page, 'إجمالي المبلغ المسدد')
+        self.assertContains(page, 'إجمالي المبلغ المتبقي')
+
+        response = self.client.post(subscriptions_url, {
+            'year': str(today.year),
+            'month': str(today.month),
+            'default_amount': '2000',
+            'player_id': [str(first_player.pk), str(paid_player.pk)],
+            f'expected_{first_player.pk}': '1800',
+            f'paid_{first_player.pk}': '1000',
+            f'expected_{paid_player.pk}': '2000',
+            f'paid_{paid_player.pk}': '2000',
+        })
+        self.assertEqual(response.status_code, 302)
+        first_subscription = AcademyPlayerMonthlySubscription.objects.get(
+            player=first_player,
+            month=date(today.year, today.month, 1),
+        )
+        paid_subscription = AcademyPlayerMonthlySubscription.objects.get(
+            player=paid_player,
+            month=date(today.year, today.month, 1),
+        )
+        self.assertEqual(first_subscription.expected_amount, 1800)
+        self.assertEqual(first_subscription.paid_amount, 1000)
+        self.assertEqual(first_subscription.remaining_amount, 800)
+        self.assertFalse(first_subscription.is_paid)
+        self.assertEqual(paid_subscription.remaining_amount, 0)
+        self.assertTrue(paid_subscription.is_paid)
+
+        totals_page = self.client.get(subscriptions_url, {
+            'year': today.year,
+            'month': today.month,
+        })
+        self.assertEqual(totals_page.context['totals'], {
+            'expected': 3800,
+            'paid': 3000,
+            'remaining': 800,
+        })
+        paid_page = self.client.get(subscriptions_url, {
+            'year': today.year,
+            'month': today.month,
+            'status': 'paid',
+        })
+        self.assertContains(paid_page, paid_player.name)
+        self.assertNotContains(paid_page, first_player.name)
+        due_page = self.client.get(subscriptions_url, {
+            'year': today.year,
+            'month': today.month,
+            'status': 'due',
+        })
+        self.assertContains(due_page, first_player.name)
+        self.assertNotContains(due_page, paid_player.name)
+        search_page = self.client.get(subscriptions_url, {
+            'year': today.year,
+            'month': today.month,
+            'q': 'متبقي',
+        })
+        self.assertContains(search_page, first_player.name)
+        self.assertNotContains(search_page, paid_player.name)
+
 
     def test_training_year_selector_and_portrait_identity_cards(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
