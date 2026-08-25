@@ -1057,6 +1057,47 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, '<td>3</td>', html=True)
         self.assertContains(response, '<td class="fw-bold">7</td>', html=True)
 
+    def test_cafeteria_staff_prices_are_saved_and_used_for_staff_orders(self):
+        category = CafeteriaCategory.objects.create(code=813, name='Staff prices')
+        item = CafeteriaItem.objects.create(
+            category=category, code=813, name='Staff item', opening_quantity=10,
+            purchase_price=5, sale_price=20, staff_sale_price=15,
+        )
+
+        response = self.client.get(reverse('cafe_sale_prices'))
+        self.assertContains(response, 'سعر البيع Staff')
+        self.assertContains(response, f'name="staff_price_{item.id}"')
+
+        response = self.client.post(reverse('cafe_sale_prices'), {
+            f'price_{item.id}': 22,
+            f'staff_price_{item.id}': 14,
+        })
+        self.assertRedirects(response, reverse('cafe_item_list'))
+        item.refresh_from_db()
+        self.assertEqual(item.sale_price, 22)
+        self.assertEqual(item.staff_sale_price, 14)
+
+        response = self.client.post(reverse('cafe_sale_list'), {
+            'sale_date': date.today().isoformat(),
+            'checkout_action': 'sale',
+            'is_staff_order': '1',
+            'order_items': json.dumps([{
+                'item_id': item.pk,
+                'quantity': 2,
+                'unit_price': 999,
+            }]),
+        })
+        self.assertRedirects(response, reverse('cafe_sale_list'))
+        sale = CafeteriaSale.objects.get(item=item)
+        self.assertTrue(sale.is_staff_sale)
+        self.assertEqual(sale.unit_price, 14)
+        self.assertEqual(sale.total_amount, 28)
+
+        response = self.client.get(reverse('cafe_sale_list'))
+        self.assertContains(response, 'id="staffPricing"')
+        self.assertContains(response, '"staff_sale_price": 14')
+        self.assertContains(response, 'Staff')
+
     def test_cafeteria_sales_history_shows_all_selected_day_sales_newest_first(self):
         today = date.today()
         yesterday = today - timedelta(days=1)

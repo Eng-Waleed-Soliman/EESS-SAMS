@@ -1175,6 +1175,7 @@ class CafeteriaItem(models.Model):
     stock_adjustment = models.IntegerField(default=0, verbose_name='تسوية المخزون')
     purchase_price = models.PositiveIntegerField(default=0, verbose_name='سعر الشراء')
     sale_price = models.PositiveIntegerField(default=0, verbose_name='سعر البيع')
+    staff_sale_price = models.PositiveIntegerField(default=0, verbose_name='سعر البيع Staff')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -1185,6 +1186,11 @@ class CafeteriaItem(models.Model):
 
     def __str__(self):
         return f'{self.code} - {self.name}' if self.code else self.name
+
+    def sale_price_for(self, is_staff=False):
+        if is_staff and self.staff_sale_price > 0:
+            return self.staff_sale_price
+        return self.sale_price
 
     @property
     def purchased_quantity(self):
@@ -1321,6 +1327,7 @@ class CafeteriaSale(models.Model):
     sale_date = models.DateField(verbose_name='تاريخ البيع')
     quantity = models.PositiveIntegerField(default=1, verbose_name='الكمية')
     unit_price = models.PositiveIntegerField(default=0, verbose_name='سعر بيع الوحدة')
+    is_staff_sale = models.BooleanField(default=False, verbose_name='بيع Staff')
     addon = models.ForeignKey(
         CafeteriaAddon,
         null=True,

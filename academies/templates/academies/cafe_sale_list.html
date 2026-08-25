@@ -28,7 +28,13 @@
       <input type="hidden" name="order_items" id="order_items">
       <input type="hidden" name="order_token" value="{{ order_token }}">
       <input type="hidden" name="checkout_action" id="checkout_action" value="sale">
-      <h5 class="fw-bold mb-3">إضافة حركة بيع</h5>
+      <div class="d-flex justify-content-between align-items-center gap-3 mb-3 flex-wrap">
+        <h5 class="fw-bold mb-0">إضافة حركة بيع</h5>
+        <label class="form-check form-switch m-0 fw-bold" for="staffPricing">
+          <input class="form-check-input" type="checkbox" role="switch" name="is_staff_order" id="staffPricing" value="1">
+          <span class="form-check-label">Staff</span>
+        </label>
+      </div>
       <div class="row g-3">
         <input type="hidden" id="categoryFilter" value="{{ selected_category }}">
         <div class="col-md-8">
@@ -173,7 +179,7 @@
       {% for s in sales %}
       <tr>
         <td>{{ s.sale_date }}</td>
-        <td>{{ s.item.name }}</td>
+        <td>{{ s.item.name }}{% if s.is_staff_sale %} <span class="badge text-bg-info">Staff</span>{% endif %}</td>
         <td>{{ s.quantity }} {{ s.item.unit_label }}</td>
         <td>{{ s.unit_price }} {{ s.item.price_unit_label }}</td>
         <td>{% if s.addon_name %}{{ s.addon_name }} × {{ s.addon_quantity }}{% else %}-{% endif %}</td>
@@ -232,6 +238,7 @@ const clearOrderBtn = document.getElementById('clearOrder');
 const quickSaleForm = document.getElementById('quickSaleForm');
 const checkoutAction = document.getElementById('checkout_action');
 const checkoutOrderBtn = document.getElementById('checkoutOrder');
+const staffPricing = document.getElementById('staffPricing');
 const hospitalityOrderBtn = document.getElementById('hospitalityOrder');
 const hospitalityDialog = document.getElementById('hospitalityDialog');
 const hospitalityMember = document.getElementById('hospitality_board_member');
@@ -254,6 +261,14 @@ function selectedAddon(){
   return addonSelect ? addonMap[addonSelect.value] : null;
 }
 
+function itemSalePrice(item){
+  if(!item) return 0;
+  const staffPrice = parseInt(item.staff_sale_price || '0', 10);
+  return staffPricing && staffPricing.checked && staffPrice > 0
+    ? staffPrice
+    : parseInt(item.sale_price || '0', 10);
+}
+
 function rowTotal(row){
   const itemAmount = row.item_type === 'weight'
     ? Math.floor((row.quantity * row.unit_price) / 1000)
@@ -264,7 +279,7 @@ function rowTotal(row){
 function refreshSale(){
   const item = selectedItem();
   if(item && (!priceInput.value || priceInput.value === '0')){
-    priceInput.value = item.sale_price || 0;
+    priceInput.value = itemSalePrice(item);
   }
   const qty = parseInt(quantityInput.value || '0', 10);
   const price = parseInt(priceInput.value || '0', 10);
@@ -273,7 +288,7 @@ function refreshSale(){
   const addonPrice = addon ? parseInt(addon.sale_price || '0', 10) : 0;
   const itemAmount = item && item.item_type === 'weight' ? Math.floor((qty * price) / 1000) : qty * price;
   totalInput.value = Math.max(0, itemAmount + (addonQty * addonPrice));
-  if(displayPriceInput){ displayPriceInput.value = item ? (item.sale_price || 0) : 0; }
+  if(displayPriceInput){ displayPriceInput.value = itemSalePrice(item); }
   if(displayAddonPriceInput){ displayAddonPriceInput.value = addonPrice; }
   if(addonQuantityInput){ addonQuantityInput.disabled = !addon; }
   if(item){
@@ -321,7 +336,7 @@ function addCurrentItemToOrder(){
     return;
   }
   const qty = Math.max(1, parseInt(quantityInput.value || '1', 10));
-  const price = Math.max(0, parseInt(priceInput.value || item.sale_price || '0', 10));
+  const price = Math.max(0, itemSalePrice(item));
   const addon = selectedAddon();
   const addonQty = addon ? Math.max(1, parseInt(addonQuantityInput.value || '1', 10)) : 0;
   const addonPrice = addon ? Math.max(0, parseInt(addon.sale_price || '0', 10)) : 0;
@@ -407,6 +422,17 @@ if(addonSelect){
 if(addonQuantityInput){ addonQuantityInput.addEventListener('input', refreshSale); }
 if(addOrderItemBtn){ addOrderItemBtn.addEventListener('click', addCurrentItemToOrder); }
 if(clearOrderBtn){ clearOrderBtn.addEventListener('click', function(){ orderItems = []; renderOrder(); }); }
+if(staffPricing){
+  staffPricing.addEventListener('change', function(){
+    orderItems.forEach(function(row){
+      const item = itemMap[row.item_id];
+      row.unit_price = itemSalePrice(item);
+    });
+    priceInput.value = selectedItem() ? itemSalePrice(selectedItem()) : '';
+    refreshSale();
+    renderOrder();
+  });
+}
 if(checkoutOrderBtn){
   checkoutOrderBtn.addEventListener('click', function(){
     checkoutAction.value = 'sale';

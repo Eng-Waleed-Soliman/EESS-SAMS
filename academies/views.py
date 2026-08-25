@@ -1919,14 +1919,21 @@ def cafe_sale_prices(request):
     if request.method == 'POST':
         for item in items:
             value = request.POST.get(f'price_{item.id}', '').strip()
-            if value != '':
-                try:
+            staff_value = request.POST.get(f'staff_price_{item.id}', '').strip()
+            try:
+                update_fields = []
+                if value != '':
                     item.sale_price = max(0, int(value))
-                    item.save(update_fields=['sale_price'])
-                except ValueError:
-                    messages.error(request, f'سعر البيع للصنف {item.name} غير صحيح.')
-                    return redirect('cafe_sale_prices')
-        messages.success(request, 'تم حفظ أسعار البيع بنجاح.')
+                    update_fields.append('sale_price')
+                if staff_value != '':
+                    item.staff_sale_price = max(0, int(staff_value))
+                    update_fields.append('staff_sale_price')
+                if update_fields:
+                    item.save(update_fields=update_fields)
+            except ValueError:
+                messages.error(request, f'سعر البيع للصنف {item.name} غير صحيح.')
+                return redirect('cafe_sale_prices')
+        messages.success(request, 'تم حفظ أسعار البيع العادية وأسعار Staff بنجاح.')
         return redirect('cafe_item_list')
     return render(request, 'academies/cafe_sale_prices.html', {'items': items})
 
@@ -2316,6 +2323,7 @@ def cafe_sale_list(request):
     if request.method == 'POST':
         raw_order = request.POST.get('order_items', '').strip()
         checkout_action = request.POST.get('checkout_action', 'sale').strip()
+        is_staff_order = request.POST.get('is_staff_order') in ('1', 'true', 'on')
         if raw_order:
             order_token = request.POST.get('order_token', '').strip()
             processed_tokens = request.session.get('processed_cafeteria_order_tokens', [])
@@ -2336,7 +2344,7 @@ def cafe_sale_list(request):
                 for row in order_items:
                     item = get_object_or_404(CafeteriaItem, pk=row.get('item_id'))
                     quantity = max(1, int(row.get('quantity') or 1))
-                    unit_price = item.sale_price
+                    unit_price = item.sale_price_for(is_staff_order and checkout_action != 'hospitality')
                     addon = None
                     addon_quantity = 0
                     addon_unit_price = 0
@@ -2411,6 +2419,7 @@ def cafe_sale_list(request):
                             sale_date=sale_date,
                             quantity=quantity,
                             unit_price=unit_price,
+                            is_staff_sale=is_staff_order,
                             addon=addon,
                             addon_name=addon.name if addon else '',
                             addon_quantity=addon_quantity,
@@ -2428,7 +2437,7 @@ def cafe_sale_list(request):
             return redirect('cafe_sale_list')
         if form.is_valid():
             sale = form.save(commit=False)
-            sale.unit_price = sale.item.sale_price
+            sale.unit_price = sale.item.sale_price_for(sale.is_staff_sale)
             sale.save()
             _sync_cafeteria_ingredient_usage(sale)
             messages.success(request, 'تم تسجيل البيع بنجاح.')
@@ -2459,6 +2468,7 @@ def cafe_sale_list(request):
             'category_id': item.category_id,
             'category_name': item.category.name if item.category_id else 'بدون فئة',
             'sale_price': item.sale_price,
+            'staff_sale_price': item.staff_sale_price,
             'stock_quantity': item.stock_quantity,
             'item_type': item.item_type,
             'unit_label': item.unit_label,
@@ -2486,7 +2496,7 @@ def cafe_sale_create(request):
     form = CafeteriaSaleForm(request.POST or None)
     if form.is_valid():
         sale = form.save(commit=False)
-        sale.unit_price = sale.item.sale_price
+        sale.unit_price = sale.item.sale_price_for(sale.is_staff_sale)
         sale.save()
         _sync_cafeteria_ingredient_usage(sale)
         messages.success(request, 'تم حفظ حركة البيع بنجاح.')
@@ -2499,7 +2509,7 @@ def cafe_sale_update(request, pk):
     form = CafeteriaSaleForm(request.POST or None, instance=sale_obj)
     if form.is_valid():
         sale = form.save(commit=False)
-        sale.unit_price = sale.item.sale_price
+        sale.unit_price = sale.item.sale_price_for(sale.is_staff_sale)
         sale.save()
         _sync_cafeteria_ingredient_usage(sale)
         messages.success(request, 'تم تعديل حركة البيع بنجاح.')

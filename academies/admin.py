@@ -161,7 +161,7 @@ class CafeteriaCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(CafeteriaItem)
 class CafeteriaItemAdmin(admin.ModelAdmin):
-    list_display = ('code', 'name', 'category', 'purchase_price', 'sale_price', 'stock_quantity', 'is_low_stock')
+    list_display = ('code', 'name', 'category', 'purchase_price', 'sale_price', 'staff_sale_price', 'stock_quantity', 'is_low_stock')
     search_fields = ('name', 'category__name')
     list_filter = ('category',)
     ordering = ('category__code', 'code', 'name')
@@ -180,7 +180,7 @@ class CafeteriaAddonAdmin(admin.ModelAdmin):
 
 @admin.register(CafeteriaSale)
 class CafeteriaSaleAdmin(admin.ModelAdmin):
-    list_display = ('item', 'sale_date', 'quantity', 'unit_price', 'addon_name', 'addon_quantity', 'total_amount', 'estimated_profit')
+    list_display = ('item', 'sale_date', 'quantity', 'unit_price', 'is_staff_sale', 'addon_name', 'addon_quantity', 'total_amount', 'estimated_profit')
 
 
 @admin.register(OperationDayCancellation)

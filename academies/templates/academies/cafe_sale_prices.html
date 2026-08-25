@@ -7,7 +7,7 @@
 <form method="post" class="card p-3">
   {% csrf_token %}
   <table class="table table-striped align-middle text-center">
-    <thead><tr><th>الصنف</th><th>سعر الشراء</th><th>المخزون</th><th>سعر البيع</th></tr></thead>
+    <thead><tr><th>الصنف</th><th>سعر الشراء</th><th>المخزون</th><th>سعر البيع</th><th>سعر البيع Staff</th></tr></thead>
     <tbody>
     {% for item in items %}
       <tr>
@@ -15,8 +15,9 @@
         <td>{{ item.purchase_price }}</td>
         <td>{{ item.stock_quantity }}</td>
         <td><input type="number" min="0" step="1" class="form-control text-center" name="price_{{ item.id }}" value="{{ item.sale_price }}"></td>
+        <td><input type="number" min="0" step="1" class="form-control text-center" name="staff_price_{{ item.id }}" value="{{ item.staff_sale_price }}"></td>
       </tr>
-    {% empty %}<tr><td colspan="4">لا توجد أصناف مسجلة</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="5">لا توجد أصناف مسجلة</td></tr>{% endfor %}
     </tbody>
   </table>
   <div class="d-flex gap-2"><button class="btn btn-success">حفظ</button><a class="btn btn-secondary" href="{% url 'cafe_settings' %}">رجوع</a></div>

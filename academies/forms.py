@@ -1801,7 +1801,9 @@ class CafeteriaSaleForm(forms.ModelForm):
                 if required > available:
                     raise forms.ValidationError(f'المخزون غير كافٍ للمكوّن {component.name}. المتاح: {available} {component.unit_label}.')
         if item:
-            cleaned_data['unit_price'] = item.sale_price
+            cleaned_data['unit_price'] = item.sale_price_for(
+                bool(self.instance and self.instance.pk and self.instance.is_staff_sale)
+            )
         if addon:
             if addon_quantity < 1:
                 self.add_error('addon_quantity', 'أدخل كمية الإضافة.')
