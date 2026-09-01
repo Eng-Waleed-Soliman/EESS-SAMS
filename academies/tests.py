@@ -2296,6 +2296,11 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(receipt, 'التوقيع:')
         self.assertContains(receipt, 'مسئول إداري أول')
         self.assertContains(receipt, 'printPayrollReceipt()')
+        self.assertContains(receipt, 'font-family:"Times New Roman",Times,serif')
+        self.assertContains(receipt, 'class="payroll-receipt-header" dir="ltr"')
+        self.assertContains(receipt, 'justify-content:flex-start')
+        self.assertContains(receipt, 'grid-template-areas:"amount label"')
+        self.assertNotContains(receipt, 'جميع الفروع')
 
     def test_bonus_daily_income_combines_bookings_with_paid_ball_field_academies_only(self):
         target_day = date(2026, 7, 15)

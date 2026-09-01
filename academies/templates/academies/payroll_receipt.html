@@ -6,12 +6,9 @@
 </div>
 
 <article class="payroll-receipt-sheet" dir="rtl">
-  <header class="payroll-receipt-header">
+  <header class="payroll-receipt-header" dir="ltr">
     {% if app_settings and app_settings.company_logo_data_uri %}<img src="{{ app_settings.company_logo_data_uri }}" alt="شعار الشركة">{% elif app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
-    <div>
-      <strong>{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</strong>
-      <small>{% if active_branch %}{{ active_branch.display_name }}{% else %}جميع الفروع{% endif %}</small>
-    </div>
+    <strong dir="rtl">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</strong>
   </header>
 
   <h1>إقرار استلام مرتب</h1>
@@ -37,25 +34,29 @@
 </article>
 
 <style>
-.payroll-receipt-sheet{width:148mm;min-height:210mm;margin:0 auto;background:#fff;border:1px solid #dbe3ef;padding:14mm 13mm;box-sizing:border-box;color:#111;font-family:"Tahoma","Arial",sans-serif;position:relative}
-.payroll-receipt-header{display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:1px solid #cbd5e1;padding-bottom:8px;text-align:center}
-.payroll-receipt-header img{width:54px;height:54px;object-fit:contain}
-.payroll-receipt-header strong,.payroll-receipt-header small{display:block}
-.payroll-receipt-header strong{font-size:15px}.payroll-receipt-header small{margin-top:3px;color:#475569}
-.payroll-receipt-sheet h1{text-align:center;font-size:28px;font-weight:900;text-decoration:underline;text-underline-offset:8px;margin:22mm 0 18mm}
-.payroll-receipt-statement{font-size:18px;line-height:2.25;text-align:justify;margin:0}
-.payroll-receipt-confirmation{font-size:18px;margin-top:13mm}
-.payroll-receipt-breakdown{margin:10mm auto 0;width:82%;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden}
-.payroll-receipt-breakdown>div{display:flex;justify-content:space-between;padding:7px 12px;border-bottom:1px solid #e2e8f0}
+.payroll-receipt-sheet{width:148mm;min-height:210mm;margin:0 auto;background:#fff;border:1px solid #cbd5e1;padding:11mm 12mm;box-sizing:border-box;color:#111;font-family:"Times New Roman",Times,serif;position:relative}
+.payroll-receipt-sheet *{font-family:"Times New Roman",Times,serif;box-sizing:border-box}
+.payroll-receipt-header{direction:ltr;display:flex;align-items:center;justify-content:flex-start;gap:4mm;min-height:18mm;border-bottom:1px solid #94a3b8;padding:0 0 4mm;text-align:left}
+.payroll-receipt-header img{width:15mm;height:15mm;object-fit:contain;flex:0 0 15mm}
+.payroll-receipt-header strong{display:block;max-width:85mm;font-size:14pt;line-height:1.25;text-align:left}
+.payroll-receipt-sheet h1{text-align:center;font-size:24pt;font-weight:700;text-decoration:underline;text-underline-offset:3mm;margin:17mm 0 13mm}
+.payroll-receipt-statement{font-size:14pt;line-height:2;text-align:justify;margin:0}
+.payroll-receipt-confirmation{font-size:14pt;margin:9mm 0 0}
+.payroll-receipt-breakdown{margin:8mm auto 0;width:100%;border:1px solid #94a3b8;border-radius:2mm;overflow:hidden}
+.payroll-receipt-breakdown>div{direction:ltr;display:grid;grid-template-columns:34mm minmax(0,1fr);grid-template-areas:"amount label";align-items:stretch;min-height:10mm;border-bottom:1px solid #cbd5e1}
 .payroll-receipt-breakdown>div:last-child{border-bottom:0;background:#f8fafc}
-.payroll-receipt-signature{width:58mm;text-align:center;margin-top:18mm;margin-right:auto;margin-left:0;font-size:15px}
-.payroll-receipt-signature>*{display:block;margin-top:6px}.payroll-receipt-signature .signature-line{margin-bottom:13mm}
+.payroll-receipt-breakdown span,.payroll-receipt-breakdown strong{display:flex;align-items:center;margin:0;padding:2mm 4mm;font-size:12.5pt}
+.payroll-receipt-breakdown span{grid-area:label;direction:rtl;justify-content:flex-start;text-align:right}
+.payroll-receipt-breakdown strong{grid-area:amount;direction:ltr;justify-content:flex-start;text-align:left;border-right:1px solid #cbd5e1;font-variant-numeric:tabular-nums}
+.payroll-receipt-signature{width:58mm;text-align:center;margin:16mm auto 0 0;font-size:12.5pt}
+.payroll-receipt-signature>*{display:block;margin-top:2mm}.payroll-receipt-signature .signature-line{margin-bottom:11mm;white-space:nowrap}
 @media print{
   @page{size:A5 portrait;margin:0}
+  html,body{width:148mm!important;height:210mm!important;margin:0!important;padding:0!important;background:#fff!important}
   .sidebar,.no-print,body>nav,.global-messages{display:none!important}
-  body{background:#fff!important}
-  main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
-  .payroll-receipt-sheet{border:0;width:148mm;min-height:210mm;margin:0;padding:12mm 12mm}
+  .container-fluid,.container-fluid>.row{width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
+  main.col-md-10{display:block!important;flex:0 0 100%!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
+  .payroll-receipt-sheet{border:0;width:148mm;min-height:210mm;margin:0;padding:11mm 12mm}
 }
 </style>
 <script>
