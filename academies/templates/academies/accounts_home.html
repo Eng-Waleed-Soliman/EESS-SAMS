@@ -38,11 +38,11 @@
     <div>{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
     <div class="brand-ar">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</div>
   </div>
-  <h1>تقرير الحسابات</h1>
-  <div>عن شهر {{ month_value }}</div>
+  <h1 id="accountsPrintTitle">تقرير الحسابات</h1>
+  <div id="accountsPrintSubtitle">عن شهر {{ month_value }}</div>
 </header>
 <section class="accounts-print-content">
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-4 accounts-summary-cards">
   <div class="col-md-3"><div class="card p-3"><b>إجمالي الدخل الشهري</b><h3>{{ summary.gross_income }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>دخل الأكاديميات</b><h3>{{ summary.academy_income }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>الدخل اليومي المعتمد للبونص</b><h3>{{ summary.daily_income_total }}</h3><small class="text-muted">الحجز اليومي: {{ summary.daily_booking_income }} + أكاديميات ملاعب الكرة والباسكت: {{ summary.ball_field_academy_income }}</small></div></div>
@@ -52,11 +52,38 @@
   <div class="col-md-3"><div class="card p-3"><b>مصروفات التشغيل</b><h3>{{ summary.operating_expenses }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>صافي الربح</b><h3>{{ summary.net_profit }}</h3></div></div>
 </div>
-<div class="card p-3 mb-4">
-  <h4>المرتبات والبونص</h4>
-  <table class="table table-striped text-center"><thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب</th><th>البونص</th><th>الإجمالي</th></tr></thead><tbody>{% for row in summary.payroll_rows %}<tr><td>{{ row.employee.name }}</td><td>{{ row.employee.job_title }}</td><td>{{ row.salary }}</td><td>{{ row.bonus }}</td><td>{{ row.total }}</td></tr>{% empty %}<tr><td colspan="5">لا توجد بيانات موظفين</td></tr>{% endfor %}</tbody></table>
+<div class="card p-3 mb-4 payroll-card">
+  <div class="payroll-section-heading d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div>
+      <h4 class="mb-1">المرتبات والبونص</h4>
+      <small class="text-muted no-print">دبل كليك على صف الموظف لفتح إقرار استلام المرتب.</small>
+    </div>
+    <div class="d-flex gap-2 flex-wrap no-print">
+      <button type="button" class="btn btn-outline-primary" id="selectAllPayrollEmployees" onclick="toggleAllPayrollEmployees()">تحديد كل الموظفين</button>
+      <button type="button" class="btn btn-danger" onclick="exportSelectedPayroll()">تصدير PDF للمحدد</button>
+    </div>
+  </div>
+  <table class="table table-striped text-center payroll-table">
+    <thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب</th><th>البونص</th><th>الإجمالي</th></tr></thead>
+    <tbody>
+      {% for row in summary.payroll_rows %}
+      <tr class="payroll-row" data-receipt-url="{% url 'payroll_receipt' row.employee.pk %}?month={{ month_value }}{% if active_branch_is_all %}&amp;branch_id=all{% elif active_branch %}&amp;branch_id={{ active_branch.pk }}{% endif %}" title="دبل كليك لفتح إقرار استلام المرتب">
+        <td>
+          <label class="d-inline-flex align-items-center gap-2">
+            <input type="checkbox" class="form-check-input payroll-employee-checkbox no-print" value="{{ row.employee.pk }}" aria-label="اختيار {{ row.employee.name }}">
+            <span>{{ row.employee.name }}</span>
+          </label>
+        </td>
+        <td>{{ row.employee.job_title }}</td>
+        <td>{{ row.salary }}</td>
+        <td>{{ row.bonus }}</td>
+        <td>{{ row.total }}</td>
+      </tr>
+      {% empty %}<tr><td colspan="5">لا توجد بيانات موظفين</td></tr>{% endfor %}
+    </tbody>
+  </table>
 </div>
-<div class="card p-3">
+<div class="card p-3 profit-distribution-card">
   <div class="profit-distribution-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <h4 class="mb-0">توزيع الأرباح على المساهمين</h4>
     <div class="profit-distribution-total badge text-bg-primary fs-6 p-2">
@@ -82,6 +109,8 @@
 .accounts-signature .signature-title,.accounts-signature .signature-name{display:block;width:100%;font-weight:800;text-align:center;white-space:nowrap}
 .accounts-signature .signature-name{margin-top:5px}
 .accounts-signature .signature-placeholder{margin-top:12px}
+.payroll-row{cursor:pointer}
+.payroll-row:hover{--bs-table-accent-bg:#e0f2fe}
 @media print{
   @page{size:A4 portrait;margin:10mm}
   .sidebar,.no-print,body>nav{display:none!important}
@@ -96,6 +125,10 @@
   .accounts-print-content .row .card{text-align:center}
   .accounts-print-footer{display:flex!important;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:25px;min-height:105px;font-size:12px}
   .accounts-signature{direction:rtl}
+  body.payroll-export-mode .accounts-summary-cards,body.payroll-export-mode .profit-distribution-card{display:none!important}
+  body.payroll-export-mode .payroll-row:not(.payroll-print-selected){display:none!important}
+  body.payroll-export-mode .payroll-card{border:0!important;box-shadow:none!important}
+  body.payroll-export-mode .payroll-section-heading{justify-content:center!important;text-align:center}
 }
 </style>
 <script>
@@ -108,6 +141,50 @@ function updateAccountsSignature(){
   document.getElementById('accountsSignatureTitle').textContent=title;
   document.getElementById('accountsSignatureName').textContent=names[0]||'-';
 }
+function payrollCheckboxes(){return Array.from(document.querySelectorAll('.payroll-employee-checkbox'));}
+function toggleAllPayrollEmployees(){
+  const boxes=payrollCheckboxes();
+  const shouldCheck=boxes.some(function(box){return !box.checked;});
+  boxes.forEach(function(box){box.checked=shouldCheck;});
+  const button=document.getElementById('selectAllPayrollEmployees');
+  if(button){button.textContent=shouldCheck?'إلغاء تحديد الكل':'تحديد كل الموظفين';}
+}
+function resetPayrollExport(){
+  document.body.classList.remove('payroll-export-mode');
+  document.querySelectorAll('.payroll-row').forEach(function(row){row.classList.remove('payroll-print-selected');});
+}
+function exportSelectedPayroll(){
+  const selected=payrollCheckboxes().filter(function(box){return box.checked;});
+  if(!selected.length){window.alert('اختر موظفاً واحداً على الأقل للتصدير.');return;}
+  const selectedIds=new Set(selected.map(function(box){return box.value;}));
+  document.querySelectorAll('.payroll-row').forEach(function(row){
+    const checkbox=row.querySelector('.payroll-employee-checkbox');
+    row.classList.toggle('payroll-print-selected',!!checkbox&&selectedIds.has(checkbox.value));
+  });
+  document.body.classList.add('payroll-export-mode');
+  const printTitle=document.getElementById('accountsPrintTitle');
+  const printSubtitle=document.getElementById('accountsPrintSubtitle');
+  const oldHeading=printTitle?printTitle.textContent:'';
+  const oldSubtitle=printSubtitle?printSubtitle.textContent:'';
+  const oldDocumentTitle=document.title;
+  if(printTitle){printTitle.textContent='تقرير المرتبات والبونص';}
+  if(printSubtitle){printSubtitle.textContent='عن شهر {{ month_value|escapejs }}';}
+  document.title='تقرير المرتبات والبونص - {{ month_value|escapejs }}';
+  window.print();
+  window.setTimeout(function(){
+    resetPayrollExport();
+    if(printTitle){printTitle.textContent=oldHeading;}
+    if(printSubtitle){printSubtitle.textContent=oldSubtitle;}
+    document.title=oldDocumentTitle;
+  },500);
+}
+document.querySelectorAll('.payroll-row').forEach(function(row){
+  row.addEventListener('dblclick',function(event){
+    if(event.target.closest('input,button,a')) return;
+    if(row.dataset.receiptUrl){window.open(row.dataset.receiptUrl,'_blank');}
+  });
+});
+window.addEventListener('afterprint',resetPayrollExport);
 function printAccounts(asPdf){
   updateAccountsSignature();
   const oldTitle=document.title;

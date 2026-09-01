@@ -37,6 +37,7 @@ urlpatterns = [
     path('security/<str:movement_type>/', views.security_movement, name='security_movement'),
     path('daily-income/', views.daily_income, name='daily_income'),
     path('accounts/', views.accounts_home, name='accounts_home'),
+    path('accounts/payroll-receipt/<int:employee_id>/', views.payroll_receipt, name='payroll_receipt'),
     path('accounts/financial-vouchers/', views.financial_voucher_list, name='financial_voucher_list'),
     path('accounts/financial-vouchers/add/<str:voucher_type>/', views.financial_voucher_create, name='financial_voucher_create'),
     path('accounts/financial-vouchers/<int:pk>/', views.financial_voucher_detail, name='financial_voucher_detail'),

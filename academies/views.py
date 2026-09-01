@@ -3925,6 +3925,46 @@ def accounts_home(request):
 
 
 @login_required
+def payroll_receipt(request, employee_id):
+    profile = _ensure_user_profile(request.user)
+    if not (
+        request.user.is_superuser or request.user.is_staff or
+        profile.can_accounts or profile.can_access_any_report()
+    ):
+        messages.error(request, 'ليس لديك صلاحية عرض المرتبات.')
+        return redirect('dashboard')
+
+    year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
+    active_branch, all_branches = selected_branch(request)
+    employee_qs = Employee.objects.all()
+    if not all_branches and active_branch is not None:
+        employee_qs = employee_qs.filter(branch=active_branch)
+    employee = get_object_or_404(employee_qs, pk=employee_id)
+    summary = _month_financial_summary(
+        year, month, start, end, None if all_branches else active_branch
+    )
+    payroll_row = next(
+        (row for row in summary['payroll_rows'] if row['employee'].pk == employee.pk),
+        None,
+    )
+    if payroll_row is None:
+        raise Http404
+
+    from .number_words import egyptian_pounds_in_words
+    amount = int(payroll_row['total'] or 0)
+    return render(request, 'academies/payroll_receipt.html', {
+        'employee': employee,
+        'payroll_row': payroll_row,
+        'amount_formatted': f'{amount:,}',
+        'amount_in_words': egyptian_pounds_in_words(amount),
+        'month_value': month_value,
+        'month_label': f'{ARABIC_MONTH_NAMES[month]} {year}',
+        'active_branch': active_branch,
+        'active_branch_is_all': all_branches,
+    })
+
+
+@login_required
 def branding_settings(request):
     if not _can_manage_users(request.user):
         messages.error(request, 'ليس لديك صلاحية الإعدادات.')

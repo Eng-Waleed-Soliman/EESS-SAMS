@@ -1,0 +1,69 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="payroll-receipt-toolbar d-flex justify-content-between align-items-center gap-2 mb-3 no-print">
+  <a class="btn btn-secondary" href="{% url 'accounts_home' %}?month={{ month_value }}{% if active_branch_is_all %}&amp;branch_id=all{% elif active_branch %}&amp;branch_id={{ active_branch.pk }}{% endif %}">رجوع للحسابات</a>
+  <button type="button" class="btn btn-primary" onclick="printPayrollReceipt()">طباعة</button>
+</div>
+
+<article class="payroll-receipt-sheet" dir="rtl">
+  <header class="payroll-receipt-header">
+    {% if app_settings and app_settings.company_logo_data_uri %}<img src="{{ app_settings.company_logo_data_uri }}" alt="شعار الشركة">{% elif app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
+    <div>
+      <strong>{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</strong>
+      <small>{% if active_branch %}{{ active_branch.display_name }}{% else %}جميع الفروع{% endif %}</small>
+    </div>
+  </header>
+
+  <h1>إقرار استلام مرتب</h1>
+
+  <p class="payroll-receipt-statement">
+    أقر أنا <strong>({{ employee.name }})</strong> بأني استلمت راتب شهر
+    <strong>({{ month_label }})</strong> بقيمة
+    <strong>({{ amount_formatted }} جنيه مصري — {{ amount_in_words }})</strong>.
+  </p>
+  <p class="payroll-receipt-confirmation">وهذا إقرار مني بذلك ،،</p>
+
+  <div class="payroll-receipt-breakdown">
+    <div><span>المرتب الأساسي</span><strong>{{ payroll_row.salary }}</strong></div>
+    <div><span>البونص</span><strong>{{ payroll_row.bonus }}</strong></div>
+    <div><span>إجمالي المستلم</span><strong>{{ payroll_row.total }}</strong></div>
+  </div>
+
+  <div class="payroll-receipt-signature">
+    <div class="signature-line">التوقيع: ........................................</div>
+    <strong>{{ employee.name }}</strong>
+    <span>{{ employee.job_title|default:'-' }}</span>
+  </div>
+</article>
+
+<style>
+.payroll-receipt-sheet{width:148mm;min-height:210mm;margin:0 auto;background:#fff;border:1px solid #dbe3ef;padding:14mm 13mm;box-sizing:border-box;color:#111;font-family:"Tahoma","Arial",sans-serif;position:relative}
+.payroll-receipt-header{display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:1px solid #cbd5e1;padding-bottom:8px;text-align:center}
+.payroll-receipt-header img{width:54px;height:54px;object-fit:contain}
+.payroll-receipt-header strong,.payroll-receipt-header small{display:block}
+.payroll-receipt-header strong{font-size:15px}.payroll-receipt-header small{margin-top:3px;color:#475569}
+.payroll-receipt-sheet h1{text-align:center;font-size:28px;font-weight:900;text-decoration:underline;text-underline-offset:8px;margin:22mm 0 18mm}
+.payroll-receipt-statement{font-size:18px;line-height:2.25;text-align:justify;margin:0}
+.payroll-receipt-confirmation{font-size:18px;margin-top:13mm}
+.payroll-receipt-breakdown{margin:10mm auto 0;width:82%;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden}
+.payroll-receipt-breakdown>div{display:flex;justify-content:space-between;padding:7px 12px;border-bottom:1px solid #e2e8f0}
+.payroll-receipt-breakdown>div:last-child{border-bottom:0;background:#f8fafc}
+.payroll-receipt-signature{width:58mm;text-align:center;margin-top:18mm;margin-right:auto;margin-left:0;font-size:15px}
+.payroll-receipt-signature>*{display:block;margin-top:6px}.payroll-receipt-signature .signature-line{margin-bottom:13mm}
+@media print{
+  @page{size:A5 portrait;margin:0}
+  .sidebar,.no-print,body>nav,.global-messages{display:none!important}
+  body{background:#fff!important}
+  main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;max-width:none!important}
+  .payroll-receipt-sheet{border:0;width:148mm;min-height:210mm;margin:0;padding:12mm 12mm}
+}
+</style>
+<script>
+function printPayrollReceipt(){
+  const oldTitle=document.title;
+  document.title='إقرار استلام مرتب - {{ employee.name|escapejs }} - {{ month_label|escapejs }}';
+  window.print();
+  window.setTimeout(function(){document.title=oldTitle;},500);
+}
+</script>
+{% endblock %}

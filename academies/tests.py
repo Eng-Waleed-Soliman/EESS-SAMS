@@ -2198,6 +2198,38 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'شهر 2026-07')
         self.assertContains(response, f'<strong>{response.context["summary"]["net_profit"]}</strong>', html=True)
 
+    def test_accounts_payroll_selection_and_a5_employee_receipt(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_accounts = True
+        profile.save()
+        employee = Employee.objects.create(
+            name='موظف إقرار المرتب',
+            job_title='مسئول إداري أول',
+            salary=8500,
+        )
+
+        response = self.client.get(reverse('accounts_home'), {'month': '2026-08'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'payroll-employee-checkbox')
+        self.assertContains(response, 'تحديد كل الموظفين')
+        self.assertContains(response, 'تصدير PDF للمحدد')
+        self.assertContains(response, 'exportSelectedPayroll()')
+        receipt_url = reverse('payroll_receipt', args=[employee.pk])
+        self.assertContains(response, receipt_url)
+        self.assertContains(response, 'data-receipt-url=')
+
+        receipt = self.client.get(receipt_url, {'month': '2026-08', 'branch_id': 'all'})
+        self.assertEqual(receipt.status_code, 200)
+        self.assertContains(receipt, 'إقرار استلام مرتب')
+        self.assertContains(receipt, 'موظف إقرار المرتب')
+        self.assertContains(receipt, 'أغسطس 2026')
+        self.assertContains(receipt, '8,500 جنيه مصري')
+        self.assertContains(receipt, 'ثمانية آلاف وخمسمائة جنيه مصري فقط لا غير')
+        self.assertContains(receipt, '@page{size:A5 portrait')
+        self.assertContains(receipt, 'التوقيع:')
+        self.assertContains(receipt, 'مسئول إداري أول')
+        self.assertContains(receipt, 'printPayrollReceipt()')
+
     def test_bonus_daily_income_combines_bookings_with_paid_ball_field_academies_only(self):
         target_day = date(2026, 7, 15)
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
