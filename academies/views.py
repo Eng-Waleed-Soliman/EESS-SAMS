@@ -4395,6 +4395,8 @@ def academy_player_subscriptions(request, academy_id):
     ]
     is_revenue_share = academy.subscription_type == 'revenue_share'
     company_share_percentage = max(0, min(100, int(academy.eess_share_percentage or 0)))
+    company_share_amount = int(totals['expected'] * company_share_percentage / 100)
+    academy_share_amount = totals['expected'] - company_share_amount
     return render(request, 'academies/academy_player_subscriptions.html', {
         'academy': academy,
         'rows': rows,
@@ -4408,7 +4410,9 @@ def academy_player_subscriptions(request, academy_id):
         'default_amount': default_amount,
         'is_revenue_share': is_revenue_share,
         'company_share_percentage': company_share_percentage,
+        'company_share_amount': company_share_amount,
         'academy_share_percentage': 100 - company_share_percentage,
+        'academy_share_amount': academy_share_amount,
     })
 
 

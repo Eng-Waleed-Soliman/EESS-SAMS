@@ -41,8 +41,8 @@
 <div class="subscription-summary-grid mb-3">
   <div class="subscription-summary-card expected"><span>إجمالي الاشتراكات</span><strong>{{ totals.expected }}</strong></div>
   {% if is_revenue_share %}
-  <div class="subscription-summary-card paid"><span>نسبة الشركة</span><strong>{{ company_share_percentage }}%</strong></div>
-  <div class="subscription-summary-card academy-share"><span>نسبة الأكاديمية</span><strong>{{ academy_share_percentage }}%</strong></div>
+  <div class="subscription-summary-card paid"><span>نسبة الشركة</span><strong>{{ company_share_percentage }}% <small>— {{ company_share_amount }} جنيه</small></strong></div>
+  <div class="subscription-summary-card academy-share"><span>نسبة الأكاديمية</span><strong>{{ academy_share_percentage }}% <small>— {{ academy_share_amount }} جنيه</small></strong></div>
   {% else %}
   <div class="subscription-summary-card paid"><span>إجمالي المبلغ المسدد</span><strong>{{ totals.paid }}</strong></div>
   {% endif %}
@@ -103,7 +103,7 @@
 <style>
 .subscription-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 .subscription-summary-card{padding:22px;border-radius:18px;color:#fff;box-shadow:0 12px 28px rgba(15,45,70,.12)}
-.subscription-summary-card span{display:block;font-size:.95rem;opacity:.9}.subscription-summary-card strong{display:block;font-size:2rem;margin-top:6px}
+.subscription-summary-card span{display:block;font-size:.95rem;opacity:.9}.subscription-summary-card strong{display:block;font-size:2rem;margin-top:6px;white-space:nowrap}.subscription-summary-card strong small{font-size:1.12rem;font-weight:700;margin-inline-start:6px}
 .subscription-summary-card.expected{background:linear-gradient(135deg,#1769aa,#1f8ac0)}
 .subscription-summary-card.paid{background:linear-gradient(135deg,#148558,#20a66c)}
 .subscription-summary-card.academy-share{background:linear-gradient(135deg,#6f42c1,#8d63d2)}
