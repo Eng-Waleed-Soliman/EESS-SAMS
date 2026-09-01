@@ -2095,6 +2095,73 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(search_page, first_player.name)
         self.assertNotContains(search_page, paid_player.name)
 
+    def test_revenue_share_subscriptions_sync_company_due_and_paid_amounts(self):
+        today = date.today()
+        academy = Academy.objects.create(
+            name='Revenue Share Academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000992',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(today.year, 1, 1),
+            contract_end_date=date(today.year, 12, 31),
+            subscription_type='revenue_share', eess_share_percentage=60,
+            monthly_subscription=1500,
+        )
+        players = [
+            AcademyMember.objects.create(
+                academy=academy, role=AcademyMember.ROLE_PLAYER, name=f'لاعب {index}'
+            )
+            for index in range(1, 5)
+        ]
+        expected_amounts = [650, 650, 1500, 750]
+        paid_amounts = [650, 650, 0, 750]
+        payload = {
+            'year': str(today.year),
+            'month': str(today.month),
+            'default_amount': '650',
+            'player_id': [str(player.pk) for player in players],
+        }
+        for player, expected, paid in zip(players, expected_amounts, paid_amounts):
+            payload[f'expected_{player.pk}'] = str(expected)
+            payload[f'paid_{player.pk}'] = str(paid)
+
+        response = self.client.post(
+            reverse('academy_player_subscriptions', args=[academy.pk]),
+            payload,
+        )
+        self.assertEqual(response.status_code, 302)
+        payment = AcademyMonthlyRentPayment.objects.get(
+            academy=academy,
+            month=date(today.year, today.month, 1),
+        )
+        self.assertEqual(payment.expected_amount, 2130)
+        self.assertEqual(payment.paid_amount, 1230)
+        self.assertEqual(payment.remaining_amount, 900)
+
+        subscriptions_page = self.client.get(
+            reverse('academy_player_subscriptions', args=[academy.pk]),
+            {'year': today.year, 'month': today.month},
+        )
+        self.assertEqual(subscriptions_page.context['totals']['expected'], 3550)
+        self.assertEqual(subscriptions_page.context['totals']['paid'], 2050)
+        self.assertEqual(subscriptions_page.context['company_share_percentage'], 60)
+        self.assertEqual(subscriptions_page.context['academy_share_percentage'], 40)
+        self.assertContains(subscriptions_page, 'نسبة الشركة')
+        self.assertContains(subscriptions_page, '60%')
+        self.assertContains(subscriptions_page, 'نسبة الأكاديمية')
+        self.assertContains(subscriptions_page, '40%')
+
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_reports = True
+        profile.save(update_fields=['can_reports'])
+        rent_page = self.client.get(
+            reverse('academy_rent_payments'),
+            {'month': f'{today.year}-{today.month:02d}'},
+        )
+        row = next(row for row in rent_page.context['rows'] if row['academy'] == academy)
+        self.assertEqual(row['expected'], 2130)
+        self.assertEqual(row['paid'], 1230)
+        self.assertEqual(row['remaining'], 900)
+
 
     def test_training_year_selector_and_portrait_identity_cards(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)

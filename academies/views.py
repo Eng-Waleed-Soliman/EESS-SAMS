@@ -2769,7 +2769,19 @@ def _academy_month_income_from_counts(
 ):
     academy_id = academy.id
     if academy.subscription_type == 'revenue_share':
-        players_total = academy.members.filter(role=AcademyMember.ROLE_PLAYER, is_active=True).aggregate(total=Sum('monthly_subscription'))['total'] or 0
+        saved_subscriptions = AcademyPlayerMonthlySubscription.objects.filter(
+            player__academy=academy,
+            player__role=AcademyMember.ROLE_PLAYER,
+            month=date(year, month, 1),
+        ) if year and month else AcademyPlayerMonthlySubscription.objects.none()
+        if saved_subscriptions.exists():
+            players_total = saved_subscriptions.aggregate(total=Sum('expected_amount'))['total'] or 0
+        else:
+            # Keep older months working until their per-player subscriptions are saved.
+            players_total = academy.members.filter(
+                role=AcademyMember.ROLE_PLAYER,
+                is_active=True,
+            ).aggregate(total=Sum('monthly_subscription'))['total'] or 0
         return int(players_total * (academy.eess_share_percentage or 0) / 100)
     if academy.subscription_type == 'fixed':
         return int(academy.monthly_subscription or 0)
@@ -2829,9 +2841,24 @@ def _academy_rent_rows(year, month, start, end, branch=None):
             month=month_start,
             defaults={'expected_amount': expected},
         )
+        update_fields = []
         if payment.expected_amount != expected:
             payment.expected_amount = expected
-            payment.save(update_fields=['expected_amount', 'updated_at'])
+            update_fields.append('expected_amount')
+        if academy.subscription_type == 'revenue_share':
+            player_subscriptions = AcademyPlayerMonthlySubscription.objects.filter(
+                player__academy=academy,
+                player__role=AcademyMember.ROLE_PLAYER,
+                month=month_start,
+            )
+            if player_subscriptions.exists():
+                player_paid_total = player_subscriptions.aggregate(total=Sum('paid_amount'))['total'] or 0
+                company_paid = int(player_paid_total * (academy.eess_share_percentage or 0) / 100)
+                if payment.paid_amount != company_paid:
+                    payment.paid_amount = company_paid
+                    update_fields.append('paid_amount')
+        if update_fields:
+            payment.save(update_fields=[*update_fields, 'updated_at'])
         rows.append({
             'academy': academy,
             'payment': payment,
@@ -4282,6 +4309,22 @@ def academy_player_subscriptions(request, academy_id):
                     },
                 )
                 saved_count += 1
+            if academy.subscription_type == 'revenue_share':
+                subscription_totals = AcademyPlayerMonthlySubscription.objects.filter(
+                    player__academy=academy,
+                    player__role=AcademyMember.ROLE_PLAYER,
+                    month=month_date,
+                ).aggregate(expected=Sum('expected_amount'), paid=Sum('paid_amount'))
+                company_percentage = max(0, min(100, int(academy.eess_share_percentage or 0)))
+                company_expected = int((subscription_totals['expected'] or 0) * company_percentage / 100)
+                company_paid = int((subscription_totals['paid'] or 0) * company_percentage / 100)
+                payment, _ = AcademyMonthlyRentPayment.objects.get_or_create(
+                    academy=academy,
+                    month=month_date,
+                )
+                payment.expected_amount = company_expected
+                payment.paid_amount = company_paid
+                payment.save(update_fields=['expected_amount', 'paid_amount', 'updated_at'])
         messages.success(request, f'تم حفظ اشتراكات {saved_count} لاعب لشهر {selected_month:02d}/{selected_year}.')
         return redirect(
             f"{reverse('academy_player_subscriptions', args=[academy.pk])}"
@@ -4350,6 +4393,8 @@ def academy_player_subscriptions(request, academy_id):
         (5, 'مايو'), (6, 'يونيو'), (7, 'يوليو'), (8, 'أغسطس'),
         (9, 'سبتمبر'), (10, 'أكتوبر'), (11, 'نوفمبر'), (12, 'ديسمبر'),
     ]
+    is_revenue_share = academy.subscription_type == 'revenue_share'
+    company_share_percentage = max(0, min(100, int(academy.eess_share_percentage or 0)))
     return render(request, 'academies/academy_player_subscriptions.html', {
         'academy': academy,
         'rows': rows,
@@ -4361,6 +4406,9 @@ def academy_player_subscriptions(request, academy_id):
         'search': search,
         'payment_status': payment_status,
         'default_amount': default_amount,
+        'is_revenue_share': is_revenue_share,
+        'company_share_percentage': company_share_percentage,
+        'academy_share_percentage': 100 - company_share_percentage,
     })
 
 
