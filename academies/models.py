@@ -1054,6 +1054,34 @@ class Employee(models.Model):
 
 
 
+class PayrollAdjustment(models.Model):
+    REWARD = 'reward'
+    DEDUCTION = 'deduction'
+    ADVANCE = 'advance'
+    KIND_CHOICES = [(REWARD, 'المكافآت'), (DEDUCTION, 'الخصومات'), (ADVANCE, 'السلف')]
+    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name='payroll_adjustments', verbose_name='الموظف')
+    kind = models.CharField(max_length=12, choices=KIND_CHOICES, verbose_name='نوع الحركة')
+    month = models.DateField(verbose_name='الشهر والسنة')
+    amount = models.PositiveIntegerField(verbose_name='المبلغ')
+    reason = models.CharField(max_length=500, verbose_name='السبب')
+    created_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL, related_name='payroll_adjustments')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-month', '-created_at', '-pk']
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name='payroll_adjustment_positive_amount'),
+            models.CheckConstraint(condition=models.Q(kind__in=['reward', 'deduction', 'advance']), name='payroll_adjustment_valid_kind'),
+        ]
+        indexes = [models.Index(fields=['month', 'employee'], name='payroll_month_employee_idx')]
+        verbose_name = 'حركة مرتب'
+        verbose_name_plural = 'حركات المرتبات'
+
+    def __str__(self):
+        return f'{self.employee} - {self.get_kind_display()} - {self.month:%Y-%m}'
+
+
 class FoundingExpense(models.Model):
     branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='founding_expenses', verbose_name='الفرع')
     title = models.CharField(max_length=200, verbose_name='بيان مصروف التأسيس')

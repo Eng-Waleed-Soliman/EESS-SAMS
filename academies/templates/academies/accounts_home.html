@@ -47,7 +47,7 @@
   <div class="col-md-3"><div class="card p-3"><b>دخل الأكاديميات</b><h3>{{ summary.academy_income }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>الدخل اليومي المعتمد للبونص</b><h3>{{ summary.daily_income_total }}</h3><small class="text-muted">الحجز اليومي: {{ summary.daily_booking_income }} + أكاديميات ملاعب الكرة والباسكت: {{ summary.ball_field_academy_income }}</small></div></div>
   <div class="col-md-3"><div class="card p-3"><b>إجمالي المصروفات</b><h3>{{ summary.total_expenses }}</h3></div></div>
-  <div class="col-md-3"><div class="card p-3"><b>المرتبات + البونص</b><h3>{{ summary.payroll_total }}</h3></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>صافي المرتبات</b><h3>{{ summary.payroll_total }}</h3><small>السلف: {{ summary.payroll_advances }} — تكلفة الأجور شاملة السلف: {{ summary.payroll_expense_total }}</small></div></div>
   <div class="col-md-3"><div class="card p-3"><b>المصروفات الشهرية</b><h3>{{ summary.monthly_expenses }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>مصروفات التشغيل</b><h3>{{ summary.operating_expenses }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>صافي الربح</b><h3>{{ summary.net_profit }}</h3></div></div>
@@ -59,12 +59,18 @@
       <small class="text-muted no-print">دبل كليك على صف الموظف لفتح إقرار استلام المرتب.</small>
     </div>
     <div class="d-flex gap-2 flex-wrap no-print">
+      {% if can_manage_vouchers %}
+      <a class="btn btn-success" href="{% url 'payroll_adjustments' 'reward' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">المكافآت</a>
+      <a class="btn btn-warning" href="{% url 'payroll_adjustments' 'deduction' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">الخصومات</a>
+      <a class="btn btn-info" href="{% url 'payroll_adjustments' 'advance' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">السلف</a>
+      {% endif %}
       <button type="button" class="btn btn-outline-primary" id="selectAllPayrollEmployees" onclick="toggleAllPayrollEmployees()">تحديد كل الموظفين</button>
       <button type="button" class="btn btn-danger" onclick="exportSelectedPayroll()">تصدير PDF للمحدد</button>
     </div>
   </div>
-  <table class="table table-striped text-center payroll-table">
-    <thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب</th><th>البونص</th><th>الإجمالي</th></tr></thead>
+  <p class="text-muted no-print">صافي المرتب = الأساسي + البونص + المكافآت − الخصومات − السلف.</p>
+  <div class="table-responsive payroll-table-wrap"><table class="table table-striped text-center payroll-table">
+    <thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب الأساسي</th><th>البونص</th><th>المكافآت</th><th>الخصومات</th><th>السلف</th><th>صافي المرتب</th></tr></thead>
     <tbody>
       {% for row in summary.payroll_rows %}
       <tr class="payroll-row" data-receipt-url="{% url 'payroll_receipt' row.employee.pk %}?month={{ month_value }}{% if active_branch_is_all %}&amp;branch_id=all{% elif active_branch %}&amp;branch_id={{ active_branch.pk }}{% endif %}" title="دبل كليك لفتح إقرار استلام المرتب">
@@ -77,11 +83,12 @@
         <td>{{ row.employee.job_title }}</td>
         <td>{{ row.salary }}</td>
         <td>{{ row.bonus }}</td>
-        <td>{{ row.total }}</td>
+        <td>{{ row.reward }}</td><td>{{ row.deduction }}</td><td>{{ row.advance }}</td>
+        <td class="{% if row.total < 0 %}text-danger{% endif %}">{{ row.total }}</td>
       </tr>
-      {% empty %}<tr><td colspan="5">لا توجد بيانات موظفين</td></tr>{% endfor %}
+      {% empty %}<tr><td colspan="8">لا توجد بيانات موظفين</td></tr>{% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </div>
 <div class="card p-3 profit-distribution-card">
   <div class="profit-distribution-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
@@ -128,6 +135,9 @@
   body.payroll-export-mode .accounts-summary-cards,body.payroll-export-mode .profit-distribution-card{display:none!important}
   body.payroll-export-mode .payroll-row:not(.payroll-print-selected){display:none!important}
   body.payroll-export-mode .payroll-card{border:0!important;box-shadow:none!important}
+  .payroll-table-wrap{overflow:visible!important}
+  .payroll-table{width:100%!important;min-width:0!important;font-size:11px}
+  .payroll-table th,.payroll-table td{padding:5px!important;white-space:normal!important}
   body.payroll-export-mode .payroll-section-heading{justify-content:center!important;text-align:center}
 }
 </style>

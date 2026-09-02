@@ -5,7 +5,7 @@
   <button type="button" class="btn btn-primary" onclick="printPayrollReceipt()">طباعة</button>
 </div>
 
-<article class="payroll-receipt-sheet" dir="rtl">
+<article class="payroll-receipt-sheet{% if payroll_row.reward or payroll_row.deduction or payroll_row.advance %} with-adjustments{% endif %}" dir="rtl">
   <header class="payroll-receipt-header" dir="ltr">
     {% if app_settings and app_settings.company_logo_data_uri %}<img src="{{ app_settings.company_logo_data_uri }}" alt="شعار الشركة">{% elif app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">{% endif %}
     <strong dir="rtl">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</strong>
@@ -23,6 +23,9 @@
   <div class="payroll-receipt-breakdown">
     <div><span>المرتب الأساسي</span><strong>{{ payroll_row.salary }}</strong></div>
     <div><span>البونص</span><strong>{{ payroll_row.bonus }}</strong></div>
+    {% if payroll_row.reward %}<div><span>المكافآت</span><strong>{{ payroll_row.reward }}</strong></div>{% endif %}
+    {% if payroll_row.deduction %}<div><span>الخصومات</span><strong>{{ payroll_row.deduction }}</strong></div>{% endif %}
+    {% if payroll_row.advance %}<div><span>السلف</span><strong>{{ payroll_row.advance }}</strong></div>{% endif %}
     <div><span>إجمالي المستلم</span><strong>{{ payroll_row.total }}</strong></div>
   </div>
 
@@ -50,6 +53,10 @@
 .payroll-receipt-breakdown strong{grid-area:amount;direction:ltr;justify-content:flex-start;text-align:left;border-right:1px solid #cbd5e1;font-variant-numeric:tabular-nums}
 .payroll-receipt-signature{width:58mm;text-align:center;margin:16mm auto 0 0;font-size:12.5pt}
 .payroll-receipt-signature>*{display:block;margin-top:2mm}.payroll-receipt-signature .signature-line{margin-bottom:11mm;white-space:nowrap}
+.payroll-receipt-sheet.with-adjustments h1{margin:10mm 0 8mm}
+.with-adjustments .payroll-receipt-breakdown>div{min-height:7mm}
+.with-adjustments .payroll-receipt-breakdown span,.with-adjustments .payroll-receipt-breakdown strong{padding:1mm 3mm}
+.with-adjustments .payroll-receipt-signature{margin-top:8mm}
 @media print{
   @page{size:A5 portrait;margin:0}
   html,body{width:148mm!important;height:210mm!important;margin:0!important;padding:0!important;background:#fff!important}

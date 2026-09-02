@@ -12,6 +12,7 @@ from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.db.models import Sum, Q, Count, Prefetch
 from django.http import HttpResponse, Http404
 from django.utils import timezone
@@ -25,6 +26,8 @@ from .forms import FacilityGalleryImageFormSet
 from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
 from .member_excel import parse_academy_members_xlsx
+from .models import PayrollAdjustment
+from .payroll_forms import PayrollAdjustmentForm
 
 
 def persistent_media(request, model_name, pk, field_name):
@@ -1661,7 +1664,10 @@ def employee_update(request, pk):
 def employee_delete(request, pk):
     employee = get_object_or_404(Employee, pk=pk)
     if request.method == 'POST':
-        employee.delete()
+        try:
+            employee.delete()
+        except ProtectedError:
+            messages.error(request, 'لا يمكن حذف الموظف لوجود حركات مرتبات مرتبطة به. راجع الحركات أولاً.')
         return redirect('employee_list')
     return render(request, 'academies/simple_confirm_delete.html', {'object': employee, 'title': 'حذف موظف', 'back_url': 'employee_list'})
 
@@ -3048,16 +3054,32 @@ def _month_financial_summary(year, month, start, end, branch=None):
     operating_expenses = operating_qs.aggregate(total=Sum('amount'))['total'] or 0
     payroll_rows = []
     payroll_total = 0
+    adjustment_totals = {}
+    for adjustment in PayrollAdjustment.objects.filter(
+        employee__in=employee_qs, month=date(year, month, 1),
+    ).values('employee_id', 'kind').annotate(total=Sum('amount')):
+        adjustment_totals.setdefault(adjustment['employee_id'], {})[adjustment['kind']] = adjustment['total']
+    payroll_advances = 0
     for employee in employee_qs.order_by('name'):
         bonus = _bonus_for_employee(employee, int(daily_income_total or 0), int(cafe_sales_total or 0))
-        total = int(employee.salary or 0) + bonus
+        adjustments = adjustment_totals.get(employee.pk, {})
+        reward = adjustments.get(PayrollAdjustment.REWARD, 0)
+        deduction = adjustments.get(PayrollAdjustment.DEDUCTION, 0)
+        advance = adjustments.get(PayrollAdjustment.ADVANCE, 0)
+        total = int(employee.salary or 0) + bonus + reward - deduction - advance
         payroll_total += total
-        payroll_rows.append({'employee': employee, 'salary': employee.salary, 'bonus': bonus, 'total': total})
+        payroll_advances += advance
+        payroll_rows.append({
+            'employee': employee, 'salary': employee.salary, 'bonus': bonus,
+            'reward': reward, 'deduction': deduction, 'advance': advance, 'total': total,
+        })
     # Academy income is already included in full here, so gross income must add
     # only daily bookings rather than the bonus daily-income total (which also
     # contains the paid football/basketball academy income).
     gross_income = int(academy_income or 0) + int(daily_booking_income or 0) + int(cafe_sales_total or 0)
-    total_expenses = int(monthly_expenses or 0) + int(daily_expenses or 0) + int(operating_expenses or 0) + int(cafe_purchase_total or 0) + int(payroll_total or 0)
+    # An advance reduces the final amount received, not the cost of wages.
+    payroll_expense_total = payroll_total + payroll_advances
+    total_expenses = int(monthly_expenses or 0) + int(daily_expenses or 0) + int(operating_expenses or 0) + int(cafe_purchase_total or 0) + payroll_expense_total
     net_profit = gross_income - total_expenses
     return {
         'rent_rows': rent_rows,
@@ -3074,6 +3096,8 @@ def _month_financial_summary(year, month, start, end, branch=None):
         'operating_expenses': operating_expenses,
         'payroll_rows': payroll_rows,
         'payroll_total': payroll_total,
+        'payroll_advances': payroll_advances,
+        'payroll_expense_total': payroll_expense_total,
         'gross_income': gross_income,
         'total_expenses': total_expenses,
         'net_profit': net_profit,
@@ -3991,6 +4015,49 @@ def accounts_home(request):
 
 
 @login_required
+def payroll_adjustments(request, kind, pk=None):
+    denied = _voucher_access_or_redirect(request)
+    if denied:
+        return denied
+    titles = dict(PayrollAdjustment.KIND_CHOICES)
+    if kind not in titles:
+        raise Http404
+    active_branch, all_branches = selected_branch(request)
+    employees = Employee.objects.all()
+    if not all_branches:
+        employees = employees.filter(branch=active_branch)
+    movements = PayrollAdjustment.objects.filter(kind=kind, employee__in=employees).select_related('employee')
+    movement = get_object_or_404(movements, pk=pk) if pk is not None else None
+    branch_context = 'all' if all_branches else str(active_branch.pk)
+    _, _, month_date, _, month_value = _month_bounds(request.GET.get('month'))
+    base_url = reverse('payroll_adjustments', args=[kind])
+    if request.method == 'POST' and request.POST.get('action') == 'delete':
+        if movement is None:
+            raise Http404
+        deleted_month = movement.month.strftime('%Y-%m')
+        movement.delete()
+        messages.success(request, 'تم حذف الحركة وإعادة احتساب المرتب.')
+        return redirect(f'{base_url}?month={deleted_month}&branch_id={branch_context}')
+    form = PayrollAdjustmentForm(
+        request.POST or None, instance=movement, employees=employees,
+        initial={} if movement else {'month': month_date},
+    )
+    if request.method == 'POST' and form.is_valid():
+        record = form.save(commit=False)
+        record.kind = kind
+        if not record.pk:
+            record.created_by = request.user
+        record.save()
+        messages.success(request, 'تم حفظ الحركة وإعادة احتساب مرتب الشهر المحدد.')
+        return redirect(f'{base_url}?month={record.month:%Y-%m}&branch_id={branch_context}')
+    return render(request, 'academies/payroll_adjustments.html', {
+        'title': titles[kind], 'kind': kind, 'form': form, 'movement': movement,
+        'movements': movements.filter(month=month_date), 'month_value': month_value,
+        'branch_context': branch_context,
+    })
+
+
+@login_required
 def payroll_receipt(request, employee_id):
     profile = _ensure_user_profile(request.user)
     if not (
@@ -4018,6 +4085,9 @@ def payroll_receipt(request, employee_id):
 
     from .number_words import egyptian_pounds_in_words
     amount = int(payroll_row['total'] or 0)
+    if amount < 0:
+        messages.error(request, 'صافي المرتب سالب؛ راجع الخصومات والسلف قبل إصدار إقرار الاستلام.')
+        return redirect(f"{reverse('accounts_home')}?month={month_value}")
     return render(request, 'academies/payroll_receipt.html', {
         'employee': employee,
         'payroll_row': payroll_row,

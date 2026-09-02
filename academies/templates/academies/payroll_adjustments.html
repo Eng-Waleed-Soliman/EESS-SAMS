@@ -1,0 +1,45 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h3>{{ title }}</h3>
+  <a class="btn btn-secondary" href="{% url 'accounts_home' %}?month={{ month_value }}&amp;branch_id={{ branch_context }}">رجوع للحسابات</a>
+</div>
+<form method="post" class="card p-4 mb-4">
+  {% csrf_token %}
+  <input type="hidden" name="branch_context" value="{{ branch_context }}">
+  <h4>{% if movement %}تعديل حركة{% else %}إضافة حركة{% endif %} — {{ title }}</h4>
+  {{ form.non_field_errors }}
+  <div class="row g-3">
+    {% for field in form %}
+    <div class="{% if field.name == 'reason' %}col-12{% else %}col-md-4{% endif %}">
+      <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}<div class="text-danger">{{ field.errors }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if kind == 'advance' %}<p class="text-muted mt-3">تخصم السلفة بالكامل من صافي مرتب الشهر المختار. السلف لا تخفض تكلفة الأجور في الحسابات.</p>{% endif %}
+  <div class="d-flex gap-2 mt-3">
+    <button class="btn btn-success" type="submit">حفظ</button>
+    <a class="btn btn-secondary" href="{% url 'payroll_adjustments' kind %}?month={{ month_value }}&amp;branch_id={{ branch_context }}">إلغاء</a>
+  </div>
+</form>
+<div class="card p-3">
+  <form method="get" action="{% url 'payroll_adjustments' kind %}" class="d-flex align-items-end gap-2 mb-3 flex-wrap">
+    <input type="hidden" name="branch_id" value="{{ branch_context }}">
+    <div><label for="movementMonth" class="form-label">عرض حركات الشهر</label><input id="movementMonth" class="form-control" type="month" name="month" value="{{ month_value }}"></div>
+    <button class="btn btn-primary" type="submit">عرض</button>
+  </form>
+  <div class="table-responsive"><table class="table table-striped align-middle">
+    <thead><tr><th>الموظف</th><th>الشهر</th><th>المبلغ</th><th>السبب</th><th>إجراءات</th></tr></thead>
+    <tbody>{% for row in movements %}<tr>
+      <td>{{ row.employee.name }}</td><td>{{ row.month|date:'Y-m' }}</td><td>{{ row.amount }}</td><td>{{ row.reason }}</td>
+      <td><div class="d-flex gap-2">
+        <a class="btn btn-secondary" href="{% url 'payroll_adjustment_edit' kind row.pk %}?month={{ month_value }}&amp;branch_id={{ branch_context }}">تعديل</a>
+        <form method="post" action="{% url 'payroll_adjustment_edit' kind row.pk %}" onsubmit="return confirm('حذف هذه الحركة وإعادة احتساب المرتب؟');">
+          {% csrf_token %}<input type="hidden" name="branch_context" value="{{ branch_context }}"><input type="hidden" name="action" value="delete"><button class="btn btn-danger" type="submit">حذف</button>
+        </form>
+      </div></td>
+    </tr>{% empty %}<tr><td colspan="5" class="text-center">لا توجد حركات في هذا الشهر.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}
