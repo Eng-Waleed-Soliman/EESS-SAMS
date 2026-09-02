@@ -2267,6 +2267,62 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'شهر 2026-07')
         self.assertContains(response, f'<strong>{response.context["summary"]["net_profit"]}</strong>', html=True)
 
+    def test_sports_manager_signature_is_used_across_reports_and_new_vouchers(self):
+        self.user.username = 'المدير الرياضي'
+        self.user.first_name = 'حسين البيسوني'
+        self.user.save()
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_accounts = True
+        profile.can_reports = True
+        profile.save()
+        JobTitle.objects.create(name='مدير التشغيل')
+        JobTitle.objects.create(name='المدير الرياضي')
+        Employee.objects.create(name='مدير التشغيل المسجل', job_title='مدير التشغيل')
+        Employee.objects.create(name='حسين البيسوني', job_title='المدير الرياضي')
+        for route in ['accounts_home', 'financial_voucher_list', 'reports_home']:
+            with self.subTest(route=route):
+                response = self.client.get(reverse(route), {
+                    'month': '2026-08', 'signature_title': 'مدير التشغيل', 'branch_id': 'all',
+                })
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context['signature_title'], 'المدير الرياضي')
+                self.assertEqual(response.context['signature_name'], 'حسين البيسوني')
+                self.assertEqual(response.context['signature_titles'], ['المدير الرياضي'])
+                self.assertEqual(response.context['employee_names_by_title'], {
+                    'المدير الرياضي': ['حسين البيسوني'],
+                })
+
+        create_url = reverse('financial_voucher_create', args=['disbursement'])
+        page = self.client.get(create_url)
+        self.assertTrue(page.context['form'].fields['signature_title'].disabled)
+        self.assertEqual(page.context['form'].initial['signature_name'], 'حسين البيسوني')
+        response = self.client.post(create_url, {
+            'amount': 100, 'statement': 'اختبار توقيع الحساب', 'voucher_date': '2026-08-01',
+            'signature_title': 'مدير التشغيل', 'signature_name': 'اسم غير صحيح',
+        })
+        self.assertEqual(response.status_code, 302)
+        voucher = FinancialVoucher.objects.get(statement='اختبار توقيع الحساب')
+        self.assertEqual(voucher.signature_title, 'المدير الرياضي')
+        self.assertEqual(voucher.signature_name, 'حسين البيسوني')
+
+        # Viewing an existing document must not relabel its historical signer.
+        voucher.signature_title = 'مدير التشغيل'
+        voucher.signature_name = 'مدير التشغيل المسجل'
+        voucher.save()
+        detail = self.client.get(reverse('financial_voucher_detail', args=[voucher.pk]))
+        self.assertContains(detail, 'مدير التشغيل المسجل')
+        voucher.refresh_from_db()
+        self.assertEqual(voucher.signature_title, 'مدير التشغيل')
+
+        self.user.first_name = ''
+        self.user.save()
+        fallback = self.client.get(reverse('accounts_home'))
+        self.assertEqual(fallback.context['signature_name'], 'حسين البيسوني')
+        self.user.username = 'tester'
+        self.user.save()
+        normal = self.client.get(reverse('accounts_home'))
+        self.assertEqual(normal.context['signature_title'], 'مدير التشغيل')
+
     def test_accounts_payroll_selection_and_a5_employee_receipt(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_accounts = True

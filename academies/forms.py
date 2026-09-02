@@ -1160,6 +1160,7 @@ class FinancialVoucherForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.fixed_signature = kwargs.pop('fixed_signature', None)
         super().__init__(*args, **kwargs)
         titles = set(JobTitle.objects.values_list('name', flat=True))
         titles.update(Employee.objects.exclude(job_title='').values_list('job_title', flat=True))
@@ -1174,8 +1175,17 @@ class FinancialVoucherForm(forms.ModelForm):
             self.employee_names_by_title.setdefault(employee.job_title, []).append(employee.name)
         if self.instance and self.instance.pk and self.instance.signature_name:
             self.fields['signature_name'].initial = self.instance.signature_name
+        if self.fixed_signature:
+            title, name = self.fixed_signature
+            self.fields['signature_title'].choices = [(title, title)]
+            self.initial.update(signature_title=title, signature_name=name)
+            self.fields['signature_title'].disabled = True
+            self.fields['signature_name'].disabled = True
+            self.employee_names_by_title = {title: [name] if name else []}
 
     def clean_signature_name(self):
+        if self.fixed_signature:
+            return self.fixed_signature[1]
         title = self.cleaned_data.get('signature_title', '')
         submitted_name = (self.cleaned_data.get('signature_name') or '').strip()
         if (

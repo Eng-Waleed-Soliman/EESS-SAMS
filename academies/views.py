@@ -3370,6 +3370,39 @@ def _voucher_signature_titles():
     return sorted(title for title in titles if title)
 
 
+def _sports_manager_signature(request):
+    """Usernames are registered job titles, not inferred from personal names."""
+    title = request.user.username.strip()
+    if _norm(title) not in {_norm('المدير الرياضي'), _norm('مدير رياضي')}:
+        return None
+    name = request.user.get_full_name().strip()
+    if not name:
+        names = list(Employee.objects.filter(job_title=title).values_list('name', flat=True).distinct())
+        name = names[0] if len(names) == 1 else ''
+    return title, name
+
+
+def _request_signature_context(request, titles):
+    fixed = _sports_manager_signature(request)
+    if fixed:
+        title, name = fixed
+        return {
+            'signature_titles': [title], 'signature_title': title, 'signature_name': name,
+            'employee_names_by_title': {title: [name] if name else []},
+        }
+    requested = request.GET.get('signature_title', '').strip()
+    title = requested if requested in titles else (
+        'مدير التشغيل' if 'مدير التشغيل' in titles else (titles[0] if titles else 'التوقيع')
+    )
+    names_by_title = _voucher_aligned_employee_names_by_title()
+    names = names_by_title.get(title, [])
+    return {
+        'signature_titles': titles, 'signature_title': title,
+        'signature_name': names[0] if names else '',
+        'employee_names_by_title': names_by_title,
+    }
+
+
 def _voucher_employee_names_by_title():
     names_by_title = {}
     for employee in Employee.objects.exclude(job_title='').order_by('name'):
@@ -3426,6 +3459,7 @@ def financial_voucher_list(request):
         'signature_title': signature_title,
         'signature_name': signature_names[0] if signature_names else '',
         'employee_names_by_title': employee_names_by_title,
+        **_request_signature_context(request, signature_titles),
         'print_date': date.today(),
     })
 
@@ -3439,7 +3473,10 @@ def financial_voucher_create(request, voucher_type):
     if voucher_type not in type_labels:
         messages.error(request, 'نوع الأمر المالي غير صحيح.')
         return redirect('financial_voucher_list')
-    form = FinancialVoucherForm(request.POST or None, initial={'voucher_date': date.today()})
+    form = FinancialVoucherForm(
+        request.POST or None, initial={'voucher_date': date.today()},
+        fixed_signature=_sports_manager_signature(request),
+    )
     if form.is_valid():
         voucher = form.save(commit=False)
         voucher.voucher_type = voucher_type
@@ -3576,6 +3613,7 @@ def reports_home_v2(request):
         'allowed_report_options': [(key, report_titles[key]) for key in allowed_report_types],
         'signature_titles': signature_titles,
         'signature_title': signature_title,
+        **_request_signature_context(request, signature_titles),
         'section': section,
         'print_date': date.today(),
         'active_branch': active_branch,
@@ -3945,6 +3983,7 @@ def accounts_home(request):
         'signature_title': signature_title,
         'signature_name': signature_names[0] if signature_names else '',
         'employee_names_by_title': employee_names_by_title,
+        **_request_signature_context(request, signature_titles),
         'print_date': date.today(),
         'active_branch': active_branch,
         'active_branch_is_all': all_branches,

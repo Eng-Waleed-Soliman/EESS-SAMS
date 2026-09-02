@@ -207,6 +207,7 @@
 
 <footer class="print-report-signature">
   <div id="printSignatureTitle" class="fw-bold">{{ signature_title }}</div>
+  <div id="printSignatureName" class="fw-bold">{{ signature_name|default:'' }}</div>
   <div class="signature-line">التوقيع: ....................................</div>
   <div>تاريخ الطباعة: {{ print_date|date:'d/m/Y' }}</div>
 </footer>
@@ -251,6 +252,7 @@
     .signature-line{margin-top:10px}
   }
 </style>
+{{ employee_names_by_title|json_script:"reportEmployeeNames" }}
 <script>
 function toggleReportRange(){
   const custom = document.getElementById('rangeMode').value === 'custom';
@@ -261,6 +263,8 @@ function toggleReportRange(){
 function updateReportSignature(){
   const selector = document.getElementById('signatureTitle');
   document.getElementById('printSignatureTitle').textContent = selector.options[selector.selectedIndex].text;
+  const namesByTitle = JSON.parse(document.getElementById('reportEmployeeNames').textContent || '{}');
+  document.getElementById('printSignatureName').textContent = (namesByTitle[selector.value] || [])[0] || '';
 }
 function printReport(asPdf){
   updateReportSignature();
