@@ -2858,11 +2858,19 @@ def _academy_rent_rows(year, month, start, end, branch=None):
                 month=month_start,
             )
             if player_subscriptions.exists():
-                player_paid_total = player_subscriptions.aggregate(total=Sum('paid_amount'))['total'] or 0
+                player_totals = player_subscriptions.aggregate(
+                    paid=Sum('paid_amount'), supplied=Sum('supplied_amount'),
+                )
+                player_paid_total = player_totals['paid'] or 0
+                player_supplied_total = player_totals['supplied'] or 0
                 company_paid = int(player_paid_total * (academy.eess_share_percentage or 0) / 100)
+                company_supplied = int(player_supplied_total)
                 if payment.paid_amount != company_paid:
                     payment.paid_amount = company_paid
                     update_fields.append('paid_amount')
+                if payment.supplied_amount != company_supplied:
+                    payment.supplied_amount = company_supplied
+                    update_fields.append('supplied_amount')
         if update_fields:
             payment.save(update_fields=[*update_fields, 'updated_at'])
         rows.append({
@@ -3022,7 +3030,7 @@ def _bonus_for_employee(employee, bonus_daily_income_total, cafe_sales_total):
 
 def _month_financial_summary(year, month, start, end, branch=None):
     rent_rows = _academy_rent_rows(year, month, start, end, branch)
-    academy_income = sum(row['expected'] for row in rent_rows)
+    academy_income = sum(row['supplied'] for row in rent_rows)
     checkout_qs = DailyBookingCheckout.objects.filter(income_date__range=(start, end))
     sale_qs = CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item')
     purchase_qs = CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)).select_related('item')
@@ -3707,8 +3715,8 @@ def reports_home_v2(request):
             payment_qs = AcademyMonthlyRentPayment.objects.select_related(
                 'academy', 'academy__branch',
             ).filter(
-                paid_amount__gt=0,
-                payment_date__range=(start, end),
+                supplied_amount__gt=0,
+                supplied_date__range=(start, end),
             )
             if not all_branches:
                 payment_qs = payment_qs.filter(academy__branch=active_branch)
@@ -3793,7 +3801,7 @@ def reports_home_v2(request):
                 'notes': '',
             })
         expense_rows.sort(key=lambda item: (item['date'], item['title']))
-        academy_income_total = sum(row['paid'] for row in rows)
+        academy_income_total = sum(row['supplied'] for row in rows)
         daily_booking_total = sum(row['total_amount'] or 0 for row in daily_booking_rows)
         cafeteria_income_total = sum(row['amount'] or 0 for row in cafeteria_income_rows)
         expenses_total = sum(row['amount'] or 0 for row in expense_rows)
@@ -4401,6 +4409,7 @@ def academy_player_subscriptions(request, academy_id):
                     else int(player.monthly_subscription or 0)
                 )
                 current_paid = current.paid_amount if current else 0
+                current_supplied = current.supplied_amount if current else 0
                 expected_amount = positive_int(
                     request.POST.get(f'expected_{player_id}'),
                     default_amount if default_amount else current_expected,
@@ -4409,12 +4418,27 @@ def academy_player_subscriptions(request, academy_id):
                     request.POST.get(f'paid_{player_id}'),
                     current_paid,
                 )
+                supplied_amount = positive_int(
+                    request.POST.get(f'supplied_{player_id}'),
+                    current_supplied,
+                )
+                if supplied_amount > paid_amount:
+                    transaction.set_rollback(True)
+                    messages.error(
+                        request,
+                        f'المبلغ المورد للاعب {player.name} لا يمكن أن يزيد عن المبلغ المسدد.',
+                    )
+                    return redirect(
+                        f"{reverse('academy_player_subscriptions', args=[academy.pk])}"
+                        f'?year={selected_year}&month={selected_month}'
+                    )
                 AcademyPlayerMonthlySubscription.objects.update_or_create(
                     player=player,
                     month=month_date,
                     defaults={
                         'expected_amount': expected_amount,
                         'paid_amount': paid_amount,
+                        'supplied_amount': supplied_amount,
                     },
                 )
                 saved_count += 1
@@ -4423,17 +4447,27 @@ def academy_player_subscriptions(request, academy_id):
                     player__academy=academy,
                     player__role=AcademyMember.ROLE_PLAYER,
                     month=month_date,
-                ).aggregate(expected=Sum('expected_amount'), paid=Sum('paid_amount'))
+                ).aggregate(
+                    expected=Sum('expected_amount'),
+                    paid=Sum('paid_amount'),
+                    supplied=Sum('supplied_amount'),
+                )
                 company_percentage = max(0, min(100, int(academy.eess_share_percentage or 0)))
                 company_expected = int((subscription_totals['expected'] or 0) * company_percentage / 100)
                 company_paid = int((subscription_totals['paid'] or 0) * company_percentage / 100)
+                company_supplied = int(subscription_totals['supplied'] or 0)
                 payment, _ = AcademyMonthlyRentPayment.objects.get_or_create(
                     academy=academy,
                     month=month_date,
                 )
                 payment.expected_amount = company_expected
                 payment.paid_amount = company_paid
-                payment.save(update_fields=['expected_amount', 'paid_amount', 'updated_at'])
+                if payment.supplied_amount != company_supplied:
+                    payment.supplied_date = today if company_supplied else None
+                payment.supplied_amount = company_supplied
+                payment.save(update_fields=[
+                    'expected_amount', 'paid_amount', 'supplied_amount', 'supplied_date', 'updated_at',
+                ])
         messages.success(request, f'تم حفظ اشتراكات {saved_count} لاعب لشهر {selected_month:02d}/{selected_year}.')
         return redirect(
             f"{reverse('academy_player_subscriptions', args=[academy.pk])}"
@@ -4457,11 +4491,13 @@ def academy_player_subscriptions(request, academy_id):
             else int(player.monthly_subscription or 0)
         )
         paid_amount = int(subscription.paid_amount or 0) if subscription else 0
+        supplied_amount = int(subscription.supplied_amount or 0) if subscription else 0
         remaining_amount = max(0, expected_amount - paid_amount)
         all_rows.append({
             'player': player,
             'expected_amount': expected_amount,
             'paid_amount': paid_amount,
+            'supplied_amount': supplied_amount,
             'remaining_amount': remaining_amount,
             'is_paid': expected_amount > 0 and paid_amount >= expected_amount,
         })
@@ -4469,6 +4505,7 @@ def academy_player_subscriptions(request, academy_id):
     totals = {
         'expected': sum(row['expected_amount'] for row in all_rows),
         'paid': sum(row['paid_amount'] for row in all_rows),
+        'supplied': sum(row['supplied_amount'] for row in all_rows),
         'remaining': sum(row['remaining_amount'] for row in all_rows),
     }
     search = request.GET.get('q', '').strip()

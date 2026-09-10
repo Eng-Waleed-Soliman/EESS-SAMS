@@ -470,6 +470,7 @@ class AcademyPlayerMonthlySubscription(models.Model):
     month = models.DateField(verbose_name='الشهر')
     expected_amount = models.PositiveIntegerField(default=0, verbose_name='مبلغ الاشتراك')
     paid_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المسدد')
+    supplied_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المورد للشركة')
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -477,6 +478,10 @@ class AcademyPlayerMonthlySubscription(models.Model):
             models.UniqueConstraint(
                 fields=['player', 'month'],
                 name='unique_player_monthly_subscription',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(supplied_amount__lte=models.F('paid_amount')),
+                name='player_sub_supply_lte_paid',
             ),
         ]
         ordering = ['month', 'player__name']
@@ -490,6 +495,10 @@ class AcademyPlayerMonthlySubscription(models.Model):
     @property
     def is_paid(self):
         return int(self.expected_amount or 0) > 0 and int(self.paid_amount or 0) >= int(self.expected_amount or 0)
+
+    @property
+    def unsupplied_amount(self):
+        return max(0, int(self.paid_amount or 0) - int(self.supplied_amount or 0))
 
     def __str__(self):
         return f'{self.player} - {self.month:%Y-%m}'

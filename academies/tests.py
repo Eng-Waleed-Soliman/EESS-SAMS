@@ -1574,8 +1574,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.context['income_daily_booking_total'], 300)
         self.assertEqual(response.context['income_cafeteria_total'], 60)
         self.assertEqual(response.context['income_expenses_total'], 350)
-        self.assertEqual(response.context['income_total'], 1060)
-        self.assertEqual(response.context['income_net_total'], 710)
+        self.assertEqual(response.context['income_total'], 860)
+        self.assertEqual(response.context['income_net_total'], 510)
 
         outside_academy = Academy.objects.create(
             name='أكاديمية سداد خارج الفترة', sport_activity='سباحة',
@@ -2045,8 +2045,10 @@ class ApplicationFlowsTests(TestCase):
             'player_id': [str(first_player.pk), str(paid_player.pk)],
             f'expected_{first_player.pk}': '1800',
             f'paid_{first_player.pk}': '1000',
+            f'supplied_{first_player.pk}': '500',
             f'expected_{paid_player.pk}': '2000',
             f'paid_{paid_player.pk}': '2000',
+            f'supplied_{paid_player.pk}': '2000',
         })
         self.assertEqual(response.status_code, 302)
         first_subscription = AcademyPlayerMonthlySubscription.objects.get(
@@ -2059,6 +2061,8 @@ class ApplicationFlowsTests(TestCase):
         )
         self.assertEqual(first_subscription.expected_amount, 1800)
         self.assertEqual(first_subscription.paid_amount, 1000)
+        self.assertEqual(first_subscription.supplied_amount, 500)
+        self.assertEqual(first_subscription.unsupplied_amount, 500)
         self.assertEqual(first_subscription.remaining_amount, 800)
         self.assertFalse(first_subscription.is_paid)
         self.assertEqual(paid_subscription.remaining_amount, 0)
@@ -2071,6 +2075,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(totals_page.context['totals'], {
             'expected': 3800,
             'paid': 3000,
+            'supplied': 2500,
             'remaining': 800,
         })
         paid_page = self.client.get(subscriptions_url, {
@@ -2095,7 +2100,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(search_page, first_player.name)
         self.assertNotContains(search_page, paid_player.name)
 
-    def test_revenue_share_subscriptions_sync_company_due_and_paid_amounts(self):
+    def test_revenue_share_subscriptions_sync_company_due_paid_and_supplied_amounts(self):
         today = date.today()
         academy = Academy.objects.create(
             name='Revenue Share Academy', sport_activity='Football', company_name='Company',
@@ -2114,15 +2119,17 @@ class ApplicationFlowsTests(TestCase):
         ]
         expected_amounts = [650, 650, 1500, 750]
         paid_amounts = [650, 650, 0, 750]
+        supplied_amounts = [300, 390, 0, 300]
         payload = {
             'year': str(today.year),
             'month': str(today.month),
             'default_amount': '650',
             'player_id': [str(player.pk) for player in players],
         }
-        for player, expected, paid in zip(players, expected_amounts, paid_amounts):
+        for player, expected, paid, supplied in zip(players, expected_amounts, paid_amounts, supplied_amounts):
             payload[f'expected_{player.pk}'] = str(expected)
             payload[f'paid_{player.pk}'] = str(paid)
+            payload[f'supplied_{player.pk}'] = str(supplied)
 
         response = self.client.post(
             reverse('academy_player_subscriptions', args=[academy.pk]),
@@ -2135,6 +2142,8 @@ class ApplicationFlowsTests(TestCase):
         )
         self.assertEqual(payment.expected_amount, 2130)
         self.assertEqual(payment.paid_amount, 1230)
+        self.assertEqual(payment.supplied_amount, 990)
+        self.assertEqual(payment.supplied_date, today)
         self.assertEqual(payment.remaining_amount, 900)
 
         subscriptions_page = self.client.get(
@@ -2143,6 +2152,7 @@ class ApplicationFlowsTests(TestCase):
         )
         self.assertEqual(subscriptions_page.context['totals']['expected'], 3550)
         self.assertEqual(subscriptions_page.context['totals']['paid'], 2050)
+        self.assertEqual(subscriptions_page.context['totals']['supplied'], 990)
         self.assertEqual(subscriptions_page.context['company_share_percentage'], 60)
         self.assertEqual(subscriptions_page.context['company_share_amount'], 2130)
         self.assertEqual(subscriptions_page.context['academy_share_percentage'], 40)
@@ -2162,8 +2172,44 @@ class ApplicationFlowsTests(TestCase):
         row = next(row for row in rent_page.context['rows'] if row['academy'] == academy)
         self.assertEqual(row['expected'], 2130)
         self.assertEqual(row['paid'], 1230)
+        self.assertEqual(row['supplied'], 990)
         self.assertEqual(row['remaining'], 900)
 
+        accounts_page = self.client.get(
+            reverse('accounts_home'),
+            {'month': f'{today.year}-{today.month:02d}'},
+        )
+        self.assertEqual(accounts_page.context['summary']['academy_income'], 990)
+        self.assertEqual(accounts_page.context['summary']['gross_income'], 990)
+
+        reports_page = self.client.get(reverse('reports_home'), {
+            'report_type': 'monthly_income',
+            'month': f'{today.year}-{today.month:02d}',
+        })
+        self.assertEqual(reports_page.context['income_academy_total'], 990)
+        self.assertEqual(reports_page.context['income_total'], 990)
+
+
+    def test_player_supplied_amount_cannot_exceed_paid_and_save_is_atomic(self):
+        today = date.today()
+        academy = Academy.objects.create(
+            name='Supply Validation Academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000993',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(today.year, 1, 1),
+            contract_end_date=date(today.year, 12, 31),
+            subscription_type='revenue_share', eess_share_percentage=50,
+        )
+        first = AcademyMember.objects.create(academy=academy, role=AcademyMember.ROLE_PLAYER, name='First')
+        second = AcademyMember.objects.create(academy=academy, role=AcademyMember.ROLE_PLAYER, name='Second')
+        response = self.client.post(reverse('academy_player_subscriptions', args=[academy.pk]), {
+            'year': str(today.year), 'month': str(today.month), 'default_amount': '1000',
+            'player_id': [str(first.pk), str(second.pk)],
+            f'expected_{first.pk}': '1000', f'paid_{first.pk}': '800', f'supplied_{first.pk}': '600',
+            f'expected_{second.pk}': '1000', f'paid_{second.pk}': '200', f'supplied_{second.pk}': '300',
+        }, follow=True)
+        self.assertContains(response, 'لا يمكن أن يزيد عن المبلغ المسدد')
+        self.assertFalse(AcademyPlayerMonthlySubscription.objects.filter(player__academy=academy).exists())
 
     def test_training_year_selector_and_portrait_identity_cards(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
@@ -2416,7 +2462,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(summary['daily_booking_income'], 400)
         self.assertEqual(summary['ball_field_academy_income'], 700)
         self.assertEqual(summary['daily_income_total'], 1100)
-        self.assertEqual(summary['gross_income'], 2000)
+        self.assertEqual(summary['gross_income'], 400)
         self.assertEqual(summary['payroll_rows'][0]['bonus'], 300)
         self.assertContains(response, 'الدخل اليومي المعتمد للبونص')
         self.assertContains(response, 'الحجز اليومي: 400 + أكاديميات ملاعب الكرة والباسكت: 700')
