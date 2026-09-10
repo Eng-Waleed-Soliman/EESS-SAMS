@@ -2868,7 +2868,7 @@ def _academy_rent_rows(year, month, start, end, branch=None):
                 if payment.paid_amount != company_paid:
                     payment.paid_amount = company_paid
                     update_fields.append('paid_amount')
-                if payment.supplied_amount != company_supplied:
+                if player_subscriptions.filter(supply_is_recorded=True).exists() and payment.supplied_amount != company_supplied:
                     payment.supplied_amount = company_supplied
                     update_fields.append('supplied_amount')
         if update_fields:
@@ -4410,6 +4410,7 @@ def academy_player_subscriptions(request, academy_id):
                 )
                 current_paid = current.paid_amount if current else 0
                 current_supplied = current.supplied_amount if current else 0
+                current_supply_is_recorded = current.supply_is_recorded if current else False
                 expected_amount = positive_int(
                     request.POST.get(f'expected_{player_id}'),
                     default_amount if default_amount else current_expected,
@@ -4439,15 +4440,17 @@ def academy_player_subscriptions(request, academy_id):
                         'expected_amount': expected_amount,
                         'paid_amount': paid_amount,
                         'supplied_amount': supplied_amount,
+                        'supply_is_recorded': current_supply_is_recorded or f'supplied_{player_id}' in request.POST,
                     },
                 )
                 saved_count += 1
             if academy.subscription_type == 'revenue_share':
-                subscription_totals = AcademyPlayerMonthlySubscription.objects.filter(
+                subscription_queryset = AcademyPlayerMonthlySubscription.objects.filter(
                     player__academy=academy,
                     player__role=AcademyMember.ROLE_PLAYER,
                     month=month_date,
-                ).aggregate(
+                )
+                subscription_totals = subscription_queryset.aggregate(
                     expected=Sum('expected_amount'),
                     paid=Sum('paid_amount'),
                     supplied=Sum('supplied_amount'),
@@ -4462,12 +4465,13 @@ def academy_player_subscriptions(request, academy_id):
                 )
                 payment.expected_amount = company_expected
                 payment.paid_amount = company_paid
-                if payment.supplied_amount != company_supplied:
-                    payment.supplied_date = today if company_supplied else None
-                payment.supplied_amount = company_supplied
-                payment.save(update_fields=[
-                    'expected_amount', 'paid_amount', 'supplied_amount', 'supplied_date', 'updated_at',
-                ])
+                payment_fields = ['expected_amount', 'paid_amount', 'updated_at']
+                if subscription_queryset.filter(supply_is_recorded=True).exists():
+                    if payment.supplied_amount != company_supplied:
+                        payment.supplied_date = today if company_supplied else None
+                    payment.supplied_amount = company_supplied
+                    payment_fields.extend(['supplied_amount', 'supplied_date'])
+                payment.save(update_fields=payment_fields)
         messages.success(request, f'تم حفظ اشتراكات {saved_count} لاعب لشهر {selected_month:02d}/{selected_year}.')
         return redirect(
             f"{reverse('academy_player_subscriptions', args=[academy.pk])}"

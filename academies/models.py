@@ -471,6 +471,7 @@ class AcademyPlayerMonthlySubscription(models.Model):
     expected_amount = models.PositiveIntegerField(default=0, verbose_name='مبلغ الاشتراك')
     paid_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المسدد')
     supplied_amount = models.PositiveIntegerField(default=0, verbose_name='المبلغ المورد للشركة')
+    supply_is_recorded = models.BooleanField(default=False, verbose_name='تم تسجيل المبلغ المورد')
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

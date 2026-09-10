@@ -2211,6 +2211,34 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'لا يمكن أن يزيد عن المبلغ المسدد')
         self.assertFalse(AcademyPlayerMonthlySubscription.objects.filter(player__academy=academy).exists())
 
+    def test_legacy_rent_supply_is_preserved_until_player_supply_is_recorded(self):
+        today = date.today()
+        academy = Academy.objects.create(
+            name='Legacy Supply Academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000994',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(today.year, 1, 1), contract_end_date=date(today.year, 12, 31),
+            subscription_type='revenue_share', eess_share_percentage=50,
+        )
+        player = AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_PLAYER, name='Legacy Player',
+        )
+        AcademyPlayerMonthlySubscription.objects.create(
+            player=player, month=date(today.year, today.month, 1),
+            expected_amount=2000, paid_amount=1500,
+        )
+        payment = AcademyMonthlyRentPayment.objects.create(
+            academy=academy, month=date(today.year, today.month, 1),
+            expected_amount=1000, paid_amount=750, supplied_amount=700,
+            supplied_date=today,
+        )
+        self.client.get(reverse('academy_rent_payments'), {
+            'month': f'{today.year}-{today.month:02d}',
+        })
+        payment.refresh_from_db()
+        self.assertEqual(payment.supplied_amount, 700)
+        self.assertEqual(payment.supplied_date, today)
+
     def test_training_year_selector_and_portrait_identity_cards(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_reports = True
