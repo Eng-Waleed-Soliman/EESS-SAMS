@@ -519,6 +519,34 @@ class AcademyTrainingGroupPlayer(models.Model):
         return f'{self.player} - {self.group}'
 
 
+class AcademyTrainingAttendance(models.Model):
+    group = models.ForeignKey(
+        AcademyTrainingGroup, on_delete=models.CASCADE, related_name='attendance_records',
+        verbose_name='المجموعة',
+    )
+    player = models.ForeignKey(
+        AcademyMember, on_delete=models.CASCADE, related_name='training_attendance_records',
+        limit_choices_to={'role': AcademyMember.ROLE_PLAYER}, verbose_name='اللاعب',
+    )
+    attendance_date = models.DateField(verbose_name='تاريخ التدريب')
+    is_present = models.BooleanField(default=False, verbose_name='حاضر')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['attendance_date', 'player__name', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['group', 'player', 'attendance_date'],
+                name='unique_group_player_attendance_date',
+            ),
+        ]
+        verbose_name = 'حضور لاعب'
+        verbose_name_plural = 'حضور وغياب اللاعبين'
+
+    def __str__(self):
+        return f'{self.player} - {self.group} - {self.attendance_date:%Y-%m-%d}'
+
+
 class AcademyPlayerMonthlySubscription(models.Model):
     player = models.ForeignKey(
         AcademyMember,

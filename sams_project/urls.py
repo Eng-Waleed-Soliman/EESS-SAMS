@@ -23,6 +23,7 @@ urlpatterns = [
     path('academies/<int:academy_id>/groups/<int:pk>/edit/', views.academy_training_group_update, name='academy_training_group_update'),
     path('academies/<int:academy_id>/groups/<int:pk>/delete/', views.academy_training_group_delete, name='academy_training_group_delete'),
     path('academies/<int:academy_id>/groups/<int:pk>/players/', views.academy_training_group_players, name='academy_training_group_players'),
+    path('academies/<int:academy_id>/groups/<int:pk>/attendance/', views.academy_training_group_attendance, name='academy_training_group_attendance'),
     path('academies/<int:academy_id>/members/excel-template/', views.academy_member_excel_template, name='academy_member_excel_template'),
     path('academies/<int:academy_id>/members/import-excel/', views.academy_member_excel_import, name='academy_member_excel_import'),
     path('academies/<int:academy_id>/members/add/', views.academy_member_create, name='academy_member_create'),

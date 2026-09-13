@@ -19,6 +19,7 @@
     <td><strong>{{ row.group.name }}</strong></td><td>{{ row.group.training_days_display }}</td><td>{{ row.sessions_count }}</td><td>{{ row.players_count }}</td>
     <td><div class="d-flex gap-2 flex-wrap justify-content-center">
       <a class="btn btn-sm btn-success" href="{% url 'academy_training_group_players' academy.pk row.group.pk %}">تسكين لاعب</a>
+      <a class="btn btn-sm btn-info" href="{% url 'academy_training_group_attendance' academy.pk row.group.pk %}?month={{ month_value }}">تسجيل الحضور</a>
       <a class="btn btn-sm btn-primary" href="{% url 'academy_training_group_update' academy.pk row.group.pk %}">تعديل</a>
       <form method="post" action="{% url 'academy_training_group_delete' academy.pk row.group.pk %}" onsubmit="return confirm('حذف المجموعة؟ لن يتم حذف اللاعبين من الأكاديمية.');">{% csrf_token %}<button class="btn btn-sm btn-danger" type="submit">حذف</button></form>
     </div></td>

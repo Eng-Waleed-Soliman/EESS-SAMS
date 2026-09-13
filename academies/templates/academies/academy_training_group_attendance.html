@@ -1,0 +1,60 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="attendance-actions no-print">
+  <form method="get" class="d-flex gap-2 align-items-end flex-wrap">
+    <div><label class="form-label fw-bold" for="attendanceMonth">الشهر</label><input id="attendanceMonth" class="form-control" type="month" name="month" value="{{ month_value }}"></div>
+    <button class="btn btn-primary" type="submit">عرض</button>
+  </form>
+  <div class="d-flex gap-2 flex-wrap">
+    <button class="btn btn-secondary" type="button" onclick="window.print()">طباعة</button>
+    <a class="btn btn-outline-primary" href="{% url 'academy_training_group_list' academy.pk %}?month={{ month_value }}">رجوع للمجموعات</a>
+  </div>
+</div>
+
+<section class="attendance-sheet">
+  <header class="attendance-header">
+    <div class="attendance-brand">
+      {% if app_settings and app_settings.company_logo_name %}<img src="{% url 'persistent_media' 'branding' app_settings.pk 'company_logo' %}" alt="{{ app_settings.company_short_name }}">{% elif app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.company_short_name }}">{% endif %}
+      <strong>{% if app_settings and app_settings.company_short_name %}{{ app_settings.company_short_name }}{% else %}EESS{% endif %}</strong>
+    </div>
+    <h1>تسجيل الحضور والغياب ({{ academy.name }}) عن شهر {{ month_label }}</h1>
+    <div></div>
+  </header>
+
+  <form method="post">{% csrf_token %}<input type="hidden" name="month" value="{{ month_value }}">
+    <div class="table-responsive attendance-table-wrap"><table class="table table-bordered align-middle text-center attendance-table">
+      <thead><tr>
+        <th class="serial-column">م</th><th class="player-column">اسم اللاعب</th><th class="paid-column">مسدد</th>
+        {% for header in training_date_headers %}<th class="date-column"><span>{{ header.date|date:'d/m' }}</span><small>{{ header.weekday }}</small></th>{% endfor %}
+      </tr></thead>
+      <tbody>{% for row in rows %}<tr>
+        <td>{{ forloop.counter }}</td><td class="text-start"><strong>{{ row.player.name }}</strong></td>
+        <td>{% if row.is_paid %}<span class="payment-mark paid" title="مسدد">✓</span>{% else %}<span class="payment-mark unpaid" title="غير مسدد">✗</span>{% endif %}</td>
+        {% for cell in row.attendance %}<td><input class="attendance-check" type="checkbox" name="{{ cell.field_name }}" {% if cell.is_present %}checked{% endif %} aria-label="حضور {{ row.player.name }} يوم {{ cell.date|date:'d/m/Y' }}"></td>{% endfor %}
+      </tr>{% empty %}<tr><td colspan="{{ training_date_headers|length|add:3 }}" class="text-muted py-4">لا يوجد لاعبون مسكنون في هذه المجموعة.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="mt-3 no-print"><button class="btn btn-success" type="submit">حفظ</button></div>
+  </form>
+</section>
+
+<style>
+.attendance-actions{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.attendance-sheet{background:#fff;padding:22px;border-radius:18px;box-shadow:0 12px 30px rgba(15,23,42,.08)}
+.attendance-header{display:grid;grid-template-columns:190px 1fr 190px;align-items:start;gap:18px;margin-bottom:20px;direction:ltr}
+.attendance-header h1{font-size:27px;font-weight:900;text-align:center;direction:rtl;margin:16px 0 0}
+.attendance-brand{display:flex;flex-direction:column;align-items:center;text-align:center;direction:rtl;font-size:18px}
+.attendance-brand img{width:82px;height:72px;object-fit:contain;margin-bottom:5px}
+.attendance-table{min-width:max-content}.attendance-table th,.attendance-table td{white-space:nowrap;padding:9px!important}
+.serial-column{min-width:54px}.player-column{min-width:210px}.paid-column{min-width:72px}.date-column{min-width:70px}
+.date-column span,.date-column small{display:block}.date-column small{color:#64748b;margin-top:3px}
+.attendance-check{width:22px;height:22px;cursor:pointer}.payment-mark{display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:50%;font-weight:900;font-size:20px}.payment-mark.paid{background:#dcfce7;color:#15803d}.payment-mark.unpaid{background:#fee2e2;color:#b91c1c}
+@media(max-width:760px){.attendance-header{grid-template-columns:1fr}.attendance-header>div:last-child{display:none}.attendance-header h1{grid-row:2}.attendance-actions>*{width:100%}}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  .sidebar,.no-print{display:none!important}.container-fluid,.container-fluid>.row,main{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
+  body{background:#fff!important}.attendance-sheet{box-shadow:none!important;border-radius:0!important;padding:0!important}
+  .attendance-header{grid-template-columns:42mm 1fr 42mm;margin-bottom:5mm}.attendance-header h1{font-size:18pt;margin-top:5mm}.attendance-brand img{width:24mm;height:18mm}.attendance-brand{font-size:13pt}
+  .attendance-table-wrap{overflow:visible!important}.attendance-table{width:100%!important;min-width:0!important;font-size:9pt!important}.attendance-table th,.attendance-table td{padding:2.2mm 1.2mm!important}.attendance-check{width:4mm;height:4mm}.payment-mark{background:transparent!important;width:auto;height:auto;font-size:15pt}
+}
+</style>
+{% endblock %}

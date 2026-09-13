@@ -6,7 +6,8 @@ from django.urls import reverse
 
 from .constants import OPERATION_PLACE_CHOICES
 from .models import (
-    Academy, AcademyMember, AcademyTrainingGroup, AcademyTrainingGroupPlayer,
+    Academy, AcademyMember, AcademyPlayerMonthlySubscription, AcademyTrainingAttendance,
+    AcademyTrainingGroup, AcademyTrainingGroupPlayer,
 )
 
 
@@ -118,3 +119,45 @@ class AcademyTrainingGroupTests(TestCase):
         duplicate = self.create_group(name='المجموعة أ')
         self.assertContains(duplicate, 'يوجد مجموعة بنفس الاسم')
         self.assertEqual(AcademyTrainingGroup.objects.count(), 1)
+
+    def test_attendance_screen_uses_month_dates_payment_status_and_saves(self):
+        self.create_group(days=('5', '1'))
+        group = self.academy.training_groups.get()
+        AcademyTrainingGroupPlayer.objects.create(group=group, player=self.first_player)
+        AcademyTrainingGroupPlayer.objects.create(group=group, player=self.second_player)
+        AcademyPlayerMonthlySubscription.objects.create(
+            player=self.first_player,
+            month=date(2026, 9, 1),
+            expected_amount=650,
+            paid_amount=650,
+        )
+        url = reverse('academy_training_group_attendance', args=[self.academy.pk, group.pk])
+        group_list = self.client.get(
+            reverse('academy_training_group_list', args=[self.academy.pk]), {'month': '2026-09'},
+        )
+        self.assertContains(group_list, f'{url}?month=2026-09')
+        self.assertContains(group_list, 'تسجيل الحضور')
+
+        page = self.client.get(url, {'month': '2026-09'})
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'تسجيل الحضور والغياب')
+        self.assertContains(page, 'سبتمبر 2026')
+        self.assertEqual(len(page.context['training_date_headers']), 9)
+        self.assertTrue(page.context['rows'][0]['is_paid'])
+        self.assertFalse(page.context['rows'][1]['is_paid'])
+        self.assertContains(page, 'طباعة')
+        self.assertContains(page, 'حفظ')
+
+        present_date = date(2026, 9, 1)
+        response = self.client.post(url, {
+            'month': '2026-09',
+            f'present_{self.first_player.pk}_{present_date:%Y-%m-%d}': 'on',
+        })
+        self.assertRedirects(response, f'{url}?month=2026-09')
+        self.assertEqual(AcademyTrainingAttendance.objects.count(), 18)
+        self.assertTrue(AcademyTrainingAttendance.objects.get(
+            group=group, player=self.first_player, attendance_date=present_date,
+        ).is_present)
+        self.assertFalse(AcademyTrainingAttendance.objects.get(
+            group=group, player=self.second_player, attendance_date=present_date,
+        ).is_present)

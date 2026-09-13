@@ -28,7 +28,7 @@ from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training
 from .member_excel import parse_academy_members_xlsx
 from .models import PayrollAdjustment
 from .payroll_forms import PayrollAdjustmentForm
-from .models import AcademyTrainingGroup, AcademyTrainingGroupPlayer
+from .models import AcademyTrainingAttendance, AcademyTrainingGroup, AcademyTrainingGroupPlayer
 from .group_forms import AcademyTrainingGroupForm, AcademyTrainingGroupPlayerForm
 
 
@@ -4446,6 +4446,87 @@ def academy_training_group_players(request, academy_id, pk):
     return render(request, 'academies/academy_training_group_players.html', {
         'academy': academy, 'group': group, 'form': form,
         'assignments': group.player_assignments.select_related('player').all(),
+    })
+
+
+@login_required
+def academy_training_group_attendance(request, academy_id, pk):
+    academy = get_object_or_404(Academy, pk=academy_id)
+    group = get_object_or_404(AcademyTrainingGroup, pk=pk, academy=academy)
+    month_source = request.POST.get('month') if request.method == 'POST' else request.GET.get('month')
+    selected_month, month_value = _training_group_month(month_source)
+    training_weekdays = {int(day) for day in group.training_days}
+    training_dates = [
+        date(selected_month.year, selected_month.month, day_number)
+        for day_number in range(1, monthrange(selected_month.year, selected_month.month)[1] + 1)
+        if date(selected_month.year, selected_month.month, day_number).weekday() in training_weekdays
+    ]
+    players = list(
+        AcademyMember.objects.filter(
+            group_assignments__group=group,
+            academy=academy,
+            role=AcademyMember.ROLE_PLAYER,
+        ).distinct().order_by('-is_active', 'name', 'id')
+    )
+
+    if request.method == 'POST':
+        with transaction.atomic():
+            for player in players:
+                for training_date in training_dates:
+                    AcademyTrainingAttendance.objects.update_or_create(
+                        group=group,
+                        player=player,
+                        attendance_date=training_date,
+                        defaults={
+                            'is_present': f'present_{player.pk}_{training_date:%Y-%m-%d}' in request.POST,
+                        },
+                    )
+        messages.success(request, f'تم حفظ حضور وغياب مجموعة {group.name} عن {ARABIC_MONTH_NAMES[selected_month.month]} {selected_month.year}.')
+        return redirect(
+            f"{reverse('academy_training_group_attendance', args=[academy.pk, group.pk])}?month={month_value}"
+        )
+
+    attendance_values = {
+        (record.player_id, record.attendance_date): record.is_present
+        for record in AcademyTrainingAttendance.objects.filter(
+            group=group,
+            player__in=players,
+            attendance_date__year=selected_month.year,
+            attendance_date__month=selected_month.month,
+        )
+    }
+    subscriptions = {
+        subscription.player_id: subscription
+        for subscription in AcademyPlayerMonthlySubscription.objects.filter(
+            player__in=players,
+            month=selected_month,
+        )
+    }
+    rows = []
+    for player in players:
+        subscription = subscriptions.get(player.pk)
+        rows.append({
+            'player': player,
+            'is_paid': bool(subscription and subscription.is_paid),
+            'attendance': [
+                {
+                    'date': training_date,
+                    'field_name': f'present_{player.pk}_{training_date:%Y-%m-%d}',
+                    'is_present': attendance_values.get((player.pk, training_date), False),
+                }
+                for training_date in training_dates
+            ],
+        })
+    return render(request, 'academies/academy_training_group_attendance.html', {
+        'academy': academy,
+        'group': group,
+        'month_value': month_value,
+        'month_label': f'{ARABIC_MONTH_NAMES[selected_month.month]} {selected_month.year}',
+        'training_date_headers': [
+            {'date': training_date, 'weekday': WEEKDAY_AR[training_date.weekday()]}
+            for training_date in training_dates
+        ],
+        'rows': rows,
     })
 
 
