@@ -134,7 +134,17 @@ class CafeteriaOperatingExpenseTests(TestCase):
         self.assertEqual(report.context['cafeteria_purchase_total'], 70)
         self.assertEqual(report.context['cafeteria_sales_total'], 100)
         self.assertEqual(report.context['cafeteria_net_profit'], 30)
-        self.assertContains(report, 'المشتريات شاملة مصاريف التشغيل')
+        self.assertEqual(len(report.context['cafeteria_purchase_details']), 1)
+        self.assertEqual(len(report.context['cafeteria_operating_expense_details']), 1)
+        self.assertContains(report, 'إجمالي مشتروات أصناف الكافيتريا')
+        self.assertContains(report, 'إجمالي مصاريف تشغيل الكافيتريا')
+        self.assertContains(report, 'cafeteriaPurchaseDetails')
+        self.assertContains(report, 'cafeteriaOperatingExpenseDetails')
+        self.assertContains(report, 'cafeteria-detail-row d-none', count=2)
+        self.assertContains(report, 'Machine maintenance')
+        self.assertContains(report, self.item.name)
+        self.assertNotContains(report, 'شراء أصناف:')
+        self.assertNotContains(report, 'المبيعات − المشتريات شاملة مصاريف التشغيل')
 
         month_start = today.replace(day=1)
         summary = _month_financial_summary(

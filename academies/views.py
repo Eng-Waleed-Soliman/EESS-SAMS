@@ -3847,9 +3847,12 @@ def reports_home_v2(request):
             sale_date__range=(start, end), item__in=cafeteria_item_qs
         ).select_related('item'))
         stock_purchase_total = sum(row.total_amount for row in purchases)
-        cafeteria_operating_expense_total = cafeteria_operating_expense_qs.filter(
+        cafeteria_operating_expenses = list(cafeteria_operating_expense_qs.filter(
             expense_date__range=(start, end)
-        ).aggregate(total=Sum('amount'))['total'] or 0
+        ).select_related('created_by'))
+        cafeteria_operating_expense_total = sum(
+            int(expense.amount or 0) for expense in cafeteria_operating_expenses
+        )
         purchase_total = int(stock_purchase_total or 0) + int(cafeteria_operating_expense_total or 0)
         sales_total = sum(row.total_amount for row in sales)
         cash_supplies = CafeteriaCashSupply.objects.filter(supply_date__range=(start, end))
@@ -3911,6 +3914,8 @@ def reports_home_v2(request):
             'cafeteria_purchase_total': purchase_total,
             'cafeteria_stock_purchase_total': stock_purchase_total,
             'cafeteria_operating_expense_total': cafeteria_operating_expense_total,
+            'cafeteria_purchase_details': purchases,
+            'cafeteria_operating_expense_details': cafeteria_operating_expenses,
             'cafeteria_sales_total': sales_total,
             'cafeteria_net_profit': sales_total - purchase_total,
             'cafeteria_supplied_total': supplied_total,

@@ -138,7 +138,32 @@
   <a class="btn {% if section == 'hospitality' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&amp;range_mode={{ range_mode }}&amp;month={{ month_value }}&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}&amp;section=hospitality">الضيافة</a>
 </div>
 <div class="d-flex gap-2 flex-wrap mb-3"><a class="btn {% if section == 'summary' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&month={{ month_value }}&section=summary">ملخص الكافيتريا</a><a class="btn {% if section == 'inventory' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&month={{ month_value }}&section=inventory">الجرد</a><a class="btn {% if section == 'statistics' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?report_type=cafeteria&month={{ month_value }}&section=statistics">الإحصائيات</a></div>
-<div class="row g-3 mb-4"><div class="col-md-3"><div class="card p-3"><b>إجمالي مشتروات الكافيتريا</b><h3>{{ cafeteria_purchase_total }}</h3><small class="text-muted">شراء أصناف: {{ cafeteria_stock_purchase_total }} + مصاريف تشغيل: {{ cafeteria_operating_expense_total }}</small></div></div><div class="col-md-3"><div class="card p-3"><b>إجمالي المبيعات</b><h3>{{ cafeteria_sales_total }}</h3></div></div><div class="col-md-3"><div class="card p-3"><b>ربح الكافيتريا</b><h3>{{ cafeteria_net_profit }}</h3><small class="text-muted">المبيعات − المشتريات شاملة مصاريف التشغيل</small></div></div><div class="col-md-3"><div class="card p-3"><b>إجمالي المبلغ المورد</b><h3>{{ cafeteria_supplied_total }}</h3></div></div></div>
+{% if section == 'summary' %}
+<div class="card p-3 mb-4 cafeteria-summary-report">
+  <div class="text-muted mb-2 no-print">اعمل دبل كليك على صف مشتروات الأصناف أو مصاريف التشغيل لإظهار التفاصيل أو إخفائها.</div>
+  <div class="table-responsive"><table class="table table-bordered align-middle text-center cafeteria-summary-table">
+    <thead><tr><th>البيان</th><th>الإجمالي</th></tr></thead>
+    <tbody>
+      <tr class="expandable-summary-row" ondblclick="toggleCafeteriaDetails('cafeteriaPurchaseDetails', this)" title="دبل كليك لإظهار التفاصيل" aria-expanded="false"><th>إجمالي مشتروات أصناف الكافيتريا</th><td>{{ cafeteria_stock_purchase_total }}</td></tr>
+      <tr id="cafeteriaPurchaseDetails" class="cafeteria-detail-row d-none"><td colspan="2">
+        <table class="table table-sm table-striped mb-0"><thead><tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>سعر الشراء</th><th>الإجمالي</th><th>المورد</th><th>ملاحظات</th></tr></thead><tbody>
+          {% for purchase in cafeteria_purchase_details %}<tr><td>{{ purchase.purchase_date|date:'d/m/Y' }}</td><td>{{ purchase.item.name }}</td><td>{{ purchase.quantity }}</td><td>{{ purchase.unit_price }}</td><td>{{ purchase.total_amount }}</td><td>{{ purchase.supplier|default:'-' }}</td><td>{{ purchase.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="7">لا توجد مشتروات أصناف خلال الفترة المختارة.</td></tr>{% endfor %}
+        </tbody></table>
+      </td></tr>
+      <tr class="expandable-summary-row" ondblclick="toggleCafeteriaDetails('cafeteriaOperatingExpenseDetails', this)" title="دبل كليك لإظهار التفاصيل" aria-expanded="false"><th>إجمالي مصاريف تشغيل الكافيتريا</th><td>{{ cafeteria_operating_expense_total }}</td></tr>
+      <tr id="cafeteriaOperatingExpenseDetails" class="cafeteria-detail-row d-none"><td colspan="2">
+        <table class="table table-sm table-striped mb-0"><thead><tr><th>التاريخ</th><th>بيان المصروف</th><th>القيمة</th><th>سُجل بواسطة</th></tr></thead><tbody>
+          {% for expense in cafeteria_operating_expense_details %}<tr><td>{{ expense.expense_date|date:'d/m/Y' }}</td><td>{{ expense.title }}</td><td>{{ expense.amount }}</td><td>{{ expense.created_by.first_name|default:expense.created_by.username|default:'-' }}</td></tr>{% empty %}<tr><td colspan="4">لا توجد مصاريف تشغيل خلال الفترة المختارة.</td></tr>{% endfor %}
+        </tbody></table>
+      </td></tr>
+      <tr class="table-light fw-bold"><th>إجمالي مشتروات الكافيتريا شامل مصاريف التشغيل</th><td>{{ cafeteria_purchase_total }}</td></tr>
+      <tr><th>إجمالي المبيعات</th><td>{{ cafeteria_sales_total }}</td></tr>
+      <tr><th>ربح الكافيتريا</th><td>{{ cafeteria_net_profit }}</td></tr>
+      <tr><th>إجمالي المبلغ المورد</th><td>{{ cafeteria_supplied_total }}</td></tr>
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
 {% if section == 'inventory' %}<div class="card p-3"><h4>جرد كميات الأصناف خلال الشهر</h4><table class="table table-striped text-center"><thead><tr><th>كود الصنف</th><th>الفئة</th><th>الصنف</th><th>كمية الشراء</th><th>كمية البيع</th><th>الكمية الحالية بالمخزون</th></tr></thead><tbody>{% for row in cafeteria_rows %}<tr><td>{{ row.item.code }}</td><td>{{ row.item.category.name|default:'-' }}</td><td>{{ row.item.name }}</td><td>{{ row.purchased }}</td><td>{{ row.sold }}</td><td>{{ row.remaining }}</td></tr>{% empty %}<tr><td colspan="6">لا توجد أصناف</td></tr>{% endfor %}</tbody></table></div>{% endif %}
 {% if section == 'statistics' %}<div class="card p-3"><h4>إحصائيات الأصناف مرتبة حسب الأكثر مبيعًا</h4><table class="table table-striped text-center"><thead><tr><th>الترتيب</th><th>الصنف</th><th>الكمية المباعة</th><th>إيراد المبيعات</th><th>ربح الصنف</th><th>نسبة الربح</th></tr></thead><tbody>{% for row in cafeteria_statistics %}<tr><td>{{ forloop.counter }}</td><td>{{ row.item.name }}</td><td>{{ row.sold }}</td><td>{{ row.revenue }}</td><td>{{ row.profit }}</td><td>{{ row.profit_percentage }}%</td></tr>{% empty %}<tr><td colspan="6">لا توجد أصناف</td></tr>{% endfor %}</tbody></table></div>{% endif %}
 {% endif %}
@@ -214,6 +239,7 @@
 
 <style>
   .print-report-header,.print-report-signature{display:none}
+  .cafeteria-summary-table .expandable-summary-row{cursor:pointer;user-select:none}.cafeteria-summary-table .expandable-summary-row:hover{background:#e0f2fe}.cafeteria-summary-table .expandable-summary-row th:after{content:' ↕';color:#0284c7;font-size:.85em}.cafeteria-detail-row>td{padding:12px!important;background:#f8fafc}
   .report-member-photo{width:72px;height:72px;object-fit:contain;border-radius:10px;background:#fff}.report-member-qr{width:90px;height:90px;background:#fff;padding:3px;border:1px solid #cbd5e1;border-radius:8px}
   .report-filter-card{width:100%;max-width:none;overflow-x:auto}
   .report-filter-grid{display:flex!important;flex-wrap:nowrap!important;gap:12px!important;min-width:990px;width:100%;margin:0!important}
@@ -272,6 +298,12 @@ function printReport(asPdf){
   if(asPdf){ document.title = '{{ report_title|escapejs }} - {{ period_label|escapejs }}'; }
   window.print();
   window.setTimeout(function(){ document.title = oldTitle; }, 500);
+}
+function toggleCafeteriaDetails(detailId, summaryRow){
+  const detailRow = document.getElementById(detailId);
+  if(!detailRow) return;
+  detailRow.classList.toggle('d-none');
+  summaryRow.setAttribute('aria-expanded', detailRow.classList.contains('d-none') ? 'false' : 'true');
 }
 </script>
 {% endblock %}
