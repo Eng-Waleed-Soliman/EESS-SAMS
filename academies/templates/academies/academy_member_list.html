@@ -8,6 +8,7 @@
     {% elif role == 'player' %}
     <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=player">إضافة لاعب</a>
     <a class="btn btn-warning border border-dark" href="{% url 'academy_player_subscriptions' academy.id %}">الاشتراكات الشهرية</a>
+    <a class="btn btn-info border border-dark" href="{% url 'academy_training_group_list' academy.id %}">المجموعات</a>
     {% endif %}
     {% if role == 'staff' or role == 'player' %}
     <a class="btn btn-outline-success" href="{% url 'academy_member_excel_template' academy.id %}?role={{ role }}">نموذج ملف الإضافة</a>

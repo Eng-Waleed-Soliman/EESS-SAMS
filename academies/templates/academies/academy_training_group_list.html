@@ -1,0 +1,27 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div><h3 class="mb-1">مجموعات أكاديمية {{ academy.name }}</h3><div class="text-muted">عدد أيام التدريب محسوب بدقة طبقًا لأيام الأسبوع داخل الشهر المختار.</div></div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-primary" href="{% url 'academy_training_group_create' academy.pk %}">إضافة مجموعة</a>
+    <a class="btn btn-secondary" href="{% url 'academy_member_list' academy.pk %}?role=player">رجوع للاعبين</a>
+  </div>
+</div>
+<form method="get" class="card p-3 mb-3">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-4"><label class="form-label fw-bold" for="groupMonth">شهر حساب أيام التدريب</label><input id="groupMonth" class="form-control" type="month" name="month" value="{{ month_value }}"></div>
+    <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">حساب</button></div>
+  </div>
+</form>
+<div class="card p-3"><div class="table-responsive"><table class="table table-striped align-middle text-center">
+  <thead><tr><th>اسم المجموعة</th><th>أيام التدريب</th><th>عدد أيام التدريب في الشهر</th><th>عدد اللاعبين</th><th>الإجراءات</th></tr></thead>
+  <tbody>{% for row in rows %}<tr>
+    <td><strong>{{ row.group.name }}</strong></td><td>{{ row.group.training_days_display }}</td><td>{{ row.sessions_count }}</td><td>{{ row.players_count }}</td>
+    <td><div class="d-flex gap-2 flex-wrap justify-content-center">
+      <a class="btn btn-sm btn-success" href="{% url 'academy_training_group_players' academy.pk row.group.pk %}">تسكين لاعب</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'academy_training_group_update' academy.pk row.group.pk %}">تعديل</a>
+      <form method="post" action="{% url 'academy_training_group_delete' academy.pk row.group.pk %}" onsubmit="return confirm('حذف المجموعة؟ لن يتم حذف اللاعبين من الأكاديمية.');">{% csrf_token %}<button class="btn btn-sm btn-danger" type="submit">حذف</button></form>
+    </div></td>
+  </tr>{% empty %}<tr><td colspan="5" class="text-muted py-4">لا توجد مجموعات بعد.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}

@@ -459,6 +459,66 @@ class AcademyMember(models.Model):
         return f'data:{content_type};base64,{encoded}'
 
 
+class AcademyTrainingGroup(models.Model):
+    academy = models.ForeignKey(
+        Academy, on_delete=models.CASCADE, related_name='training_groups', verbose_name='الأكاديمية',
+    )
+    name = models.CharField(max_length=200, verbose_name='اسم المجموعة')
+    training_days = models.JSONField(default=list, verbose_name='أيام التدريب')
+    players = models.ManyToManyField(
+        AcademyMember, through='AcademyTrainingGroupPlayer', related_name='training_groups',
+        verbose_name='اللاعبون',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['academy__name', 'name', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['academy', 'name'], name='unique_academy_training_group_name'),
+        ]
+        verbose_name = 'مجموعة تدريب'
+        verbose_name_plural = 'مجموعات التدريب'
+
+    @property
+    def training_days_display(self):
+        labels = dict((number, label) for number, label in WEEKDAY_AR.items())
+        return '، '.join(labels.get(int(day), str(day)) for day in self.training_days)
+
+    def sessions_count_in_month(self, year, month):
+        selected_days = {int(day) for day in self.training_days}
+        return sum(
+            1 for day_number in range(1, monthrange(year, month)[1] + 1)
+            if datetime.date(year, month, day_number).weekday() in selected_days
+        )
+
+    def __str__(self):
+        return f'{self.name} - {self.academy}'
+
+
+class AcademyTrainingGroupPlayer(models.Model):
+    group = models.ForeignKey(
+        AcademyTrainingGroup, on_delete=models.CASCADE, related_name='player_assignments',
+        verbose_name='المجموعة',
+    )
+    player = models.ForeignKey(
+        AcademyMember, on_delete=models.CASCADE, related_name='group_assignments',
+        limit_choices_to={'role': AcademyMember.ROLE_PLAYER}, verbose_name='اللاعب',
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['player__name', 'id']
+        constraints = [
+            models.UniqueConstraint(fields=['group', 'player'], name='unique_player_in_training_group'),
+        ]
+        verbose_name = 'تسكين لاعب في مجموعة'
+        verbose_name_plural = 'تسكين اللاعبين في المجموعات'
+
+    def __str__(self):
+        return f'{self.player} - {self.group}'
+
+
 class AcademyPlayerMonthlySubscription(models.Model):
     player = models.ForeignKey(
         AcademyMember,

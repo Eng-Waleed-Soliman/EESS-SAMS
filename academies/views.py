@@ -28,6 +28,8 @@ from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training
 from .member_excel import parse_academy_members_xlsx
 from .models import PayrollAdjustment
 from .payroll_forms import PayrollAdjustmentForm
+from .models import AcademyTrainingGroup, AcademyTrainingGroupPlayer
+from .group_forms import AcademyTrainingGroupForm, AcademyTrainingGroupPlayerForm
 
 
 def persistent_media(request, model_name, pk, field_name):
@@ -4356,6 +4358,94 @@ def academy_member_list(request, academy_id):
         'role': role,
         'role_label': {'staff': 'مدربو وإداريو', 'player': 'لاعبو'}.get(role, 'أعضاء'),
         'role_singular': {'staff': 'مدرب أو إداري', 'player': 'لاعب'}.get(role, 'عضو'),
+    })
+
+
+def _training_group_month(value):
+    today = date.today()
+    try:
+        selected = date.fromisoformat(f'{value}-01')
+    except (TypeError, ValueError):
+        selected = date(today.year, today.month, 1)
+    return selected, selected.strftime('%Y-%m')
+
+
+@login_required
+def academy_training_group_list(request, academy_id):
+    academy = get_object_or_404(Academy, pk=academy_id)
+    selected_month, month_value = _training_group_month(request.GET.get('month'))
+    rows = [
+        {
+            'group': group,
+            'sessions_count': group.sessions_count_in_month(selected_month.year, selected_month.month),
+            'players_count': group.player_assignments.count(),
+        }
+        for group in academy.training_groups.prefetch_related('player_assignments').all()
+    ]
+    return render(request, 'academies/academy_training_group_list.html', {
+        'academy': academy, 'rows': rows, 'month_value': month_value,
+    })
+
+
+@login_required
+def academy_training_group_create(request, academy_id):
+    academy = get_object_or_404(Academy, pk=academy_id)
+    form = AcademyTrainingGroupForm(request.POST or None, academy=academy)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'تمت إضافة المجموعة بنجاح.')
+        return redirect('academy_training_group_list', academy_id=academy.pk)
+    return render(request, 'academies/academy_training_group_form.html', {
+        'academy': academy, 'form': form, 'title': 'إضافة مجموعة',
+    })
+
+
+@login_required
+def academy_training_group_update(request, academy_id, pk):
+    academy = get_object_or_404(Academy, pk=academy_id)
+    group = get_object_or_404(AcademyTrainingGroup, pk=pk, academy=academy)
+    form = AcademyTrainingGroupForm(request.POST or None, instance=group, academy=academy)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'تم تعديل المجموعة بنجاح.')
+        return redirect('academy_training_group_list', academy_id=academy.pk)
+    return render(request, 'academies/academy_training_group_form.html', {
+        'academy': academy, 'group': group, 'form': form, 'title': 'تعديل مجموعة',
+    })
+
+
+@login_required
+def academy_training_group_delete(request, academy_id, pk):
+    academy = get_object_or_404(Academy, pk=academy_id)
+    group = get_object_or_404(AcademyTrainingGroup, pk=pk, academy=academy)
+    if request.method != 'POST':
+        raise Http404
+    group.delete()
+    messages.success(request, 'تم حذف المجموعة. لم يتم حذف أي لاعب من الأكاديمية.')
+    return redirect('academy_training_group_list', academy_id=academy.pk)
+
+
+@login_required
+def academy_training_group_players(request, academy_id, pk):
+    academy = get_object_or_404(Academy, pk=academy_id)
+    group = get_object_or_404(AcademyTrainingGroup, pk=pk, academy=academy)
+    if request.method == 'POST' and request.POST.get('action') == 'remove':
+        assignment = get_object_or_404(
+            AcademyTrainingGroupPlayer, pk=request.POST.get('assignment_id'), group=group,
+        )
+        assignment.delete()
+        messages.success(request, 'تم رفع تسكين اللاعب من هذه المجموعة.')
+        return redirect('academy_training_group_players', academy_id=academy.pk, pk=group.pk)
+    form = AcademyTrainingGroupPlayerForm(
+        request.POST or None, academy=academy, group=group,
+    )
+    if request.method == 'POST' and form.is_valid():
+        AcademyTrainingGroupPlayer.objects.get_or_create(group=group, player=form.cleaned_data['player'])
+        messages.success(request, 'تم تسكين اللاعب في المجموعة بنجاح.')
+        return redirect('academy_training_group_players', academy_id=academy.pk, pk=group.pk)
+    return render(request, 'academies/academy_training_group_players.html', {
+        'academy': academy, 'group': group, 'form': form,
+        'assignments': group.player_assignments.select_related('player').all(),
     })
 
 
