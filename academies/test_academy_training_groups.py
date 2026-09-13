@@ -155,6 +155,7 @@ class AcademyTrainingGroupTests(TestCase):
         self.assertEqual(page.context['rows'][1]['remaining_amount'], 550)
         self.assertContains(page, group.name)
         self.assertContains(page, 'المبلغ المتبقي')
+        self.assertContains(page, '>التسديد</th>')
         self.assertContains(page, 'طباعة')
         self.assertContains(page, 'حفظ')
 

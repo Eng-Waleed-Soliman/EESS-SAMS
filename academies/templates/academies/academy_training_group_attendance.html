@@ -24,7 +24,7 @@
   <form method="post">{% csrf_token %}<input type="hidden" name="month" value="{{ month_value }}">
     <div class="table-responsive attendance-table-wrap"><table class="table table-bordered align-middle text-center attendance-table">
       <thead><tr>
-        <th class="serial-column">م</th><th class="player-column">اسم اللاعب</th><th class="paid-column">مسدد أو لا</th><th class="remaining-column">المبلغ المتبقي</th>
+        <th class="serial-column">م</th><th class="player-column">اسم اللاعب</th><th class="paid-column">التسديد</th><th class="remaining-column">المبلغ المتبقي</th>
         {% for header in training_date_headers %}<th class="date-column"><span>{{ header.date|date:'d/m' }}</span><small>{{ header.weekday }}</small></th>{% endfor %}
       </tr></thead>
       <tbody>{% for row in rows %}<tr>
@@ -47,7 +47,7 @@
 .attendance-brand img{width:82px;height:72px;object-fit:contain;margin-bottom:5px}
 .attendance-group{grid-area:group;direction:rtl;text-align:right;padding-top:16px}.attendance-group span{display:block;color:#64748b;font-size:15px}.attendance-group strong{display:block;font-size:22px;margin-top:4px}
 .attendance-table{min-width:max-content}.attendance-table th,.attendance-table td{white-space:nowrap;padding:9px!important}
-.serial-column{min-width:54px}.player-column{min-width:210px}.paid-column{min-width:86px}.remaining-column{min-width:110px}.date-column{min-width:70px}
+.serial-column{min-width:46px}.player-column{min-width:150px}.paid-column{min-width:72px}.remaining-column{min-width:96px}.date-column{min-width:62px}
 .date-column span,.date-column small{display:block}.date-column small{color:#64748b;margin-top:3px}
 .attendance-check{width:22px;height:22px;cursor:pointer}.payment-mark{display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:50%;font-weight:900;font-size:20px}.payment-mark.paid{background:#dcfce7;color:#15803d}.payment-mark.unpaid{background:#fee2e2;color:#b91c1c}
 @media(max-width:760px){.attendance-header{grid-template-columns:1fr;grid-template-areas:"group" "title" "brand"}.attendance-group{text-align:center}.attendance-actions>*{width:100%}}
@@ -56,7 +56,7 @@
   .sidebar,.no-print{display:none!important}.container-fluid,.container-fluid>.row,main{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
   body{background:#fff!important}.attendance-sheet{box-shadow:none!important;border-radius:0!important;padding:0!important}
   .attendance-header{grid-template-columns:42mm minmax(0,1fr) 42mm!important;grid-template-areas:"brand title group"!important;align-items:start!important;margin-bottom:4mm!important}.attendance-header>*{grid-row:auto!important}.attendance-header h1{font-size:17pt;margin:4mm 0 0!important;line-height:1.35}.attendance-group{padding-top:4mm!important;text-align:right!important}.attendance-group span{font-size:9pt}.attendance-group strong{font-size:14pt}.attendance-brand img{width:22mm;height:16mm}.attendance-brand{font-size:12pt}
-  .attendance-table-wrap{overflow:visible!important}.attendance-table{width:100%!important;min-width:0!important;font-size:8.5pt!important}.attendance-table thead{display:table-header-group}.attendance-table tr{break-inside:avoid!important;page-break-inside:avoid!important}.attendance-table th,.attendance-table td{padding:1.6mm 1mm!important;height:9mm}.attendance-check{width:3.6mm;height:3.6mm}.payment-mark{background:transparent!important;width:auto;height:auto;font-size:14pt}
+  .attendance-table-wrap{overflow:visible!important}.attendance-table{width:100%!important;min-width:0!important;table-layout:fixed!important;font-size:7.5pt!important}.attendance-table thead{display:table-header-group}.attendance-table tr{break-inside:avoid!important;page-break-inside:avoid!important}.attendance-table th,.attendance-table td{padding:1.2mm .6mm!important;height:8mm;overflow-wrap:anywhere}.attendance-table .serial-column{width:7mm!important;min-width:7mm!important}.attendance-table .player-column{width:25mm!important;min-width:25mm!important}.attendance-table .paid-column{width:12mm!important;min-width:12mm!important}.attendance-table .remaining-column{width:18mm!important;min-width:18mm!important}.attendance-table .date-column{width:auto!important;min-width:0!important}.attendance-table td:nth-child(2){white-space:normal!important;line-height:1.15}.attendance-check{width:3.2mm;height:3.2mm}.payment-mark{background:transparent!important;width:auto;height:auto;font-size:12pt}
 }
 </style>
 {% endblock %}
