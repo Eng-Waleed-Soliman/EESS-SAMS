@@ -30,9 +30,13 @@ class AcademyTrainingGroupTests(TestCase):
         )
 
     def create_group(self, name='مجموعة السبت والثلاثاء', days=('5', '1')):
+        payload = {'name': name, 'training_days': list(days)}
+        for day in days:
+            payload[f'start_{day}'] = '17:00'
+            payload[f'end_{day}'] = '19:00'
         return self.client.post(
             reverse('academy_training_group_create', args=[self.academy.pk]),
-            {'name': name, 'training_days': list(days)},
+            payload,
         )
 
     def test_player_screen_button_create_edit_and_monthly_session_count(self):
@@ -47,13 +51,14 @@ class AcademyTrainingGroupTests(TestCase):
         self.assertRedirects(response, groups_url)
         group = AcademyTrainingGroup.objects.get(academy=self.academy)
         self.assertEqual(group.training_days, [5, 1])
+        self.assertEqual(group.training_times['5'], {'start': '17:00', 'end': '19:00'})
         self.assertEqual(group.sessions_count_in_month(2026, 9), 9)
 
         list_page = self.client.get(groups_url, {'month': '2026-09'})
         self.assertEqual(list_page.status_code, 200)
         self.assertContains(list_page, 'type="month"')
         self.assertContains(list_page, 'value="2026-09"')
-        self.assertContains(list_page, 'السبت، الثلاثاء')
+        self.assertContains(list_page, 'السبت: 17:00 - 19:00')
         self.assertEqual(list_page.context['rows'][0]['sessions_count'], 9)
         self.assertContains(list_page, 'تسكين لاعب')
         self.assertContains(list_page, 'تعديل')
@@ -61,12 +66,17 @@ class AcademyTrainingGroupTests(TestCase):
 
         edit_response = self.client.post(
             reverse('academy_training_group_update', args=[self.academy.pk, group.pk]),
-            {'name': 'مجموعة الإثنين والأربعاء', 'training_days': ['0', '2']},
+            {
+                'name': 'مجموعة الإثنين والأربعاء', 'training_days': ['0', '2'],
+                'start_0': '18:00', 'end_0': '20:00',
+                'start_2': '18:30', 'end_2': '20:30',
+            },
         )
         self.assertRedirects(edit_response, groups_url)
         group.refresh_from_db()
         self.assertEqual(group.name, 'مجموعة الإثنين والأربعاء')
         self.assertEqual(group.training_days, [0, 2])
+        self.assertEqual(group.training_times['2'], {'start': '18:30', 'end': '20:30'})
         self.assertEqual(group.sessions_count_in_month(2026, 9), 9)
 
     def test_assign_player_to_multiple_groups_remove_and_delete_group(self):
@@ -119,6 +129,16 @@ class AcademyTrainingGroupTests(TestCase):
         duplicate = self.create_group(name='المجموعة أ')
         self.assertContains(duplicate, 'يوجد مجموعة بنفس الاسم')
         self.assertEqual(AcademyTrainingGroup.objects.count(), 1)
+
+        invalid_time = self.client.post(
+            reverse('academy_training_group_create', args=[self.academy.pk]),
+            {
+                'name': 'موعد غير صحيح', 'training_days': ['5'],
+                'start_5': '20:00', 'end_5': '18:00',
+            },
+        )
+        self.assertContains(invalid_time, 'وقت نهاية التدريب يجب أن يكون بعد وقت البداية')
+        self.assertFalse(AcademyTrainingGroup.objects.filter(name='موعد غير صحيح').exists())
 
     def test_attendance_screen_uses_month_dates_payment_status_and_saves(self):
         self.create_group(days=('5', '1'))

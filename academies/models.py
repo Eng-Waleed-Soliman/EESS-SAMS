@@ -465,6 +465,7 @@ class AcademyTrainingGroup(models.Model):
     )
     name = models.CharField(max_length=200, verbose_name='اسم المجموعة')
     training_days = models.JSONField(default=list, verbose_name='أيام التدريب')
+    training_times = models.JSONField(default=dict, blank=True, verbose_name='مواعيد التدريب')
     players = models.ManyToManyField(
         AcademyMember, through='AcademyTrainingGroupPlayer', related_name='training_groups',
         verbose_name='اللاعبون',
@@ -484,6 +485,19 @@ class AcademyTrainingGroup(models.Model):
     def training_days_display(self):
         labels = dict((number, label) for number, label in WEEKDAY_AR.items())
         return '، '.join(labels.get(int(day), str(day)) for day in self.training_days)
+
+    @property
+    def training_schedule_display(self):
+        parts = []
+        for day in self.training_days:
+            day_number = int(day)
+            timing = self.training_times.get(str(day_number), {})
+            label = WEEKDAY_AR.get(day_number, str(day_number))
+            if timing.get('start') and timing.get('end'):
+                parts.append(f"{label}: {timing['start']} - {timing['end']}")
+            else:
+                parts.append(label)
+        return '، '.join(parts)
 
     def sessions_count_in_month(self, year, month):
         selected_days = {int(day) for day in self.training_days}

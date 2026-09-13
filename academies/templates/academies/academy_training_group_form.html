@@ -5,7 +5,16 @@
   {{ form.non_field_errors }}
   <div class="mb-4"><label class="form-label fw-bold" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>{{ form.name }}<div class="text-danger">{{ form.name.errors }}</div></div>
   <fieldset class="mb-4"><legend class="h5">{{ form.training_days.label }}</legend><div class="text-muted mb-2">{{ form.training_days.help_text }}</div><div class="weekday-grid">{% for checkbox in form.training_days %}<label class="weekday-choice">{{ checkbox.tag }} <span>{{ checkbox.choice_label }}</span></label>{% endfor %}</div><div class="text-danger">{{ form.training_days.errors }}</div></fieldset>
+  <fieldset class="mb-4"><legend class="h5">توقيت التدريب لكل يوم</legend><div class="text-muted mb-3">تظهر خانات التوقيت للأيام المختارة فقط.</div><div class="schedule-grid">{% for schedule in form.schedule_fields %}<div class="schedule-row" data-day="{{ schedule.day }}"><strong>{{ schedule.label }}</strong><div><label class="form-label" for="{{ schedule.start.id_for_label }}">من الساعة</label>{{ schedule.start }}<div class="text-danger">{{ schedule.start.errors }}</div></div><div><label class="form-label" for="{{ schedule.end.id_for_label }}">إلى الساعة</label>{{ schedule.end }}<div class="text-danger">{{ schedule.end.errors }}</div></div></div>{% endfor %}</div></fieldset>
   <div><button class="btn btn-success" type="submit">حفظ</button></div>
 </form>
-<style>.weekday-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px}.weekday-choice{display:flex;align-items:center;gap:8px;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;cursor:pointer}.weekday-choice input{margin:0}@media(max-width:760px){.weekday-grid{grid-template-columns:repeat(2,1fr)}}</style>
+<style>.weekday-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px}.weekday-choice{display:flex;align-items:center;gap:8px;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;cursor:pointer}.weekday-choice input{margin:0}.schedule-grid{display:grid;gap:12px}.schedule-row{display:none;grid-template-columns:160px 1fr 1fr;align-items:start;gap:14px;padding:14px;border:1px solid #cbd5e1;border-radius:14px;background:#f8fafc}.schedule-row.active{display:grid}.schedule-row>strong{padding-top:38px}@media(max-width:760px){.weekday-grid{grid-template-columns:repeat(2,1fr)}.schedule-row{grid-template-columns:1fr}.schedule-row>strong{padding-top:0}}</style>
+<script>
+function updateTrainingTimeRows(){
+  const selected = new Set(Array.from(document.querySelectorAll('input[name="training_days"]:checked')).map(input => input.value));
+  document.querySelectorAll('.schedule-row').forEach(row => row.classList.toggle('active', selected.has(row.dataset.day)));
+}
+document.querySelectorAll('input[name="training_days"]').forEach(input => input.addEventListener('change', updateTrainingTimeRows));
+updateTrainingTimeRows();
+</script>
 {% endblock %}
