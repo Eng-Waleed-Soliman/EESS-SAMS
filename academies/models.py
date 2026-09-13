@@ -313,6 +313,7 @@ class Academy(models.Model):
     contract_end_date = models.DateField(verbose_name='نهاية التعاقد')
     subscription_type = models.CharField(max_length=20, default='fixed', verbose_name='نوع الاشتراك')
     monthly_subscription = models.PositiveIntegerField(default=0, verbose_name='قيمة الاشتراك الثابت')
+    fixed_monthly_rents = models.JSONField(default=dict, blank=True, verbose_name='قيم الإيجار الشهري الثابت')
     variable_rent_type = models.CharField(max_length=20, blank=True, verbose_name='نوع القيمة المتغيرة')
     variable_rent_value = models.PositiveIntegerField(default=0, verbose_name='قيمة الإيجار')
     eess_share_percentage = models.PositiveIntegerField(default=0, verbose_name='نسبة EESS من اشتراكات اللاعبين %')
@@ -388,7 +389,7 @@ class Academy(models.Model):
 
     def calculate_variable_monthly_rent(self, year, month):
         if self.subscription_type != 'variable':
-            return self.monthly_subscription
+            return self.fixed_rent_for_month(year, month) if self.subscription_type == 'fixed' else self.monthly_subscription
 
         rent_value = Decimal(self.variable_rent_value or 0)
         base_days_count = self.training_days_count_in_month(year, month)
@@ -410,6 +411,23 @@ class Academy(models.Model):
             return int(rent_value * Decimal(base_days_count))
 
         return 0
+
+    def fixed_rent_for_month(self, year, month):
+        if self.subscription_type != 'fixed':
+            return int(self.monthly_subscription or 0)
+        value = (self.fixed_monthly_rents or {}).get(str(int(month)))
+        if value is None:
+            return int(self.monthly_subscription or 0)
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return int(self.monthly_subscription or 0)
+
+    @property
+    def fixed_rent_total(self):
+        if self.fixed_monthly_rents:
+            return sum(self.fixed_rent_for_month(2000, month) for month in range(1, 13))
+        return int(self.monthly_subscription or 0) * 12
 
 
 class AcademyMember(models.Model):

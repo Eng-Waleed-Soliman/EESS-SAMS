@@ -306,6 +306,13 @@ def _academy_slot_conflicts(academy, booking_date, venue, wanted_start, wanted_e
     return ''
 
 
+FIXED_RENT_MONTHS = [
+    (7, 'يوليو'), (8, 'أغسطس'), (9, 'سبتمبر'), (10, 'أكتوبر'),
+    (11, 'نوفمبر'), (12, 'ديسمبر'), (1, 'يناير'), (2, 'فبراير'),
+    (3, 'مارس'), (4, 'أبريل'), (5, 'مايو'), (6, 'يونيو'),
+]
+
+
 class AcademyForm(forms.ModelForm):
     branch = forms.ModelChoiceField(
         label='فرع التعاقد',
@@ -410,7 +417,7 @@ class AcademyForm(forms.ModelForm):
         model = Academy
         fields = [
             'branch', 'name', 'name_en', 'logo', 'website_image', 'sport_activity', 'sport_activity_en', 'company_name', 'manager_name', 'manager_name_en', 'manager_national_id', 'manager_phone', 'manager_photo', 'manager_bio', 'manager_bio_en',
-            'operation_place', 'contract_start_date', 'contract_end_date', 'subscription_type', 'monthly_subscription',
+            'operation_place', 'contract_start_date', 'contract_end_date', 'subscription_type',
             'variable_rent_type', 'variable_rent_value', 'eess_share_percentage', 'security_deposit', 'training_days', 'training_hours',
             'has_extra_hours', 'extra_training_days', 'extra_training_place', 'extra_training_hours', 'notes',
             'website_description', 'website_description_en', 'is_published_on_website'
@@ -425,13 +432,25 @@ class AcademyForm(forms.ModelForm):
             'manager_bio': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
             'manager_bio_en': forms.Textarea(attrs={'rows': 4, 'class': 'form-control', 'dir': 'ltr'}),
             'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'monthly_subscription': forms.NumberInput(attrs={'class': 'form-control fixed-field', 'step': '1'}),
             'eess_share_percentage': forms.NumberInput(attrs={'class': 'form-control share-field', 'step': '1', 'min': '0', 'max': '100'}),
             'security_deposit': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        saved_fixed_rents = self.instance.fixed_monthly_rents if self.instance and self.instance.pk else {}
+        legacy_fixed_rent = int(self.instance.monthly_subscription or 0) if self.instance and self.instance.pk else None
+        for month_number, month_label in FIXED_RENT_MONTHS:
+            initial_value = saved_fixed_rents.get(str(month_number))
+            if initial_value is None and legacy_fixed_rent is not None:
+                initial_value = legacy_fixed_rent
+            self.fields[f'fixed_rent_{month_number}'] = forms.IntegerField(
+                label=month_label, required=False, min_value=0, initial=initial_value,
+                widget=forms.NumberInput(attrs={
+                    'class': 'form-control fixed-rent-input', 'step': '1', 'min': '0',
+                    'data-month': month_number,
+                }),
+            )
         self.fields['branch'].queryset = Branch.objects.all().order_by('name')
         activity_names = list(Activity.objects.filter(is_active=True).values_list('name', flat=True).order_by('name'))
         static_names = [value for value, _ in SPORT_ACTIVITY_CHOICES]
@@ -457,6 +476,27 @@ class AcademyForm(forms.ModelForm):
             self.fields['extra_training_hours'].initial = split_values(self.instance.extra_training_hours)
             self.fields['has_extra_hours'].initial = bool(self.instance.has_extra_hours)
             self.fields['training_schedule_data'].initial = json.dumps(self._initial_schedule_rows(), ensure_ascii=False)
+
+    @property
+    def fixed_rent_fields(self):
+        return [
+            {'month': month_number, 'label': month_label, 'field': self[f'fixed_rent_{month_number}']}
+            for month_number, month_label in FIXED_RENT_MONTHS
+        ]
+
+    @property
+    def fixed_rent_total_value(self):
+        if self.is_bound:
+            total = 0
+            for month_number, _label in FIXED_RENT_MONTHS:
+                try:
+                    total += max(0, int(self.data.get(f'fixed_rent_{month_number}') or 0))
+                except (TypeError, ValueError):
+                    continue
+            return total
+        if self.instance and self.instance.pk:
+            return self.instance.fixed_rent_total
+        return 0
 
     def _initial_schedule_rows(self):
         if self.instance and self.instance.pk and self.instance.training_schedule:
@@ -516,6 +556,24 @@ class AcademyForm(forms.ModelForm):
         selected_hours = []
         normalized_rows = []
         if subscription_type == 'fixed':
+            fixed_rents = {}
+            has_new_fixed_values = any(
+                f'fixed_rent_{month}' in self.data for month, _label in FIXED_RENT_MONTHS
+            )
+            legacy_value = self.data.get('monthly_subscription') if self.is_bound else None
+            for month_number, month_label in FIXED_RENT_MONTHS:
+                field_name = f'fixed_rent_{month_number}'
+                value = cleaned_data.get(field_name)
+                if not has_new_fixed_values and legacy_value not in (None, ''):
+                    try:
+                        value = max(0, int(legacy_value))
+                    except (TypeError, ValueError):
+                        value = None
+                if value is None:
+                    self.add_error(field_name, f'أدخل قيمة إيجار شهر {month_label}.')
+                else:
+                    fixed_rents[str(month_number)] = int(value)
+            cleaned_data['fixed_monthly_rents'] = fixed_rents
             for row in parsed_rows:
                 place = row.get('place')
                 if place and place not in selected_places:
@@ -608,13 +666,17 @@ class AcademyForm(forms.ModelForm):
             academy.extra_training_place = ''
             academy.extra_training_hours = ''
         if academy.subscription_type == 'fixed':
+            academy.fixed_monthly_rents = self.cleaned_data.get('fixed_monthly_rents', {})
+            academy.monthly_subscription = int(academy.fixed_monthly_rents.get('7', 0))
             academy.variable_rent_type = ''
             academy.variable_rent_value = 0
             academy.eess_share_percentage = 0
         if academy.subscription_type == 'variable':
+            academy.fixed_monthly_rents = {}
             academy.eess_share_percentage = 0
         if academy.subscription_type == 'revenue_share':
             academy.monthly_subscription = 0
+            academy.fixed_monthly_rents = {}
             academy.variable_rent_type = ''
             academy.variable_rent_value = 0
         if commit:

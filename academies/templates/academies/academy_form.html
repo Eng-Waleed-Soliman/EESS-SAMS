@@ -46,7 +46,12 @@
       <div class="col-md-6 mb-3"><label class="form-label fw-bold">{{ form.contract_end_date.label }}</label>{{ form.contract_end_date }}<div class="text-danger small">{{ form.contract_end_date.errors }}</div></div>
 
       <div class="col-md-4 mb-3"><label class="form-label fw-bold">{{ form.subscription_type.label }}</label>{{ form.subscription_type }}<div class="text-danger small">{{ form.subscription_type.errors }}</div></div>
-      <div class="col-md-4 mb-3 fixed-subscription"><label class="form-label fw-bold">{{ form.monthly_subscription.label }}</label>{{ form.monthly_subscription }}<div class="text-danger small">{{ form.monthly_subscription.errors }}</div></div>
+      <div class="col-12 mb-3 fixed-subscription fixed-rent-section">
+        <label class="form-label fw-bold d-block">قيم الإيجار الشهري من يوليو إلى يونيو</label>
+        <div class="form-text mb-3">يمكن إدخال قيمة مختلفة لكل شهر، ويُستخدم مبلغ الشهر نفسه في الحسابات والتقارير.</div>
+        <div class="fixed-rent-grid">{% for rent in form.fixed_rent_fields %}<div class="fixed-rent-cell"><label class="form-label fixed-rent-month-label" data-month="{{ rent.month }}" data-label="{{ rent.label }}" for="{{ rent.field.id_for_label }}">{{ rent.label }}</label>{{ rent.field }}<div class="text-danger small">{{ rent.field.errors }}</div></div>{% endfor %}</div>
+        <div class="fixed-rent-total mt-3"><label class="form-label fw-bold" for="fixedRentTotal">إجمالي قيم الإيجار</label><input id="fixedRentTotal" class="form-control" type="text" value="{{ form.fixed_rent_total_value }}" readonly></div>
+      </div>
       <div class="col-md-4 mb-3 variable-subscription legacy-rent-field"><label class="form-label fw-bold">{{ form.variable_rent_type.label }}</label>{{ form.variable_rent_type }}<div class="text-danger small">{{ form.variable_rent_type.errors }}</div></div>
       <div class="col-md-4 mb-3 variable-subscription legacy-rent-field"><label class="form-label fw-bold">{{ form.variable_rent_value.label }}</label>{{ form.variable_rent_value }}<div class="form-text">قيمة احتياطية لو لم يسجل سعر داخل جدول التدريب.</div><div class="text-danger small">{{ form.variable_rent_value.errors }}</div></div>
       <div class="col-md-4 mb-3 share-subscription"><label class="form-label fw-bold">{{ form.eess_share_percentage.label }}</label>{{ form.eess_share_percentage }}<div class="text-danger small">{{ form.eess_share_percentage.errors }}</div></div>
@@ -124,6 +129,7 @@
 </div>
 <style>
 .legacy-schedule-field,.legacy-rent-field{display:none!important}
+.fixed-rent-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px}.fixed-rent-cell{padding:12px;border:1px solid #dbeafe;border-radius:12px;background:#f8fafc}.fixed-rent-total{max-width:360px}.fixed-rent-total input{font-size:22px;font-weight:900;background:#e0f2fe}
 .training-place-row{border:1px solid #dbeafe;border-radius:10px;background:#f8fafc;padding:12px;margin-bottom:10px}
 .training-place-head{display:flex;align-items:center;gap:10px;font-weight:900}
 .training-days{display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb}
@@ -133,6 +139,7 @@
 .training-day-row.active .training-day-controls{display:block}
 .training-interval-row{border-top:1px dashed #dbeafe;padding-top:10px;margin-top:10px}
 .training-interval-row:first-child{border-top:0;padding-top:0;margin-top:0}
+@media(max-width:760px){.fixed-rent-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
@@ -163,8 +170,36 @@ document.addEventListener('DOMContentLoaded', function(){
   const trainingDaysSelect = document.getElementById('id_training_days');
   const trainingHoursSelect = document.getElementById('id_training_hours');
   const variableRentType = document.getElementById('id_variable_rent_type');
+  const contractStartField = document.getElementById('id_contract_start_date');
+  const contractEndField = document.getElementById('id_contract_end_date');
+  const fixedRentTotal = document.getElementById('fixedRentTotal');
   let savedSchedule = [];
   try { savedSchedule = JSON.parse(savedScheduleInput.value || '[]'); } catch(e){ savedSchedule = []; }
+
+  function fixedRentCycleStartYear(){
+    const startValue = contractStartField ? contractStartField.value : '';
+    const endValue = contractEndField ? contractEndField.value : '';
+    const source = startValue || endValue;
+    if(!source) return new Date().getFullYear();
+    const parts = source.split('-').map(Number);
+    return parts[1] >= 7 ? parts[0] : parts[0] - 1;
+  }
+  function updateFixedRentSummary(){
+    const cycleStart = fixedRentCycleStartYear();
+    let total = 0;
+    document.querySelectorAll('.fixed-rent-input').forEach(function(input){
+      total += Math.max(0, Number(input.value || 0));
+    });
+    document.querySelectorAll('.fixed-rent-month-label').forEach(function(label){
+      const month = Number(label.dataset.month);
+      label.textContent = label.dataset.label + ' ' + (month >= 7 ? cycleStart : cycleStart + 1);
+    });
+    if(fixedRentTotal) fixedRentTotal.value = total.toLocaleString('en-US');
+  }
+  document.querySelectorAll('.fixed-rent-input').forEach(function(input){ input.addEventListener('input', updateFixedRentSummary); });
+  if(contractStartField) contractStartField.addEventListener('change', updateFixedRentSummary);
+  if(contractEndField) contractEndField.addEventListener('change', updateFixedRentSummary);
+  updateFixedRentSummary();
 
   function timeOptions(selected, fallbackIndex){
     const selectedValue = selected || endpointChoices[fallbackIndex || 0] || '';

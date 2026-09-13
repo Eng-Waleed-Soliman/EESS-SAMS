@@ -72,7 +72,7 @@
       <tr><th>الأكاديمية</th><td>{{ academy.name }}</td><th>الفرع</th><td>{{ academy.branch.display_name|default:'-' }}</td><th>النشاط</th><td>{{ academy.sport_activity }}</td></tr>
       <tr><th>الشركة</th><td>{{ academy.company_name }}</td><th>مدير الأكاديمية</th><td>{{ academy.manager_name }}</td><th>رقم الهاتف</th><td>{{ academy.manager_phone }}</td></tr>
       <tr><th>الرقم القومي للمدير</th><td>{{ academy.manager_national_id|default:'-' }}</td><th>بداية التعاقد</th><td>{{ academy.contract_start_date|date:'d/m/Y' }}</td><th>نهاية التعاقد</th><td>{{ academy.contract_end_date|date:'d/m/Y' }}</td></tr>
-      <tr><th>نوع الاشتراك</th><td>{{ selected_academy_row.subscription_label }}</td><th>القيمة الثابتة</th><td>{{ academy.monthly_subscription }}</td><th>القيمة المتغيرة</th><td>{{ academy.variable_rent_value }}</td></tr>
+      <tr><th>نوع الاشتراك</th><td>{{ selected_academy_row.subscription_label }}</td><th>إجمالي الإيجار الثابت</th><td>{{ academy.fixed_rent_total }}</td><th>القيمة المتغيرة</th><td>{{ academy.variable_rent_value }}</td></tr>
       <tr><th>نسبة المشاركة</th><td>{{ academy.eess_share_percentage }}%</td><th>مبلغ التأمين</th><td>{{ academy.security_deposit }}</td><th>مكان التدريب</th><td>{{ academy.operation_place }}</td></tr>
       <tr><th>أيام التدريب</th><td colspan="2">{{ academy.training_days|default:'-' }}</td><th>ملاحظات</th><td colspan="2">{{ academy.notes|default:'-' }}</td></tr>
     </tbody>

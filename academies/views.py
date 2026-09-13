@@ -2534,6 +2534,7 @@ def _calculate_fixed_income_with_operation_changes(academy, year, month):
     # توزيع الاشتراك الثابت على عدد ساعات التشغيل في الشهر حتى يتم خصم أي ساعة/يوم ملغي من الدخل.
     if academy.subscription_type != 'fixed':
         return academy.monthly_subscription
+    monthly_rent = academy.fixed_rent_for_month(year, month)
     from calendar import monthrange
     total_planned = 0
     active_planned = 0
@@ -2545,14 +2546,14 @@ def _calculate_fixed_income_with_operation_changes(academy, year, month):
         total_planned += len([o for o in _academy_occurrences_for_date(current, include_cancelled=True) if o['academy'].id == academy.id])
         active_planned += len([o for o in _academy_occurrences_for_date(current) if o['academy'].id == academy.id])
     if total_planned <= 0:
-        return int(academy.monthly_subscription or 0)
-    return int((academy.monthly_subscription or 0) * active_planned / total_planned)
+        return monthly_rent
+    return int(monthly_rent * active_planned / total_planned)
 
 
 def _calculate_variable_income_with_operation_changes(academy, year, month):
     # حساب الاشتراك المتغير مع استبعاد الأيام الملغاة وحجوزات الأكاديمية المحذوفة في شاشة التشغيل.
     if academy.subscription_type != 'variable':
-        return academy.monthly_subscription
+        return academy.fixed_rent_for_month(year, month) if academy.subscription_type == 'fixed' else academy.monthly_subscription
     from calendar import monthrange
     rent_value = int(academy.variable_rent_value or 0)
     total_units = 0
@@ -2674,7 +2675,7 @@ def _academy_variable_occurrences_for_date(academy, selected_date, context):
 
 def _calculate_variable_income_by_facility(academy, year, month, context=None):
     if academy.subscription_type != 'variable':
-        return int(academy.monthly_subscription or 0)
+        return academy.fixed_rent_for_month(year, month) if academy.subscription_type == 'fixed' else int(academy.monthly_subscription or 0)
     if context is None:
         context = _variable_rent_context(year, month, [academy.id])
     fallback_value = int(academy.variable_rent_value or 0)
@@ -2792,7 +2793,7 @@ def _academy_month_income_from_counts(
             ).aggregate(total=Sum('monthly_subscription'))['total'] or 0
         return int(players_total * (academy.eess_share_percentage or 0) / 100)
     if academy.subscription_type == 'fixed':
-        return int(academy.monthly_subscription or 0)
+        return academy.fixed_rent_for_month(year, month) if year and month else int(academy.monthly_subscription or 0)
     if year and month:
         return _calculate_variable_income_by_facility(
             academy,
