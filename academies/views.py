@@ -4505,9 +4505,16 @@ def academy_training_group_attendance(request, academy_id, pk):
     rows = []
     for player in players:
         subscription = subscriptions.get(player.pk)
+        expected_amount = (
+            int(subscription.expected_amount or 0)
+            if subscription
+            else int(player.monthly_subscription or 0)
+        )
+        paid_amount = int(subscription.paid_amount or 0) if subscription else 0
         rows.append({
             'player': player,
             'is_paid': bool(subscription and subscription.is_paid),
+            'remaining_amount': max(0, expected_amount - paid_amount),
             'attendance': [
                 {
                     'date': training_date,

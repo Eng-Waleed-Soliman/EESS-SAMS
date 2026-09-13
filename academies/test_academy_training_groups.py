@@ -131,6 +131,12 @@ class AcademyTrainingGroupTests(TestCase):
             expected_amount=650,
             paid_amount=650,
         )
+        AcademyPlayerMonthlySubscription.objects.create(
+            player=self.second_player,
+            month=date(2026, 9, 1),
+            expected_amount=650,
+            paid_amount=100,
+        )
         url = reverse('academy_training_group_attendance', args=[self.academy.pk, group.pk])
         group_list = self.client.get(
             reverse('academy_training_group_list', args=[self.academy.pk]), {'month': '2026-09'},
@@ -144,7 +150,11 @@ class AcademyTrainingGroupTests(TestCase):
         self.assertContains(page, 'سبتمبر 2026')
         self.assertEqual(len(page.context['training_date_headers']), 9)
         self.assertTrue(page.context['rows'][0]['is_paid'])
+        self.assertEqual(page.context['rows'][0]['remaining_amount'], 0)
         self.assertFalse(page.context['rows'][1]['is_paid'])
+        self.assertEqual(page.context['rows'][1]['remaining_amount'], 550)
+        self.assertContains(page, group.name)
+        self.assertContains(page, 'المبلغ المتبقي')
         self.assertContains(page, 'طباعة')
         self.assertContains(page, 'حفظ')
 
