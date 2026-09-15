@@ -501,7 +501,19 @@ SIDEBAR_PERMISSION_MODULES = [
     {'key': 'shareholders', 'field': 'can_shareholders', 'label': 'المساهمين', 'buttons': ['إضافة مساهم', 'تعديل مساهم', 'حذف مساهم']},
     {'key': 'employees', 'field': 'can_employees', 'label': 'الموظفين', 'buttons': ['إضافة موظف', 'تعديل موظف', 'حذف موظف']},
     {'key': 'general_expenses', 'field': 'can_general_expenses', 'label': 'المصروفات العامة', 'buttons': ['مصروف شهري', 'مصروف يومي', 'مصروف تشغيل', 'تعديل', 'حذف']},
-    {'key': 'accounts', 'field': 'can_accounts', 'label': 'الحسابات', 'buttons': ['عرض الحسابات', 'تصدير PDF']},
+    {
+        'key': 'accounts',
+        'field': 'can_accounts',
+        'label': 'الحسابات',
+        'buttons': [
+            'أمر صرف مبلغ مالي',
+            'أمر توريد مبلغ مالي',
+            'سجل أوامر الصرف والتوريد',
+            'المصروفات العامة',
+            'تصدير PDF',
+            'طباعة',
+        ],
+    },
     {'key': 'cafeteria', 'field': 'can_cafeteria', 'label': 'الكافيتريا', 'buttons': ['إضافة صنف', 'فئات الأصناف', 'الشراء', 'إضافة للأوردر', 'Checkout', 'تعديل حركة بيع', 'حذف حركة بيع']},
     {'key': 'reports', 'field': 'can_reports', 'label': 'التقارير', 'buttons': ['عرض التقرير', 'تصدير PDF']},
     {'key': 'settings', 'field': 'can_settings', 'label': 'الإعدادات', 'buttons': ['المستخدمين والصلاحيات', 'الوظائف والمرتبات', 'شرائح البونص', 'هوية البرنامج', 'الأفرع', 'الملاعب والصالات', 'صور الرياضات والأنشطة']},
@@ -3999,15 +4011,34 @@ def company_management_home(request):
 @login_required
 def accounts_home(request):
     profile = _ensure_user_profile(request.user)
+    is_accounts_admin = bool(request.user.is_superuser or request.user.is_staff)
+    saved_accounts_buttons = (profile.button_permissions or {}).get('accounts')
+
+    def accounts_button_allowed(button_name):
+        if is_accounts_admin:
+            return True
+        if not profile.can_accounts:
+            return False
+        if not saved_accounts_buttons:
+            # Existing accounts users predate the detailed button permissions.
+            return True
+        if 'عرض الحسابات' in saved_accounts_buttons:
+            # Preserve the former two-option permissions after this upgrade.
+            if button_name == 'تصدير PDF':
+                return 'تصدير PDF' in saved_accounts_buttons
+            return True
+        return button_name in saved_accounts_buttons
+
     can_view_financial_summary = bool(
-        request.user.is_superuser or request.user.is_staff or
+        is_accounts_admin or
         profile.can_accounts or profile.can_access_any_report()
     )
     can_view_expenses = bool(
-        request.user.is_superuser or request.user.is_staff or profile.can_general_expenses
+        is_accounts_admin or profile.can_general_expenses or
+        accounts_button_allowed('المصروفات العامة')
     )
     can_manage_vouchers = bool(
-        request.user.is_superuser or request.user.is_staff or profile.can_accounts
+        is_accounts_admin or profile.can_accounts
     )
     if not (can_view_financial_summary or can_view_expenses):
         messages.error(request, 'ليس لديك صلاحية الحسابات.')
@@ -4039,6 +4070,11 @@ def accounts_home(request):
         'can_view_financial_summary': can_view_financial_summary,
         'can_view_expenses': can_view_expenses,
         'can_manage_vouchers': can_manage_vouchers,
+        'can_create_disbursement': accounts_button_allowed('أمر صرف مبلغ مالي'),
+        'can_create_supply': accounts_button_allowed('أمر توريد مبلغ مالي'),
+        'can_view_voucher_register': accounts_button_allowed('سجل أوامر الصرف والتوريد'),
+        'can_export_accounts': can_view_financial_summary and accounts_button_allowed('تصدير PDF'),
+        'can_print_accounts': can_view_financial_summary and accounts_button_allowed('طباعة'),
         'signature_titles': signature_titles,
         'signature_title': signature_title,
         'signature_name': signature_names[0] if signature_names else '',

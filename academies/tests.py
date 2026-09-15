@@ -71,6 +71,35 @@ class ApplicationFlowsTests(TestCase):
         self.user = User.objects.create_user(username='tester', password='test-password')
         self.client.force_login(self.user)
 
+    def test_accounts_permissions_list_every_header_action_and_control_visibility(self):
+        self.user.is_staff = True
+        self.user.save(update_fields=['is_staff'])
+        managed_user = User.objects.create_user(username='accounts-user', password='test-password')
+        managed_profile = UserPermission.objects.create(user=managed_user, can_accounts=True)
+
+        permission_page = self.client.get(reverse('user_update', args=[managed_user.pk]))
+        self.assertEqual(permission_page.status_code, 200)
+        for button_label in [
+            'أمر صرف مبلغ مالي', 'أمر توريد مبلغ مالي',
+            'سجل أوامر الصرف والتوريد', 'المصروفات العامة',
+            'تصدير PDF', 'طباعة',
+        ]:
+            self.assertContains(permission_page, f'value="{button_label}"')
+
+        managed_profile.button_permissions = {
+            'accounts': ['أمر توريد مبلغ مالي', 'سجل أوامر الصرف والتوريد', 'طباعة'],
+        }
+        managed_profile.save(update_fields=['button_permissions'])
+        self.client.force_login(managed_user)
+        accounts_page = self.client.get(reverse('accounts_home'))
+        self.assertEqual(accounts_page.status_code, 200)
+        self.assertContains(accounts_page, 'أمر توريد مبلغ مالي')
+        self.assertContains(accounts_page, 'سجل أوامر الصرف والتوريد')
+        self.assertContains(accounts_page, 'onclick="printAccounts(false)"')
+        self.assertNotContains(accounts_page, 'أمر صرف مبلغ مالي')
+        self.assertNotContains(accounts_page, 'المصروفات العامة')
+        self.assertNotContains(accounts_page, 'onclick="printAccounts(true)"')
+
     def test_public_website_uses_published_management_data(self):
         branch = Branch.objects.create(
             name='Public Branch', short_name='PB',

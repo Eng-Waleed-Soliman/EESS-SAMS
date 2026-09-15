@@ -3,14 +3,20 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
   <h3>الحسابات</h3>
   <div class="btn-row d-flex gap-2 flex-wrap">
-    {% if can_manage_vouchers %}
+    {% if can_create_disbursement %}
     <a class="btn btn-success" href="{% url 'financial_voucher_create' 'disbursement' %}">أمر صرف مبلغ مالي</a>
+    {% endif %}
+    {% if can_create_supply %}
     <a class="btn btn-info" href="{% url 'financial_voucher_create' 'supply' %}">أمر توريد مبلغ مالي</a>
+    {% endif %}
+    {% if can_view_voucher_register %}
     <a class="btn btn-outline-secondary" href="{% url 'financial_voucher_list' %}">سجل أوامر الصرف والتوريد</a>
     {% endif %}
     {% if can_view_expenses %}<a class="btn btn-primary" href="{% url 'general_expenses_home' %}">المصروفات العامة</a>{% endif %}
-    {% if can_view_financial_summary %}
+    {% if can_export_accounts %}
     <button type="button" class="btn btn-danger" onclick="printAccounts(true)">تصدير PDF</button>
+    {% endif %}
+    {% if can_print_accounts %}
     <button type="button" class="btn btn-outline-primary" onclick="printAccounts(false)">طباعة</button>
     {% endif %}
   </div>
