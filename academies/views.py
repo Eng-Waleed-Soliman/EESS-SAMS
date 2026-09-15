@@ -3555,6 +3555,21 @@ def financial_voucher_update(request, pk):
 
 
 @login_required
+def financial_voucher_delete(request, pk):
+    denied = _voucher_access_or_redirect(request)
+    if denied:
+        return denied
+    if request.method != 'POST':
+        return redirect('financial_voucher_list')
+    voucher = get_object_or_404(FinancialVoucher, pk=pk)
+    voucher_type = voucher.voucher_type
+    voucher_number = voucher.voucher_number
+    voucher.delete()
+    messages.success(request, f'تم حذف الأمر المالي {voucher_number} بنجاح.')
+    return redirect(f"{reverse('financial_voucher_list')}?type={voucher_type}")
+
+
+@login_required
 def financial_voucher_detail(request, pk):
     denied = _voucher_access_or_redirect(request)
     if denied:

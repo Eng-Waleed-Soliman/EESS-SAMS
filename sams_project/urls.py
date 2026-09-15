@@ -50,6 +50,7 @@ urlpatterns = [
     path('accounts/financial-vouchers/add/<str:voucher_type>/', views.financial_voucher_create, name='financial_voucher_create'),
     path('accounts/financial-vouchers/<int:pk>/', views.financial_voucher_detail, name='financial_voucher_detail'),
     path('accounts/financial-vouchers/<int:pk>/edit/', views.financial_voucher_update, name='financial_voucher_update'),
+    path('accounts/financial-vouchers/<int:pk>/delete/', views.financial_voucher_delete, name='financial_voucher_delete'),
     path('company-management/', views.company_management_home, name='company_management_home'),
     path('shareholders/', views.shareholder_list, name='shareholder_list'),
     path('shareholders/add/', views.shareholder_create, name='shareholder_create'),
@@ -147,5 +148,6 @@ urlpatterns = [
     path('reports/financial-vouchers/add/<str:voucher_type>/', views.financial_voucher_create),
     path('reports/financial-vouchers/<int:pk>/', views.financial_voucher_detail),
     path('reports/financial-vouchers/<int:pk>/edit/', views.financial_voucher_update),
+    path('reports/financial-vouchers/<int:pk>/delete/', views.financial_voucher_delete),
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
