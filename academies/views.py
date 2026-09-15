@@ -3801,28 +3801,29 @@ def reports_home_v2(request):
                 'type': 'مصروف يومي', 'date': expense.expense_date,
                 'title': expense.title, 'amount': expense.amount, 'notes': expense.notes,
             })
-        for purchase in CafeteriaPurchase.objects.filter(
+        cafeteria_purchase_details = list(CafeteriaPurchase.objects.filter(
             purchase_date__range=(start, end), item__in=cafeteria_item_qs
-        ).select_related('item'):
-            expense_rows.append({
-                'type': 'مشتروات الكافيتريا', 'date': purchase.purchase_date,
-                'title': f'{purchase.item.name} - كمية {purchase.quantity}',
-                'amount': purchase.total_amount,
-                'notes': purchase.notes or (f'المورد: {purchase.supplier}' if purchase.supplier else ''),
-            })
-        for expense in cafeteria_operating_expense_qs.filter(expense_date__range=(start, end)):
-            expense_rows.append({
-                'type': 'مصاريف تشغيل الكافيتريا',
-                'date': expense.expense_date,
-                'title': expense.title,
-                'amount': expense.amount,
-                'notes': '',
-            })
+        ).select_related('item'))
+        cafeteria_operating_expense_details = list(
+            cafeteria_operating_expense_qs.filter(
+                expense_date__range=(start, end)
+            ).select_related('created_by')
+        )
         expense_rows.sort(key=lambda item: (item['date'], item['title']))
+        cafeteria_stock_purchase_total = sum(
+            purchase.total_amount for purchase in cafeteria_purchase_details
+        )
+        cafeteria_operating_expense_total = sum(
+            int(expense.amount or 0) for expense in cafeteria_operating_expense_details
+        )
         academy_income_total = sum(row['supplied'] for row in rows)
         daily_booking_total = sum(row['total_amount'] or 0 for row in daily_booking_rows)
         cafeteria_income_total = sum(row['amount'] or 0 for row in cafeteria_income_rows)
-        expenses_total = sum(row['amount'] or 0 for row in expense_rows)
+        expenses_total = (
+            sum(row['amount'] or 0 for row in expense_rows)
+            + cafeteria_stock_purchase_total
+            + cafeteria_operating_expense_total
+        )
         total_income = academy_income_total + daily_booking_total + cafeteria_income_total
         context.update({
             'income_rows': rows,
@@ -3836,6 +3837,10 @@ def reports_home_v2(request):
             'income_cafeteria_rows': cafeteria_income_rows,
             'income_cafeteria_total': cafeteria_income_total,
             'income_expense_rows': expense_rows,
+            'income_cafeteria_purchase_details': cafeteria_purchase_details,
+            'income_cafeteria_operating_expense_details': cafeteria_operating_expense_details,
+            'income_cafeteria_stock_purchase_total': cafeteria_stock_purchase_total,
+            'income_cafeteria_operating_expense_total': cafeteria_operating_expense_total,
             'income_expenses_total': expenses_total,
             'income_academy_total': academy_income_total,
             'income_total': total_income,

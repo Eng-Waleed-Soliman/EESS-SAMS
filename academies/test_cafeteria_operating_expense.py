@@ -96,7 +96,13 @@ class CafeteriaOperatingExpenseTests(TestCase):
             self.assertEqual(report.context['income_cafeteria_total'], 100)
             self.assertEqual(report.context['income_expenses_total'], 70)
             self.assertEqual(report.context['income_net_total'], 30)
-            self.assertContains(report, 'مصاريف تشغيل الكافيتريا')
+            self.assertEqual(report.context['income_cafeteria_stock_purchase_total'], 50)
+            self.assertEqual(report.context['income_cafeteria_operating_expense_total'], 20)
+            self.assertContains(report, 'إجمالي مشتروات أصناف الكافيتريا')
+            self.assertContains(report, 'إجمالي مصاريف تشغيل الكافيتريا')
+            self.assertContains(report, 'incomeCafeteriaPurchaseDetails')
+            self.assertContains(report, 'incomeCafeteriaOperatingExpenseDetails')
+            self.assertContains(report, 'cafeteria-detail-row d-none', count=2)
             self.assertContains(report, expense.title)
 
         response = self.client.post(reverse('cafe_operating_expense_update', args=[expense.pk]), {

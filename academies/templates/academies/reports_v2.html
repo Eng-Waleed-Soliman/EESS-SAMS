@@ -115,7 +115,19 @@
   <tbody class="report-part">
     <tr class="table-primary"><th colspan="7" class="fs-5">المصروفات</th></tr>
     <tr><th>نوع المصروف</th><th>تاريخ الصرف</th><th colspan="2">بيان المصروف</th><th>القيمة</th><th colspan="2">الملاحظات</th></tr>
-    {% for row in income_expense_rows %}<tr><td>{{ row.type }}</td><td>{{ row.date|date:'d/m/Y' }}</td><td colspan="2">{{ row.title }}</td><td>{{ row.amount }}</td><td colspan="2">{{ row.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="7">لا توجد مصروفات خلال الفترة المختارة</td></tr>{% endfor %}
+    {% for row in income_expense_rows %}<tr><td>{{ row.type }}</td><td>{{ row.date|date:'d/m/Y' }}</td><td colspan="2">{{ row.title }}</td><td>{{ row.amount }}</td><td colspan="2">{{ row.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="7">لا توجد مصروفات عامة خلال الفترة المختارة</td></tr>{% endfor %}
+    <tr class="expandable-summary-row" ondblclick="toggleCafeteriaDetails('incomeCafeteriaPurchaseDetails', this)" title="دبل كليك لإظهار التفاصيل" aria-expanded="false"><th colspan="4">إجمالي مشتروات أصناف الكافيتريا</th><td>{{ income_cafeteria_stock_purchase_total }}</td><td colspan="2" class="text-muted no-print">دبل كليك للتفاصيل</td></tr>
+    <tr id="incomeCafeteriaPurchaseDetails" class="cafeteria-detail-row d-none"><td colspan="7">
+      <table class="table table-sm table-striped mb-0"><thead><tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>سعر الشراء</th><th>الإجمالي</th><th>المورد</th><th>ملاحظات</th></tr></thead><tbody>
+        {% for purchase in income_cafeteria_purchase_details %}<tr><td>{{ purchase.purchase_date|date:'d/m/Y' }}</td><td>{{ purchase.item.name }}</td><td>{{ purchase.quantity }}</td><td>{{ purchase.unit_price }}</td><td>{{ purchase.total_amount }}</td><td>{{ purchase.supplier|default:'-' }}</td><td>{{ purchase.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="7">لا توجد مشتروات أصناف خلال الفترة المختارة.</td></tr>{% endfor %}
+      </tbody></table>
+    </td></tr>
+    <tr class="expandable-summary-row" ondblclick="toggleCafeteriaDetails('incomeCafeteriaOperatingExpenseDetails', this)" title="دبل كليك لإظهار التفاصيل" aria-expanded="false"><th colspan="4">إجمالي مصاريف تشغيل الكافيتريا</th><td>{{ income_cafeteria_operating_expense_total }}</td><td colspan="2" class="text-muted no-print">دبل كليك للتفاصيل</td></tr>
+    <tr id="incomeCafeteriaOperatingExpenseDetails" class="cafeteria-detail-row d-none"><td colspan="7">
+      <table class="table table-sm table-striped mb-0"><thead><tr><th>التاريخ</th><th>بيان المصروف</th><th>القيمة</th><th>سُجل بواسطة</th></tr></thead><tbody>
+        {% for expense in income_cafeteria_operating_expense_details %}<tr><td>{{ expense.expense_date|date:'d/m/Y' }}</td><td>{{ expense.title }}</td><td>{{ expense.amount }}</td><td>{{ expense.created_by.first_name|default:expense.created_by.username|default:'-' }}</td></tr>{% empty %}<tr><td colspan="4">لا توجد مصاريف تشغيل خلال الفترة المختارة.</td></tr>{% endfor %}
+      </tbody></table>
+    </td></tr>
     <tr class="fw-bold table-light"><td colspan="4">إجمالي المصروفات</td><td>{{ income_expenses_total }}</td><td colspan="2">-</td></tr>
   </tbody>
   <tbody class="report-part">
@@ -239,7 +251,7 @@
 
 <style>
   .print-report-header,.print-report-signature{display:none}
-  .cafeteria-summary-table .expandable-summary-row{cursor:pointer;user-select:none}.cafeteria-summary-table .expandable-summary-row:hover{background:#e0f2fe}.cafeteria-summary-table .expandable-summary-row th:after{content:' ↕';color:#0284c7;font-size:.85em}.cafeteria-detail-row>td{padding:12px!important;background:#f8fafc}
+  .expandable-summary-row{cursor:pointer;user-select:none}.expandable-summary-row:hover{background:#e0f2fe}.expandable-summary-row th:after{content:' ↕';color:#0284c7;font-size:.85em}.cafeteria-detail-row>td{padding:12px!important;background:#f8fafc}
   .report-member-photo{width:72px;height:72px;object-fit:contain;border-radius:10px;background:#fff}.report-member-qr{width:90px;height:90px;background:#fff;padding:3px;border:1px solid #cbd5e1;border-radius:8px}
   .report-filter-card{width:100%;max-width:none;overflow-x:auto}
   .report-filter-grid{display:flex!important;flex-wrap:nowrap!important;gap:12px!important;min-width:990px;width:100%;margin:0!important}
