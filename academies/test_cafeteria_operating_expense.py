@@ -102,7 +102,7 @@ class CafeteriaOperatingExpenseTests(TestCase):
             self.assertContains(report, 'إجمالي مصاريف تشغيل الكافيتريا')
             self.assertContains(report, 'incomeCafeteriaPurchaseDetails')
             self.assertContains(report, 'incomeCafeteriaOperatingExpenseDetails')
-            self.assertContains(report, 'cafeteria-detail-row d-none', count=2)
+            self.assertContains(report, 'cafeteria-detail-row d-none', count=4)
             self.assertContains(report, expense.title)
 
         response = self.client.post(reverse('cafe_operating_expense_update', args=[expense.pk]), {

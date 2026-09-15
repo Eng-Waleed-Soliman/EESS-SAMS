@@ -102,15 +102,21 @@
   </tbody>
   <tbody class="report-part">
     <tr class="table-primary"><th colspan="7" class="fs-5">الحجز اليومي</th></tr>
-    <tr><th colspan="2">التاريخ</th><th colspan="2">اليوم</th><th colspan="3">إجمالي مبالغ الحجز اليومي</th></tr>
-    {% for row in income_daily_booking_rows %}<tr><td colspan="2">{{ row.income_date|date:'d/m/Y' }}</td><td colspan="2">{{ row.day_name }}</td><td colspan="3">{{ row.total_amount }}</td></tr>{% empty %}<tr><td colspan="7">لا توجد مبالغ حجز يومي خلال الفترة المختارة</td></tr>{% endfor %}
-    <tr class="fw-bold table-light"><td colspan="4">إجمالي الحجز اليومي خلال الفترة</td><td colspan="3">{{ income_daily_booking_total }}</td></tr>
+    <tr class="expandable-summary-row fw-bold table-light" ondblclick="toggleCafeteriaDetails('incomeDailyBookingDetails', this)" title="دبل كليك لإظهار التفاصيل" aria-expanded="false"><th colspan="4">إجمالي الحجز اليومي خلال الفترة</th><td>{{ income_daily_booking_total }}</td><td colspan="2" class="text-muted no-print">دبل كليك للتفاصيل</td></tr>
+    <tr id="incomeDailyBookingDetails" class="cafeteria-detail-row d-none"><td colspan="7">
+      <table class="table table-sm table-striped mb-0"><thead><tr><th>التاريخ</th><th>اليوم</th><th>إجمالي مبالغ الحجز اليومي</th></tr></thead><tbody>
+        {% for row in income_daily_booking_rows %}<tr><td>{{ row.income_date|date:'d/m/Y' }}</td><td>{{ row.day_name }}</td><td>{{ row.total_amount }}</td></tr>{% empty %}<tr><td colspan="3">لا توجد مبالغ حجز يومي خلال الفترة المختارة.</td></tr>{% endfor %}
+      </tbody></table>
+    </td></tr>
   </tbody>
   <tbody class="report-part">
     <tr class="table-primary"><th colspan="7" class="fs-5">دخل الكافيتريا</th></tr>
-    <tr><th colspan="2">التاريخ</th><th colspan="2">اليوم</th><th colspan="3">دخل الكافيتريا</th></tr>
-    {% for row in income_cafeteria_rows %}<tr><td colspan="2">{{ row.date|date:'d/m/Y' }}</td><td colspan="2">{{ row.day_name }}</td><td colspan="3">{{ row.amount }}</td></tr>{% empty %}<tr><td colspan="7">لا توجد مبيعات كافيتريا خلال الفترة المختارة</td></tr>{% endfor %}
-    <tr class="fw-bold table-light"><td colspan="4">إجمالي دخل الكافيتريا خلال الفترة</td><td colspan="3">{{ income_cafeteria_total }}</td></tr>
+    <tr class="expandable-summary-row fw-bold table-light" ondblclick="toggleCafeteriaDetails('incomeCafeteriaSalesDetails', this)" title="دبل كليك لإظهار التفاصيل" aria-expanded="false"><th colspan="4">إجمالي دخل الكافيتريا خلال الفترة</th><td>{{ income_cafeteria_total }}</td><td colspan="2" class="text-muted no-print">دبل كليك للتفاصيل</td></tr>
+    <tr id="incomeCafeteriaSalesDetails" class="cafeteria-detail-row d-none"><td colspan="7">
+      <table class="table table-sm table-striped mb-0"><thead><tr><th>التاريخ</th><th>اليوم</th><th>دخل الكافيتريا</th></tr></thead><tbody>
+        {% for row in income_cafeteria_rows %}<tr><td>{{ row.date|date:'d/m/Y' }}</td><td>{{ row.day_name }}</td><td>{{ row.amount }}</td></tr>{% empty %}<tr><td colspan="3">لا توجد مبيعات كافيتريا خلال الفترة المختارة.</td></tr>{% endfor %}
+      </tbody></table>
+    </td></tr>
   </tbody>
   <tbody class="report-part">
     <tr class="table-primary"><th colspan="7" class="fs-5">المصروفات</th></tr>
