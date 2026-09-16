@@ -80,6 +80,11 @@ class RestrictedAcademyAccessTests(TestCase):
         url = reverse('restricted_academy_portal') + '?section=attendance'
         self.grant('attendance')
         page = self.client.get(url, {'group': group.pk, 'month': '2026-09'})
+        self.assertTemplateUsed(page, 'academies/academy_training_group_attendance.html')
+        self.assertContains(page, 'التسديد')
+        self.assertContains(page, 'المبلغ المتبقي')
+        self.assertContains(page, 'طباعة')
+        self.assertContains(page, '@page{size:A4 landscape')
         self.assertContains(page, self.player.name)
         self.assertNotContains(page, 'حفظ الحضور والغياب')
         payload = {'group': group.pk, 'month': '2026-09', f'present_{self.player.pk}_2026-09-02': 'on'}
@@ -91,6 +96,29 @@ class RestrictedAcademyAccessTests(TestCase):
         self.assertEqual(self.client.post(url, payload).status_code, 302)
         self.assertTrue(AcademyTrainingAttendance.objects.get(group=group, player=self.player, attendance_date=date(2026, 9, 2)).is_present)
         self.assertFalse(AcademyTrainingAttendance.objects.filter(group=other_group).exists())
+
+    def test_complete_group_list_is_scoped_and_actions_remain_optional(self):
+        group = AcademyTrainingGroup.objects.create(academy=self.academy, name='مجموعة كاملة', training_days=[2], training_times={'2': {'start': '17:00', 'end': '19:00'}})
+        AcademyTrainingGroup.objects.create(academy=self.other, name='مجموعة أخرى محجوبة', training_days=[2])
+        AcademyTrainingGroupPlayer.objects.create(group=group, player=self.player)
+        url = reverse('restricted_academy_portal')
+        self.grant('groups')
+        page = self.client.get(url, {'section': 'groups', 'month': '2026-09'})
+        self.assertTemplateUsed(page, 'academies/academy_training_group_list.html')
+        self.assertEqual(page.context['rows'][0]['sessions_count'], 5)
+        self.assertEqual(page.context['rows'][0]['players_count'], 1)
+        self.assertContains(page, '17:00 - 19:00')
+        self.assertNotContains(page, 'مجموعة أخرى محجوبة')
+        for action in ['إضافة مجموعة', 'تسكين لاعب', 'تسجيل الحضور', 'حذف']:
+            self.assertNotContains(page, action)
+        self.grant('groups', 'placement', 'attendance_record')
+        page = self.client.get(url, {'section': 'groups', 'month': '2026-09'})
+        self.assertContains(page, 'تسكين لاعب')
+        self.assertContains(page, 'تسجيل الحضور')
+        self.grant('attendance_record')
+        page = self.client.get(url, {'section': 'attendance', 'list': '1', 'month': '2026-09'})
+        self.assertTemplateUsed(page, 'academies/academy_training_group_list.html')
+        self.assertNotContains(page, 'مجموعة أخرى محجوبة')
 
     def test_subscription_view_does_not_grant_writes_or_other_sections(self):
         self.grant('subscriptions')

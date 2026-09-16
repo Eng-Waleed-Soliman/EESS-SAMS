@@ -3,11 +3,14 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <div><h3 class="mb-1">مجموعات أكاديمية {{ academy.name }}</h3><div class="text-muted">عدد أيام التدريب محسوب بدقة طبقًا لأيام الأسبوع داخل الشهر المختار.</div></div>
   <div class="d-flex gap-2 flex-wrap">
+    {% if not restricted_academy_profile %}
     <a class="btn btn-primary" href="{% url 'academy_training_group_create' academy.pk %}">إضافة مجموعة</a>
     <a class="btn btn-secondary" href="{% url 'academy_member_list' academy.pk %}?role=player">رجوع للاعبين</a>
+    {% endif %}
   </div>
 </div>
 <form method="get" class="card p-3 mb-3">
+  {% if restricted_academy_profile %}<input type="hidden" name="section" value="{{ section }}"><input type="hidden" name="list" value="1">{% endif %}
   <div class="row g-3 align-items-end">
     <div class="col-md-4"><label class="form-label fw-bold" for="groupMonth">شهر حساب أيام التدريب</label><input id="groupMonth" class="form-control" type="month" name="month" value="{{ month_value }}"></div>
     <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">حساب</button></div>
@@ -18,10 +21,15 @@
   <tbody>{% for row in rows %}<tr>
     <td><strong>{{ row.group.name }}</strong></td><td>{{ row.group.training_schedule_display }}</td><td>{{ row.sessions_count }}</td><td>{{ row.players_count }}</td>
     <td><div class="d-flex gap-2 flex-wrap justify-content-center">
+      {% if restricted_academy_profile %}
+      {% if can_place_players %}<a class="btn btn-sm btn-success" href="{% url 'restricted_academy_portal' %}?section=placement&amp;group={{ row.group.pk }}">تسكين لاعب</a>{% endif %}
+      {% if can_view_attendance %}<a class="btn btn-sm btn-info" href="{% url 'restricted_academy_portal' %}?section=attendance&amp;group={{ row.group.pk }}&amp;month={{ month_value }}">تسجيل الحضور</a>{% endif %}
+      {% else %}
       <a class="btn btn-sm btn-success" href="{% url 'academy_training_group_players' academy.pk row.group.pk %}">تسكين لاعب</a>
       <a class="btn btn-sm btn-info" href="{% url 'academy_training_group_attendance' academy.pk row.group.pk %}?month={{ month_value }}">تسجيل الحضور</a>
       <a class="btn btn-sm btn-primary" href="{% url 'academy_training_group_update' academy.pk row.group.pk %}">تعديل</a>
       <form method="post" action="{% url 'academy_training_group_delete' academy.pk row.group.pk %}" onsubmit="return confirm('حذف المجموعة؟ لن يتم حذف اللاعبين من الأكاديمية.');">{% csrf_token %}<button class="btn btn-sm btn-danger" type="submit">حذف</button></form>
+      {% endif %}
     </div></td>
   </tr>{% empty %}<tr><td colspan="5" class="text-muted py-4">لا توجد مجموعات بعد.</td></tr>{% endfor %}</tbody>
 </table></div></div>

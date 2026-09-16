@@ -2,12 +2,13 @@
 {% block content %}
 <div class="attendance-actions no-print">
   <form method="get" class="d-flex gap-2 align-items-end flex-wrap">
+    {% if restricted_academy_profile %}<input type="hidden" name="section" value="attendance"><input type="hidden" name="group" value="{{ group.pk }}">{% endif %}
     <div><label class="form-label fw-bold" for="attendanceMonth">الشهر</label><input id="attendanceMonth" class="form-control" type="month" name="month" value="{{ month_value }}"></div>
     <button class="btn btn-primary" type="submit">عرض</button>
   </form>
   <div class="d-flex gap-2 flex-wrap">
     <button class="btn btn-secondary" type="button" onclick="window.print()">طباعة</button>
-    <a class="btn btn-outline-primary" href="{% url 'academy_training_group_list' academy.pk %}?month={{ month_value }}">رجوع للمجموعات</a>
+    {% if restricted_academy_profile %}<a class="btn btn-outline-primary" href="{% url 'restricted_academy_portal' %}?section={{ restricted_groups_section }}&amp;list=1&amp;month={{ month_value }}">رجوع للمجموعات</a>{% else %}<a class="btn btn-outline-primary" href="{% url 'academy_training_group_list' academy.pk %}?month={{ month_value }}">رجوع للمجموعات</a>{% endif %}
   </div>
 </div>
 
@@ -22,6 +23,7 @@
   </header>
 
   <form method="post">{% csrf_token %}<input type="hidden" name="month" value="{{ month_value }}">
+    {% if restricted_academy_profile %}<input type="hidden" name="group" value="{{ group.pk }}">{% endif %}
     <div class="table-responsive attendance-table-wrap"><table class="table table-bordered align-middle text-center attendance-table">
       <thead><tr>
         <th class="serial-column">م</th><th class="player-column">اسم اللاعب</th><th class="paid-column">التسديد</th><th class="remaining-column">المبلغ المتبقي</th>
@@ -31,10 +33,10 @@
         <td>{{ forloop.counter }}</td><td class="text-start"><strong>{{ row.player.name }}</strong></td>
         <td>{% if row.is_paid %}<span class="payment-mark paid" title="مسدد">✓</span>{% else %}<span class="payment-mark unpaid" title="غير مسدد">✗</span>{% endif %}</td>
         <td><strong>{{ row.remaining_amount }}</strong></td>
-        {% for cell in row.attendance %}<td><input class="attendance-check" type="checkbox" name="{{ cell.field_name }}" {% if cell.is_present %}checked{% endif %} aria-label="حضور {{ row.player.name }} يوم {{ cell.date|date:'d/m/Y' }}"></td>{% endfor %}
+        {% for cell in row.attendance %}<td><input class="attendance-check" type="checkbox" name="{{ cell.field_name }}" {% if cell.is_present %}checked{% endif %} {% if restricted_academy_profile and not can_record_attendance %}disabled{% endif %} aria-label="حضور {{ row.player.name }} يوم {{ cell.date|date:'d/m/Y' }}"></td>{% endfor %}
       </tr>{% empty %}<tr><td colspan="{{ training_date_headers|length|add:4 }}" class="text-muted py-4">لا يوجد لاعبون مسكنون في هذه المجموعة.</td></tr>{% endfor %}</tbody>
     </table></div>
-    <div class="mt-3 no-print"><button class="btn btn-success" type="submit">حفظ</button></div>
+    {% if not restricted_academy_profile or can_record_attendance %}<div class="mt-3 no-print"><button class="btn btn-success" type="submit">{% if restricted_academy_profile %}حفظ الحضور والغياب{% else %}حفظ{% endif %}</button></div>{% endif %}
   </form>
 </section>
 
