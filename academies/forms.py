@@ -2036,8 +2036,14 @@ PERMISSION_REPORT_FIELDS = [
 
 class EESSPermissionForm(forms.ModelForm):
     academy_sections = forms.MultipleChoiceField(
-        required=False, label='الأقسام المسموح بعرضها',
-        choices=[('players', 'اللاعبين'), ('coaches', 'المدربين'), ('administrators', 'الإداريين'), ('groups', 'المجموعات'), ('subscriptions', 'الاشتراكات الشهرية')],
+        required=False, label='الأقسام والإجراءات المسموح بها',
+        choices=[
+            ('players', 'عرض اللاعبين'), ('players_add', 'إضافة لاعب'),
+            ('coaches', 'عرض المدربين'), ('administrators', 'عرض الإداريين'),
+            ('groups', 'عرض المجموعات'), ('placement', 'تسكين وإزالة اللاعبين من المجموعات'),
+            ('attendance', 'عرض الحضور والغياب'), ('attendance_record', 'تسجيل وحفظ الحضور والغياب'),
+            ('subscriptions', 'عرض الاشتراكات الشهرية'),
+        ],
         widget=forms.CheckboxSelectMultiple,
     )
     MODULE_FIELDS = PERMISSION_MODULE_FIELDS

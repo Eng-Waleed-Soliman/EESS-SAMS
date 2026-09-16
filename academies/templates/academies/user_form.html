@@ -32,7 +32,7 @@
   <h5 class="mb-3">الصلاحيات</h5>
   <div class="border rounded p-3 mb-3">
     <h5>دخول محدود لأكاديمية واحدة</h5>
-    <p>عند تفعيله، لن يظهر للمستخدم سوى الأقسام المختارة بالأكاديمية المحددة، للعرض فقط. لا تظهر لوحة التحكم أو باقي الموديولات حتى لو كانت محددة أدناه.</p>
+    <p>لن يظهر للمستخدم سوى الأقسام والإجراءات المختارة داخل الأكاديمية المحددة. إضافة لاعب والتسكين وتسجيل الحضور صلاحيات مستقلة؛ عرض الحضور أو الاشتراكات لا يمنح صلاحية تعديلها. لا تظهر لوحة التحكم أو باقي الموديولات حتى لو كانت محددة أدناه.</p>
     {% for field in permission_form %}{% if field.name == 'academy_only' or field.name == 'restricted_academy' or field.name == 'academy_sections' %}
     <div class="mb-3"><label class="form-label fw-bold">{{ field.label }}</label><div>{{ field }}</div>{% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}</div>
     {% endif %}{% endfor %}

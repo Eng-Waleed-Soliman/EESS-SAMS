@@ -5,7 +5,29 @@
 {% for item in sections %}<a class="btn btn-primary" href="?section={{ item.key }}">{{ item.label }}</a>{% endfor %}
 </div>
 <div class="card p-3">
-{% if section == 'subscriptions' %}
+{% if section == 'players_add' %}
+{% if request.GET.saved %}<div class="alert alert-success">تمت إضافة اللاعب إلى الأكاديمية.</div>{% endif %}
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+{{ player_form.non_field_errors }}
+<div class="row g-3">{% for field in player_form %}<div class="col-md-6"><label class="form-label fw-bold">{{ field.label }}</label><div>{{ field }}</div>{{ field.errors }}</div>{% endfor %}</div>
+<button class="btn btn-success mt-3">حفظ اللاعب</button></form>
+{% elif section == 'placement' or section == 'attendance' %}
+<form method="get" class="row g-2 mb-3"><input type="hidden" name="section" value="{{ section }}">
+<div class="col-md-5"><label class="form-label">المجموعة</label><select name="group" class="form-select">{% for group in available_groups %}<option value="{{ group.pk }}" {% if group.pk == selected_group.pk %}selected{% endif %}>{{ group.name }}</option>{% endfor %}</select></div>
+{% if section == 'attendance' %}<div class="col-md-4"><label class="form-label">الشهر</label><input type="month" class="form-control" name="month" value="{{ month_value }}"></div>{% endif %}
+<div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary">عرض</button></div></form>
+{% if selected_group %}
+<h5>{{ selected_group.name }} — {{ selected_group.training_days_display }}</h5>
+{% if section == 'placement' %}
+<form method="post" class="mb-3">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><input type="hidden" name="action" value="assign">{{ placement_form.as_p }}<button class="btn btn-success">تسكين اللاعب</button></form>
+<table class="table"><thead><tr><th>اللاعبون داخل المجموعة</th><th></th></tr></thead><tbody>{% for assignment in assignments %}<tr><td>{{ assignment.player.name }}</td><td><form method="post">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><input type="hidden" name="action" value="remove"><input type="hidden" name="assignment" value="{{ assignment.pk }}"><button class="btn btn-danger">إزالة من المجموعة</button></form></td></tr>{% empty %}<tr><td colspan="2">لا يوجد لاعبون مسكنون.</td></tr>{% endfor %}</tbody></table>
+{% else %}
+{% if can_record_attendance %}<form method="post">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><input type="hidden" name="month" value="{{ month_value }}">{% endif %}
+<div class="table-responsive"><table class="table text-center"><thead><tr><th>م</th><th>اسم اللاعب</th>{% for item in training_dates %}<th>{{ item.date|date:'d/m' }}<br>{{ item.weekday }}</th>{% endfor %}</tr></thead><tbody>{% for row in attendance_rows %}<tr><td>{{ forloop.counter }}</td><td>{{ row.player.name }}</td>{% for cell in row.cells %}<td>{% if can_record_attendance %}<input type="checkbox" class="form-check-input" name="{{ cell.field }}" aria-label="حضور {{ row.player.name }}" {% if cell.present %}checked{% endif %}>{% elif cell.present %}✓{% else %}✗{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="2">لا يوجد لاعبون مسكنون.</td></tr>{% endfor %}</tbody></table></div>
+{% if can_record_attendance %}<button class="btn btn-success mt-3">حفظ الحضور والغياب</button></form>{% endif %}
+{% endif %}
+{% else %}<p>لا توجد مجموعات مسجلة في الأكاديمية.</p>{% endif %}
+{% elif section == 'subscriptions' %}
 <form method="get" class="d-flex gap-2 mb-3"><input type="hidden" name="section" value="subscriptions"><input type="month" class="form-control" name="month" value="{{ month_value }}"><button class="btn btn-primary">عرض</button></form>
 <table class="table"><thead><tr><th>اسم اللاعب</th><th>الاشتراك</th><th>المسدد</th><th>المتبقي</th></tr></thead><tbody>{% for item in subscriptions %}<tr><td>{{ item.player.name }}</td><td>{{ item.expected_amount }}</td><td>{{ item.paid_amount }}</td><td>{{ item.remaining_amount }}</td></tr>{% empty %}<tr><td colspan="4">لا توجد اشتراكات مسجلة للشهر المحدد.</td></tr>{% endfor %}</tbody></table>
 {% elif section == 'groups' %}
