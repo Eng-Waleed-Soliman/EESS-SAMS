@@ -17,6 +17,7 @@ def app_settings(request):
         ).get_or_create(pk=1)
         return {
             'restricted_academy_profile': getattr(request, 'restricted_academy_profile', None),
+            'security_guard_profile': getattr(request, 'security_guard_profile', None),
             'app_settings': settings_object,
             'is_cafeteria_specialist': is_cafeteria_specialist(request.user),
             'available_branches': Branch.objects.defer(
@@ -32,6 +33,7 @@ def app_settings(request):
     except Exception:
         return {
             'restricted_academy_profile': getattr(request, 'restricted_academy_profile', None),
+            'security_guard_profile': getattr(request, 'security_guard_profile', None),
             'app_settings': None,
             'is_cafeteria_specialist': is_cafeteria_specialist(request.user),
         }

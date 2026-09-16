@@ -31,6 +31,7 @@ from .payroll_forms import PayrollAdjustmentForm
 from .models import AcademyTrainingAttendance, AcademyTrainingGroup, AcademyTrainingGroupPlayer
 from .group_forms import AcademyTrainingGroupForm, AcademyTrainingGroupPlayerForm
 from .restricted_access import restricted_academy_portal
+from .security_views import security_home, security_movement, security_correction
 
 
 def persistent_media(request, model_name, pk, field_name):
@@ -612,7 +613,7 @@ def _security_member_from_qr(raw_value, academy_queryset):
 
 
 @login_required
-def security_home(request):
+def legacy_security_home(request):
     if not _can_access_security(request.user):
         messages.error(request, 'ليس لديك صلاحية الدخول إلى موديول الأمن.')
         return redirect('dashboard')
@@ -620,7 +621,7 @@ def security_home(request):
 
 
 @login_required
-def security_movement(request, movement_type):
+def legacy_security_movement(request, movement_type):
     if not _can_access_security(request.user):
         messages.error(request, 'ليس لديك صلاحية الدخول إلى موديول الأمن.')
         return redirect('dashboard')
@@ -745,6 +746,8 @@ def login_view(request):
             login(request, user)
             if UserPermission.objects.filter(user=user, academy_only=True).exists():
                 return redirect('restricted_academy_portal')
+            if UserPermission.objects.filter(user=user, security_only=True).exists():
+                return redirect('security_home')
             if is_cafeteria_specialist(user):
                 return redirect('cafe_sale_list')
             return redirect(next_url if next_url != 'dashboard' else 'dashboard')

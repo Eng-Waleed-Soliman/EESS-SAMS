@@ -1,0 +1,7 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<h3>تصحيح حركة {{ movement.person_name }} — {{ movement.get_movement_type_display }}</h3>
+<div class="alert alert-info">لا يمكن تغيير هوية الشخص أو نوع الحركة. كل تصحيح يحفظ القيم السابقة والجديدة واسم المسؤول والسبب.</div>
+<form method="post" class="card p-3 mb-3">{% csrf_token %}{{ form.as_p }}<button class="btn btn-success">حفظ التصحيح</button><a class="btn btn-secondary" href="{% url 'security_home' %}">رجوع للأمن</a></form>
+<div class="card p-3"><h4>سجل التصحيحات</h4>{% for item in audit %}<div class="border-bottom p-2"><b>{{ item.corrected_by.username }} — {{ item.corrected_at|date:'d/m/Y H:i' }}</b><p>{{ item.reason }}</p><div>قبل: {{ item.before }}</div><div>بعد: {{ item.after }}</div></div>{% empty %}<p>لا توجد تصحيحات سابقة.</p>{% endfor %}</div>
+{% endblock %}

@@ -110,6 +110,7 @@ class WebsiteSetting(models.Model):
 
 
 class Branch(models.Model):
+    security_closing_time = models.TimeField(null=True, blank=True, verbose_name='موعد انتهاء العمل — تنبيه الزوار للأمن')
     name = models.CharField(max_length=200, verbose_name='اسم الفرع')
     name_en = models.CharField(max_length=200, blank=True, verbose_name='اسم الفرع بالإنجليزية للموقع')
     short_name = models.CharField(max_length=100, blank=True, verbose_name='الاسم المختصر للفرع')
@@ -635,10 +636,14 @@ class SecurityMovement(models.Model):
     PERSON_STAFF = 'staff'
     PERSON_PLAYER = 'player'
     PERSON_PARENT = 'parent'
+    PERSON_EMPLOYEE = 'employee'
+    PERSON_VISITOR = 'visitor'
     PERSON_CHOICES = [
         (PERSON_PLAYER, 'لاعب'),
         (PERSON_STAFF, 'مدرب / إداري'),
         (PERSON_PARENT, 'ولي أمر'),
+        (PERSON_EMPLOYEE, 'موظف'),
+        (PERSON_VISITOR, 'زائر'),
     ]
     SOURCE_MANUAL = 'manual'
     SOURCE_QR = 'qr'
@@ -672,6 +677,13 @@ class SecurityMovement(models.Model):
         related_name='security_movements_recorded', verbose_name='سجل بواسطة',
     )
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    visit_token = models.UUIDField(null=True, blank=True, db_index=True)
+    employee = models.ForeignKey('Employee', null=True, blank=True, on_delete=models.SET_NULL)
+    contact_phone = models.CharField(max_length=50, blank=True, verbose_name='الهاتف')
+    visit_reason = models.CharField(max_length=300, blank=True, verbose_name='سبب الزيارة')
+    host_name = models.CharField(max_length=200, blank=True, verbose_name='الشخص المطلوب مقابلته')
+    receiver_name = models.CharField(max_length=200, blank=True, verbose_name='اسم المستلم')
+    receiver_relation = models.CharField(max_length=100, blank=True, verbose_name='صلة المستلم باللاعب')
 
     class Meta:
         ordering = ['-recorded_at', '-id']
@@ -680,6 +692,24 @@ class SecurityMovement(models.Model):
 
     def __str__(self):
         return f'{self.get_movement_type_display()} - {self.person_name}'
+
+
+class SecurityMovementCorrection(models.Model):
+    movement = models.ForeignKey(SecurityMovement, on_delete=models.PROTECT, related_name='corrections')
+    reason = models.CharField(max_length=500)
+    before = models.JSONField(default=dict)
+    after = models.JSONField(default=dict)
+    corrected_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    corrected_at = models.DateTimeField(auto_now_add=True)
+
+
+class AcademyPlayerReceiver(models.Model):
+    player = models.ForeignKey(AcademyMember, on_delete=models.CASCADE, related_name='authorized_receivers')
+    name = models.CharField(max_length=200, verbose_name='اسم المستلم المصرح له')
+    relation = models.CharField(max_length=100, verbose_name='صلة القرابة')
+    phone = models.CharField(max_length=50, blank=True, verbose_name='الهاتف')
+    is_active = models.BooleanField(default=True)
+
 
 
 class Customer(models.Model):
@@ -1045,6 +1075,8 @@ class AcademyOperationOverride(models.Model):
 class UserPermission(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='eess_permissions', verbose_name='المستخدم')
     academy_only = models.BooleanField(default=False, verbose_name='قصر الدخول على أكاديمية واحدة فقط')
+    security_only = models.BooleanField(default=False, verbose_name='الأمن فقط')
+    security_branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='فرع حساب الأمن')
     restricted_academy = models.ForeignKey(Academy, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='الأكاديمية المسموح بها')
     academy_sections = models.JSONField(default=list, blank=True, verbose_name='الأقسام المسموح بعرضها داخل الأكاديمية')
     can_academies = models.BooleanField(default=False, verbose_name='الأكاديميات')

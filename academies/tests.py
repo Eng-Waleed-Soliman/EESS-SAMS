@@ -703,6 +703,9 @@ class ApplicationFlowsTests(TestCase):
             'academy_id': academy.pk,
             'group': 'staff',
             'visitor_name': 'Visitor Parent',
+            'contact_phone': '01000000888',
+            'visit_reason': 'استلام لاعب',
+            'host_name': 'مسؤول الأكاديمية',
             'visitor_type': 'parent',
             'notes': 'Test visitor',
         })

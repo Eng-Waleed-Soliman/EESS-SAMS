@@ -915,8 +915,9 @@ class DailyIncomeSupplyForm(forms.ModelForm):
 class BranchForm(forms.ModelForm):
     class Meta:
         model = Branch
-        fields = ['name', 'name_en', 'short_name', 'location', 'location_en', 'logo', 'image', 'notes', 'website_description', 'website_description_en', 'is_published_on_website']
+        fields = ['name', 'name_en', 'short_name', 'security_closing_time', 'location', 'location_en', 'logo', 'image', 'notes', 'website_description', 'website_description_en', 'is_published_on_website']
         widgets = {
+            'security_closing_time': forms.TimeInput(attrs={'type': 'time'}, format='%H:%M'),
             'logo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
@@ -2051,7 +2052,7 @@ class EESSPermissionForm(forms.ModelForm):
 
     class Meta:
         model = UserPermission
-        fields = ['academy_only', 'restricted_academy', 'academy_sections'] + PERMISSION_MODULE_FIELDS + PERMISSION_REPORT_FIELDS
+        fields = ['security_only', 'security_branch', 'academy_only', 'restricted_academy', 'academy_sections'] + PERMISSION_MODULE_FIELDS + PERMISSION_REPORT_FIELDS
         labels = {'job_title': 'المسمى الوظيفي'}
         widgets = {
             'job_title': forms.Select(attrs={'class': 'form-select'}),
@@ -2063,6 +2064,8 @@ class EESSPermissionForm(forms.ModelForm):
         self.fields['restricted_academy'].queryset = Academy.objects.order_by('name')
         self.fields['restricted_academy'].widget.attrs['class'] = 'form-select'
         self.fields['academy_only'].widget.attrs['class'] = 'form-check-input'
+        self.fields['security_branch'].widget.attrs['class'] = 'form-select'
+        self.fields['security_only'].widget.attrs['class'] = 'form-check-input'
         if self.instance and self.instance.pk:
             self.fields['academy_sections'].initial = self.instance.academy_sections
         if 'job_title' in self.fields:
@@ -2080,6 +2083,11 @@ class EESSPermissionForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get('security_only'):
+            if not cleaned.get('security_branch'):
+                self.add_error('security_branch', 'اختر فرع حساب الأمن.')
+            if cleaned.get('academy_only'):
+                self.add_error('security_only', 'اختر وضع الأمن فقط أو الأكاديمية الواحدة، وليس الاثنين معًا.')
         if cleaned.get('academy_only'):
             if not cleaned.get('restricted_academy'):
                 self.add_error('restricted_academy', 'اختر الأكاديمية المسموح بها.')

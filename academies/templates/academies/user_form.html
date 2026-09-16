@@ -30,6 +30,7 @@
 
   <hr>
   <h5 class="mb-3">الصلاحيات</h5>
+  <div class="border rounded p-3 mb-3"><h5>حساب الحارس — الأمن فقط</h5><p>يرى الأمن في الفرع المحدد فقط، دون لوحة التحكم أو الحسابات أو التقارير العامة. لا يُسمح له بتصحيح الحركات.</p>{{ permission_form.security_only }} {{ permission_form.security_only.label }}{{ permission_form.security_only.errors }}<div class="mt-2">{{ permission_form.security_branch.label }}{{ permission_form.security_branch }}{{ permission_form.security_branch.errors }}</div></div>
   <div class="border rounded p-3 mb-3">
     <h5>دخول محدود لأكاديمية واحدة</h5>
     <p>لن يظهر للمستخدم سوى الأقسام والإجراءات المختارة داخل الأكاديمية المحددة. إضافة لاعب والتسكين وتسجيل الحضور صلاحيات مستقلة؛ عرض الحضور أو الاشتراكات لا يمنح صلاحية تعديلها. لا تظهر لوحة التحكم أو باقي الموديولات حتى لو كانت محددة أدناه.</p>

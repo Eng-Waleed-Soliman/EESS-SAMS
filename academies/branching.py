@@ -23,6 +23,9 @@ def selected_training_year(request):
 
 def selected_branch(request):
     """Return (branch, all_branches). Selection is persisted per signed-in session."""
+    guard = getattr(request, 'security_guard_profile', None)
+    if guard:
+        return guard.security_branch, False
     # Branch logos and photos are stored in the database and can be several
     # megabytes each.  Branch selection only needs textual fields, so never
     # pull those blobs into every request.

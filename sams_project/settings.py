@@ -43,6 +43,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "academies.middleware.RestrictedAcademyAccessMiddleware",
+    "academies.middleware.SecurityGuardAccessMiddleware",
     "academies.middleware.CafeteriaSpecialistAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

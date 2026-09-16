@@ -41,6 +41,7 @@ urlpatterns = [
     path('operation/cancel-day/', views.cancel_operation_day, name='cancel_operation_day'),
     path('operation/card-action/', views.operation_card_action, name='operation_card_action'),
     path('security/', views.security_home, name='security_home'),
+    path('security/corrections/<int:pk>/', views.security_correction, name='security_correction'),
     path('security/<str:movement_type>/', views.security_movement, name='security_movement'),
     path('daily-income/', views.daily_income, name='daily_income'),
     path('accounts/', views.accounts_home, name='accounts_home'),

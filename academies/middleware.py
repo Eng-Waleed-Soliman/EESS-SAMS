@@ -31,6 +31,27 @@ class RestrictedAcademyAccessMiddleware:
         return self.get_response(request)
 
 
+class SecurityGuardAccessMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated:
+            from .models import UserPermission
+            profile = UserPermission.objects.filter(user=request.user, security_only=True).first()
+            if profile:
+                request.security_guard_profile = profile
+                if not profile.security_branch_id:
+                    if request.path != reverse('logout'):
+                        return HttpResponseForbidden('لم يتم تحديد فرع لهذا الحساب. راجع المسؤول.')
+                allowed = request.path.startswith(('/security/', '/static/')) or request.path in (reverse('logout'), '/media-db/branding/1/company_logo/')
+                if not allowed:
+                    if request.method not in ('GET', 'HEAD'):
+                        return HttpResponseForbidden('هذا الحساب مخصص للأمن فقط.')
+                    return redirect('security_home')
+        return self.get_response(request)
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,7 +82,7 @@ class CafeteriaSpecialistAccessMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if is_cafeteria_specialist(request.user) and not getattr(request, 'restricted_academy_profile', None):
+        if is_cafeteria_specialist(request.user) and not getattr(request, 'restricted_academy_profile', None) and not getattr(request, 'security_guard_profile', None):
             if not any(request.path.startswith(prefix) for prefix in self.allowed_prefixes):
                 return redirect('cafe_sale_list')
         return self.get_response(request)
