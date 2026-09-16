@@ -16,6 +16,7 @@ def app_settings(request):
             'main_screen_image_data',
         ).get_or_create(pk=1)
         return {
+            'restricted_academy_profile': getattr(request, 'restricted_academy_profile', None),
             'app_settings': settings_object,
             'is_cafeteria_specialist': is_cafeteria_specialist(request.user),
             'available_branches': Branch.objects.defer(
@@ -30,6 +31,7 @@ def app_settings(request):
         }
     except Exception:
         return {
+            'restricted_academy_profile': getattr(request, 'restricted_academy_profile', None),
             'app_settings': None,
             'is_cafeteria_specialist': is_cafeteria_specialist(request.user),
         }

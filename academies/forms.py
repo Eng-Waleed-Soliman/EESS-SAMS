@@ -2035,12 +2035,17 @@ PERMISSION_REPORT_FIELDS = [
 
 
 class EESSPermissionForm(forms.ModelForm):
+    academy_sections = forms.MultipleChoiceField(
+        required=False, label='الأقسام المسموح بعرضها',
+        choices=[('players', 'اللاعبين'), ('coaches', 'المدربين'), ('administrators', 'الإداريين'), ('groups', 'المجموعات'), ('subscriptions', 'الاشتراكات الشهرية')],
+        widget=forms.CheckboxSelectMultiple,
+    )
     MODULE_FIELDS = PERMISSION_MODULE_FIELDS
     REPORT_FIELDS = PERMISSION_REPORT_FIELDS
 
     class Meta:
         model = UserPermission
-        fields = PERMISSION_MODULE_FIELDS + PERMISSION_REPORT_FIELDS
+        fields = ['academy_only', 'restricted_academy', 'academy_sections'] + PERMISSION_MODULE_FIELDS + PERMISSION_REPORT_FIELDS
         labels = {'job_title': 'المسمى الوظيفي'}
         widgets = {
             'job_title': forms.Select(attrs={'class': 'form-select'}),
@@ -2049,6 +2054,11 @@ class EESSPermissionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['restricted_academy'].queryset = Academy.objects.order_by('name')
+        self.fields['restricted_academy'].widget.attrs['class'] = 'form-select'
+        self.fields['academy_only'].widget.attrs['class'] = 'form-check-input'
+        if self.instance and self.instance.pk:
+            self.fields['academy_sections'].initial = self.instance.academy_sections
         if 'job_title' in self.fields:
             self.fields['job_title'].queryset = JobTitle.objects.all()
             self.fields['job_title'].empty_label = 'اختر من الوظائف المسجلة'
@@ -2061,3 +2071,12 @@ class EESSPermissionForm(forms.ModelForm):
                 self.fields['can_accounts'].initial = True
             if 'can_settings' in self.fields and self.instance.can_users and not self.instance.can_settings:
                 self.fields['can_settings'].initial = True
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('academy_only'):
+            if not cleaned.get('restricted_academy'):
+                self.add_error('restricted_academy', 'اختر الأكاديمية المسموح بها.')
+            if not cleaned.get('academy_sections'):
+                self.add_error('academy_sections', 'اختر قسمًا واحدًا على الأقل.')
+        return cleaned

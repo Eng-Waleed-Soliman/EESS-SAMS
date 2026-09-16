@@ -1,0 +1,17 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<h3>{{ academy.name }} — {{ section_label }}</h3>
+<div class="d-flex gap-2 flex-wrap mb-3">
+{% for item in sections %}<a class="btn btn-primary" href="?section={{ item.key }}">{{ item.label }}</a>{% endfor %}
+</div>
+<div class="card p-3">
+{% if section == 'subscriptions' %}
+<form method="get" class="d-flex gap-2 mb-3"><input type="hidden" name="section" value="subscriptions"><input type="month" class="form-control" name="month" value="{{ month_value }}"><button class="btn btn-primary">عرض</button></form>
+<table class="table"><thead><tr><th>اسم اللاعب</th><th>الاشتراك</th><th>المسدد</th><th>المتبقي</th></tr></thead><tbody>{% for item in subscriptions %}<tr><td>{{ item.player.name }}</td><td>{{ item.expected_amount }}</td><td>{{ item.paid_amount }}</td><td>{{ item.remaining_amount }}</td></tr>{% empty %}<tr><td colspan="4">لا توجد اشتراكات مسجلة للشهر المحدد.</td></tr>{% endfor %}</tbody></table>
+{% elif section == 'groups' %}
+<table class="table"><thead><tr><th>المجموعة</th><th>أيام التدريب</th></tr></thead><tbody>{% for group in groups %}<tr><td>{{ group.name }}</td><td>{{ group.training_days_display }}</td></tr>{% empty %}<tr><td colspan="2">لا توجد مجموعات.</td></tr>{% endfor %}</tbody></table>
+{% else %}
+<table class="table"><thead><tr><th>م</th><th>الاسم</th><th>الهاتف</th><th>الحالة</th></tr></thead><tbody>{% for member in members %}<tr><td>{{ forloop.counter }}</td><td>{{ member.name }}</td><td>{{ member.phone|default:'—' }}</td><td>{% if member.is_active %}نشط{% else %}غير نشط{% endif %}</td></tr>{% empty %}<tr><td colspan="4">لا توجد أسماء مسجلة.</td></tr>{% endfor %}</tbody></table>
+{% endif %}
+</div>
+{% endblock %}

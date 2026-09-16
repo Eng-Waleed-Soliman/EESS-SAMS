@@ -28,7 +28,9 @@
         {% if app_settings and app_settings.company_logo_name %}<img class="brand-logo" src="{% url 'persistent_media' 'branding' app_settings.pk 'company_logo' %}" alt="{{ app_settings.program_name }}">{% elif app_settings and app_settings.company_logo %}<img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
         <h5 class="text-white p-3 border-bottom">{% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</h5>
       </div>
-      {% if is_cafeteria_specialist %}
+      {% if restricted_academy_profile %}
+      <a href="{% url 'restricted_academy_portal' %}">{{ restricted_academy_profile.restricted_academy.name }}</a>
+      {% elif is_cafeteria_specialist %}
       <a href="{% url 'cafe_sale_list' %}">الكافيتريا - البيع</a>
       <a href="{% url 'cafe_menu' %}">المنيو</a>
       {% else %}

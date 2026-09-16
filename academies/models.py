@@ -1044,6 +1044,9 @@ class AcademyOperationOverride(models.Model):
 
 class UserPermission(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='eess_permissions', verbose_name='المستخدم')
+    academy_only = models.BooleanField(default=False, verbose_name='قصر الدخول على أكاديمية واحدة فقط')
+    restricted_academy = models.ForeignKey(Academy, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='الأكاديمية المسموح بها')
+    academy_sections = models.JSONField(default=list, blank=True, verbose_name='الأقسام المسموح بعرضها داخل الأكاديمية')
     can_academies = models.BooleanField(default=False, verbose_name='الأكاديميات')
     can_daily_booking = models.BooleanField(default=False, verbose_name='الحجز اليومي')
     can_daily_income = models.BooleanField(default=False, verbose_name='الدخل اليومي / الشهري')

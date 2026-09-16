@@ -30,6 +30,7 @@ from .models import PayrollAdjustment
 from .payroll_forms import PayrollAdjustmentForm
 from .models import AcademyTrainingAttendance, AcademyTrainingGroup, AcademyTrainingGroupPlayer
 from .group_forms import AcademyTrainingGroupForm, AcademyTrainingGroupPlayerForm
+from .restricted_access import restricted_academy_portal
 
 
 def persistent_media(request, model_name, pk, field_name):
@@ -742,6 +743,8 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
+            if UserPermission.objects.filter(user=user, academy_only=True).exists():
+                return redirect('restricted_academy_portal')
             if is_cafeteria_specialist(user):
                 return redirect('cafe_sale_list')
             return redirect(next_url if next_url != 'dashboard' else 'dashboard')

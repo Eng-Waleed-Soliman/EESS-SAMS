@@ -23,6 +23,7 @@
       <td style="font-size:15px">
         {% if u.is_superuser %}<span class="badge bg-dark">مدير كامل</span>{% else %}
           {% with p=u.eess_permissions %}
+            {% if p.academy_only %}<span class="badge bg-dark">أكاديمية واحدة: {{ p.restricted_academy.name|default:'غير محددة' }} — عرض محدود</span>{% endif %}
             {% if p.can_academies %}<span class="badge bg-primary">الأكاديميات</span>{% endif %}
             {% if p.can_daily_booking %}<span class="badge bg-primary">الحجز اليومي</span>{% endif %}
             {% if p.can_operation %}<span class="badge bg-primary">التشغيل</span>{% endif %}

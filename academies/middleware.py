@@ -4,6 +4,31 @@ import time
 from django.db import connections
 from django.db.utils import InterfaceError, OperationalError
 from django.shortcuts import redirect
+from django.http import HttpResponseForbidden
+from django.urls import reverse
+
+
+class RestrictedAcademyAccessMiddleware:
+    """Fail closed for academy-only accounts, including direct URLs and writes."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated:
+            from .models import UserPermission
+            profile = UserPermission.objects.filter(user=request.user, academy_only=True).first()
+            if profile:
+                request.restricted_academy_profile = profile
+                allowed = request.path in (reverse('restricted_academy_portal'), reverse('logout'))
+                allowed = allowed or request.path.startswith('/static/')
+                # Only the shared company logo is needed by this isolated portal.
+                allowed = allowed or request.path == '/media-db/branding/1/company_logo/'
+                if not allowed:
+                    if request.method not in ('GET', 'HEAD'):
+                        return HttpResponseForbidden('ليس لديك صلاحية الوصول إلى هذا الإجراء.')
+                    return redirect('restricted_academy_portal')
+        return self.get_response(request)
 
 
 logger = logging.getLogger(__name__)
@@ -36,7 +61,7 @@ class CafeteriaSpecialistAccessMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if is_cafeteria_specialist(request.user):
+        if is_cafeteria_specialist(request.user) and not getattr(request, 'restricted_academy_profile', None):
             if not any(request.path.startswith(prefix) for prefix in self.allowed_prefixes):
                 return redirect('cafe_sale_list')
         return self.get_response(request)
