@@ -7,7 +7,7 @@ from django.forms import inlineformset_factory, BaseInlineFormSet
 from django.db.models import Q
 from django.core.files.uploadedfile import UploadedFile, SimpleUploadedFile
 from django.contrib.auth.models import User
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, UsernameField
 from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, FacilityGalleryImage, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
@@ -1941,11 +1941,12 @@ def _job_title_username_choices(current_username=None):
 
 
 class EESSUserForm(UserCreationForm):
-    username = forms.ChoiceField(
+    username = UsernameField(
         label='اسم المستخدم',
-        choices=[],
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        help_text='اختر اسم المستخدم من الوظائف المسجلة في الإعدادات.'
+        max_length=150,
+        validators=User._meta.get_field('username').validators,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'username'}),
+        help_text='اكتب اسم دخول مستقل للمستخدم؛ لا يشترط تسجيله كموظف أو اختيار وظيفة.'
     )
     first_name = forms.CharField(label='الاسم', required=False, widget=forms.TextInput(attrs={'class':'form-control'}))
     email = forms.EmailField(label='البريد الإلكتروني', required=False, widget=forms.EmailInput(attrs={'class':'form-control'}))
@@ -1958,7 +1959,6 @@ class EESSUserForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['username'].choices = _job_title_username_choices()
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
             if field.widget.__class__.__name__ == 'Select':
@@ -1968,11 +1968,12 @@ class EESSUserForm(UserCreationForm):
 
 
 class EESSUserUpdateForm(forms.ModelForm):
-    username = forms.ChoiceField(
+    username = UsernameField(
         label='اسم المستخدم',
-        choices=[],
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        help_text='اختر اسم المستخدم من الوظائف المسجلة في الإعدادات.'
+        max_length=150,
+        validators=User._meta.get_field('username').validators,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'username'}),
+        help_text='اكتب اسم دخول مستقل للمستخدم؛ لا يشترط تسجيله كموظف أو اختيار وظيفة.'
     )
     new_password = forms.CharField(
         label='تعيين كلمة مرور جديدة',
@@ -1999,11 +2000,6 @@ class EESSUserUpdateForm(forms.ModelForm):
             'email': forms.EmailInput(attrs={'class':'form-control'}),
             'is_active': forms.CheckboxInput(attrs={'class':'form-check-input'}),
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        current_username = self.instance.username if self.instance and self.instance.pk else None
-        self.fields['username'].choices = _job_title_username_choices(current_username)
 
     def clean(self):
         cleaned_data = super().clean()

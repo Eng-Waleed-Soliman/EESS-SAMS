@@ -71,6 +71,30 @@ class ApplicationFlowsTests(TestCase):
         self.user = User.objects.create_user(username='tester', password='test-password')
         self.client.force_login(self.user)
 
+    def test_create_independent_user_with_selected_permissions_and_login(self):
+        self.user.is_superuser = True
+        self.user.save(update_fields=['is_superuser'])
+        response = self.client.post(reverse('user_create'), {
+            'username': 'booking.operator', 'first_name': 'مستخدم مستقل',
+            'password1': 'Independent-pass-9284', 'password2': 'Independent-pass-9284',
+            'is_active': 'on', 'can_daily_booking': 'on',
+            'buttons_daily_booking': ['إضافة حجز'],
+        })
+        self.assertRedirects(response, reverse('user_list'))
+        account = User.objects.get(username='booking.operator')
+        self.assertFalse(Employee.objects.exists())
+        self.assertFalse(JobTitle.objects.exists())
+        self.assertFalse(account.is_staff)
+        self.assertFalse(account.is_superuser)
+        profile = account.eess_permissions
+        self.assertTrue(profile.can_daily_booking)
+        self.assertFalse(profile.can_accounts)
+        self.assertFalse(profile.can_settings)
+        self.assertEqual(profile.button_permissions['daily_booking'], ['إضافة حجز'])
+        self.client.logout()
+        self.assertTrue(self.client.login(username=account.username, password='Independent-pass-9284'))
+        self.assertRedirects(self.client.get(reverse('accounts_home')), reverse('dashboard'))
+
     def test_accounts_permissions_list_every_header_action_and_control_visibility(self):
         self.user.is_staff = True
         self.user.save(update_fields=['is_staff'])
