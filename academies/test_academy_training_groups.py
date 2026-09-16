@@ -79,7 +79,7 @@ class AcademyTrainingGroupTests(TestCase):
         self.assertEqual(group.training_times['2'], {'start': '18:30', 'end': '20:30'})
         self.assertEqual(group.sessions_count_in_month(2026, 9), 9)
 
-    def test_assign_player_to_multiple_groups_remove_and_delete_group(self):
+    def test_assigned_player_is_hidden_across_groups_and_available_after_removal(self):
         groups_url = reverse('academy_training_group_list', args=[self.academy.pk])
         self.create_group(name='المجموعة الأولى')
         self.create_group(name='المجموعة الثانية', days=('6', '3'))
@@ -87,8 +87,13 @@ class AcademyTrainingGroupTests(TestCase):
         first_url = reverse('academy_training_group_players', args=[self.academy.pk, first_group.pk])
         second_url = reverse('academy_training_group_players', args=[self.academy.pk, second_group.pk])
         self.assertRedirects(self.client.post(first_url, {'player': self.first_player.pk}), first_url)
-        self.assertRedirects(self.client.post(second_url, {'player': self.first_player.pk}), second_url)
-        self.assertEqual(self.first_player.group_assignments.count(), 2)
+        for url in (first_url, second_url):
+            available_players = self.client.get(url).context['form'].fields['player'].queryset
+            self.assertNotIn(self.first_player, available_players)
+            self.assertIn(self.second_player, available_players)
+        second_assignment = self.client.post(second_url, {'player': self.first_player.pk})
+        self.assertEqual(second_assignment.status_code, 200)
+        self.assertEqual(self.first_player.group_assignments.count(), 1)
 
         duplicate = self.client.post(first_url, {'player': self.first_player.pk})
         self.assertEqual(duplicate.status_code, 200)
@@ -112,6 +117,10 @@ class AcademyTrainingGroupTests(TestCase):
             self.client.post(first_url, {'action': 'remove', 'assignment_id': assignment.pk}), first_url,
         )
         self.assertFalse(AcademyTrainingGroupPlayer.objects.filter(pk=assignment.pk).exists())
+        for url in (first_url, second_url):
+            available_players = self.client.get(url).context['form'].fields['player'].queryset
+            self.assertIn(self.first_player, available_players)
+        self.assertRedirects(self.client.post(second_url, {'player': self.first_player.pk}), second_url)
         self.assertTrue(AcademyTrainingGroupPlayer.objects.filter(group=second_group, player=self.first_player).exists())
 
         delete_url = reverse('academy_training_group_delete', args=[self.academy.pk, second_group.pk])

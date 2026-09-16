@@ -113,7 +113,8 @@ class AcademyTrainingGroupPlayerForm(forms.Form):
 
     def __init__(self, *args, academy, group, **kwargs):
         super().__init__(*args, **kwargs)
-        assigned_ids = group.player_assignments.values_list('player_id', flat=True)
         self.fields['player'].queryset = academy.members.filter(
             role=AcademyMember.ROLE_PLAYER,
-        ).exclude(pk__in=assigned_ids).order_by('-is_active', 'name', 'id')
+        ).exclude(
+            group_assignments__group__academy=academy,
+        ).order_by('-is_active', 'name', 'id')
