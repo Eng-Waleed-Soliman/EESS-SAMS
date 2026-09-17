@@ -16,12 +16,15 @@ from .models import (Academy, AcademyMember, AcademyPlayerReceiver,
 
 
 class VisitorForm(forms.Form):
+    REASONS = [('ولي أمر', 'ولي أمر'), ('مقابلة', 'مقابلة'), ('مورد', 'مورد'), ('صيانة', 'صيانة')]
     visitor_name = forms.CharField(label='اسم الزائر', max_length=200)
     contact_phone = forms.CharField(label='الهاتف', max_length=50)
     national_id = forms.CharField(label='الرقم القومي', max_length=14, required=False,
                                  widget=forms.TextInput(attrs={'inputmode': 'numeric', 'maxlength': '14'}))
-    visit_reason = forms.CharField(label='سبب الزيارة', max_length=300)
-    host_name = forms.CharField(label='الشخص المطلوب مقابلته', max_length=200)
+    visit_reason = forms.ChoiceField(label='سبب الزيارة', choices=[('', 'اختر السبب'), *REASONS, ('other', 'أخرى')])
+    other_reason = forms.CharField(label='سبب آخر', max_length=300, required=False)
+    host_name = forms.CharField(label='المطلوب مقابلته / الأكاديمية', max_length=200,
+                               widget=forms.TextInput(attrs={'list': 'visitorHosts', 'placeholder': 'اختر من القائمة أو اكتب الاسم'}))
     notes = forms.CharField(label='ملاحظات', required=False, widget=forms.Textarea(attrs={'rows': 2}))
 
     def clean_national_id(self):
@@ -29,6 +32,32 @@ class VisitorForm(forms.Form):
         if value and (len(value) != 14 or not value.isascii() or not value.isdecimal()):
             raise forms.ValidationError('الرقم القومي يجب أن يتكون من 14 رقمًا.')
         return value
+
+    def __init__(self, *args, **kwargs):
+        # Preserve existing API submissions while presenting preset reasons in the UI.
+        if args and args[0] is not None:
+            data = args[0].copy()
+            reason = data.get('visit_reason', '')
+            if reason and reason not in dict(self.fields_reasons()):
+                data['other_reason'], data['visit_reason'] = reason, 'other'
+            args = (data, *args[1:])
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-select' if isinstance(field.widget, forms.Select) else 'form-control'
+
+    @classmethod
+    def fields_reasons(cls):
+        return [*cls.REASONS, ('other', 'أخرى')]
+
+    def clean(self):
+        data = super().clean()
+        other = data.pop('other_reason', '')
+        if data.get('visit_reason') == 'other':
+            if not other:
+                self.add_error('other_reason', 'اكتب سبب الزيارة.')
+            else:
+                data['visit_reason'] = other
+        return data
 
 
 class CorrectionForm(forms.Form):
@@ -205,6 +234,9 @@ def desk(request, movement_type):
     scanned_member = None
     selected_employee = None
     visitor_form = VisitorForm()
+    visitor_lookup_open = False
+    visitor_matches = []
+    visitor_lookup_message = ''
     source = request.POST if request.method == 'POST' else request.GET
     if request.method == 'GET' and source.get('member_id'):
         scanned_member = get_object_or_404(members, pk=source['member_id'])
@@ -213,7 +245,36 @@ def desk(request, movement_type):
     if request.method == 'POST':
         action = source.get('action')
         try:
-            if action == 'lookup_qr':
+            if action == 'lookup_visitor':
+                if all_branches or not branch:
+                    raise ValueError('اختر فرعًا محددًا للبحث عن الزائر.')
+                visitor_lookup_open = True
+                previous = SecurityMovement.objects.filter(branch=branch, source='visitor', movement_type='entry')
+                if source.get('previous_visit_id'):
+                    previous_visit = get_object_or_404(previous, pk=source['previous_visit_id'])
+                    visitor_form = VisitorForm(initial={key: getattr(previous_visit, key) for key in ('contact_phone', 'national_id')}
+                                               | {'visitor_name': previous_visit.person_name})
+                    visitor_lookup_message = 'تم تعبئة بيانات الزائر. اختر سبب الزيارة والمطلوب مقابلته ثم أكد الدخول.'
+                else:
+                    query = source.get('visitor_query', '').strip().translate(str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789'))
+                    if len(query) < 7 or len(query) > 50:
+                        visitor_lookup_message = 'اكتب رقم الهاتف أو الرقم القومي كاملًا.'
+                    else:
+                        seen = set()
+                        for visit in previous.filter(Q(contact_phone=query) | Q(national_id=query)).order_by('-recorded_at', '-pk')[:100]:
+                            identity = (visit.person_name, visit.contact_phone, visit.national_id)
+                            if identity not in seen:
+                                seen.add(identity)
+                                visitor_matches.append(visit)
+                        if len(visitor_matches) == 1:
+                            visit = visitor_matches.pop()
+                            visitor_form = VisitorForm(initial={'visitor_name': visit.person_name, 'contact_phone': visit.contact_phone, 'national_id': visit.national_id})
+                            visitor_lookup_message = 'تم تعبئة بيانات الزائر. اختر سبب الزيارة والمطلوب مقابلته ثم أكد الدخول.'
+                        elif not visitor_matches:
+                            visitor_lookup_message = 'لا توجد زيارة سابقة بهذا الرقم في الفرع. أكمل بيانات الزائر الجديد.'
+                            initial = {'national_id' if len(query) == 14 and query.isdecimal() else 'contact_phone': query}
+                            visitor_form = VisitorForm(initial=initial)
+            elif action == 'lookup_qr':
                 from .views import _security_member_from_qr
                 scanned_member = _security_member_from_qr(source.get('qr_value', ''), academies)
                 if not scanned_member:
@@ -328,6 +389,9 @@ def desk(request, movement_type):
         'branch': branch, 'all_branches': all_branches, 'branches': Branch.objects.all() if not getattr(request, 'security_guard_profile', None) else [],
         'movement_type': movement_type, 'members': members[:100], 'employees': employees[:100],
         'card': card, 'selected_employee': selected_employee, 'visitor_form': visitor_form,
+        'visitor_lookup_open': visitor_lookup_open, 'visitor_matches': visitor_matches,
+        'visitor_lookup_message': visitor_lookup_message,
+        'visitor_hosts': list(employees.values_list('name', flat=True)) + list(academies.values_list('name', flat=True)),
         'current': current, 'log': log, 'totals': totals, 'q': q, 'day': day,
         'category_filter': category_filter, 'can_correct': can_correct(request),
         'date_from': date_from, 'date_to': date_to,

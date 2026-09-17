@@ -108,6 +108,40 @@ class SecurityDeskTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(SecurityMovement.objects.get(movement_type='exit').national_id, entry.national_id)
 
+    def test_repeat_visitor_lookup_prefills_identity_without_recording_or_cross_branch_leak(self):
+        visit = SecurityMovement.objects.create(branch=self.branch, source='visitor', person_type='visitor',
+            movement_type='entry', recorded_by=self.user, person_name='زائر سابق', contact_phone='01022223333', national_id='29001010101234',
+            visit_reason='صيانة', host_name='مستضيف قديم')
+        hidden = SecurityMovement.objects.create(branch=self.other, source='visitor', person_type='visitor',
+            movement_type='entry', recorded_by=self.user, person_name='زائر فرع آخر', contact_phone=visit.contact_phone)
+        response = self.client.post(reverse('security_home'), {'action': 'lookup_visitor', 'visitor_query': visit.contact_phone})
+        self.assertEqual(response.context['visitor_form'].initial['visitor_name'], visit.person_name)
+        self.assertEqual(response.context['visitor_form'].initial['national_id'], visit.national_id)
+        self.assertNotIn('host_name', response.context['visitor_form'].initial)
+        self.assertNotContains(response, hidden.person_name)
+        self.assertEqual(SecurityMovement.objects.count(), 2)
+        response = self.client.post(reverse('security_home'), {'action': 'lookup_visitor', 'previous_visit_id': hidden.pk})
+        self.assertEqual(response.status_code, 404)
+        response = self.client.post(reverse('security_home'), {'action': 'lookup_visitor', 'visitor_query': '٢٩٠٠١٠١٠١٠١٢٣٤'})
+        self.assertEqual(response.context['visitor_form'].initial['visitor_name'], visit.person_name)
+
+    def test_visitor_reason_other_and_multiple_lookup_results(self):
+        from .security_views import VisitorForm
+        payload = {'visitor_name': 'زائر', 'contact_phone': '01022223333', 'visit_reason': 'other', 'host_name': 'الإدارة'}
+        form = VisitorForm(payload)
+        self.assertFalse(form.is_valid())
+        form = VisitorForm({**payload, 'other_reason': 'تسليم مستندات'})
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['visit_reason'], 'تسليم مستندات')
+        self.assertNotIn('other_reason', form.cleaned_data)
+        for name in ['زائر أول', 'زائر ثان']:
+            SecurityMovement.objects.create(branch=self.branch, source='visitor', person_type='visitor',
+                movement_type='entry', recorded_by=self.user, person_name=name, contact_phone=payload['contact_phone'])
+        response = self.client.post(reverse('security_home'), {'action': 'lookup_visitor', 'visitor_query': payload['contact_phone']})
+        self.assertEqual(len(response.context['visitor_matches']), 2)
+        self.assertNotIn('visitor_name', response.context['visitor_form'].initial)
+        self.assertContains(response, 'اختر الزائر الصحيح')
+
     def test_duplicate_entry_and_exit_without_entry_are_rejected(self):
         self.movement('exit', action='record_member', member_id=self.player.pk)
         self.assertFalse(SecurityMovement.objects.exists())
