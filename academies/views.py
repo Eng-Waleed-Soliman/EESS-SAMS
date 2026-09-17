@@ -4511,9 +4511,8 @@ def academy_training_group_players(request, academy_id, pk):
     form = AcademyTrainingGroupPlayerForm(
         request.POST or None, academy=academy, group=group,
     )
-    if request.method == 'POST' and form.is_valid():
-        AcademyTrainingGroupPlayer.objects.get_or_create(group=group, player=form.cleaned_data['player'])
-        messages.success(request, 'تم تسكين اللاعب في المجموعة بنجاح.')
+    if request.method == 'POST' and form.is_valid() and form.assign():
+        messages.success(request, f"تم تسكين {len(form.cleaned_data['player'])} لاعب في المجموعة بنجاح.")
         return redirect('academy_training_group_players', academy_id=academy.pk, pk=group.pk)
     return render(request, 'academies/academy_training_group_players.html', {
         'academy': academy, 'group': group, 'form': form,

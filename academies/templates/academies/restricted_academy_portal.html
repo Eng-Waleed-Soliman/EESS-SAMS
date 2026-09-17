@@ -19,7 +19,7 @@
 {% if selected_group %}
 <h5>{{ selected_group.name }} — {{ selected_group.training_days_display }}</h5>
 {% if section == 'placement' %}
-<form method="post" class="mb-3">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><input type="hidden" name="action" value="assign">{{ placement_form.as_p }}<button class="btn btn-success">تسكين اللاعب</button></form>
+<form method="post" class="mb-3">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><input type="hidden" name="action" value="assign">{% include 'academies/player_multi_picker.html' with picker_form=placement_form %}<button class="btn btn-success">تسكين اللاعبين</button></form>
 <table class="table"><thead><tr><th>اللاعبون داخل المجموعة</th><th></th></tr></thead><tbody>{% for assignment in assignments %}<tr><td>{{ assignment.player.name }}</td><td><form method="post">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><input type="hidden" name="action" value="remove"><input type="hidden" name="assignment" value="{{ assignment.pk }}"><button class="btn btn-danger">إزالة من المجموعة</button></form></td></tr>{% empty %}<tr><td colspan="2">لا يوجد لاعبون مسكنون.</td></tr>{% endfor %}</tbody></table>
 {% else %}
 {% if can_record_attendance %}<form method="post">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><input type="hidden" name="month" value="{{ month_value }}">{% endif %}

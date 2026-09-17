@@ -1,7 +1,8 @@
 from django import forms
+from django.db import transaction
 
 from .constants import WEEKDAY_AR
-from .models import AcademyMember, AcademyTrainingGroup
+from .models import Academy, AcademyMember, AcademyTrainingGroup, AcademyTrainingGroupPlayer
 
 
 WEEKDAY_CHOICES = [(str(number), label) for number, label in sorted(WEEKDAY_AR.items(), key=lambda item: (item[0] - 5) % 7)]
@@ -106,15 +107,28 @@ class AcademyTrainingGroupForm(forms.ModelForm):
 
 
 class AcademyTrainingGroupPlayerForm(forms.Form):
-    player = forms.ModelChoiceField(
-        label='اسم اللاعب', queryset=AcademyMember.objects.none(),
-        widget=forms.Select(attrs={'class': 'form-select'}),
+    player = forms.ModelMultipleChoiceField(
+        label='اختر اللاعبين', queryset=AcademyMember.objects.none(),
+        widget=forms.CheckboxSelectMultiple(),
+        error_messages={'required': 'اختر لاعبًا واحدًا على الأقل.'},
     )
 
     def __init__(self, *args, academy, group, **kwargs):
+        self.academy, self.group = academy, group
         super().__init__(*args, **kwargs)
         self.fields['player'].queryset = academy.members.filter(
             role=AcademyMember.ROLE_PLAYER,
         ).exclude(
             group_assignments__group__academy=academy,
         ).order_by('-is_active', 'name', 'id')
+
+    def assign(self):
+        with transaction.atomic():
+            Academy.objects.select_for_update().get(pk=self.academy.pk)
+            players = list(self.cleaned_data['player'])
+            if AcademyTrainingGroupPlayer.objects.filter(player__in=players, group__academy=self.academy).exists():
+                self.add_error('player', 'تم تسكين أحد اللاعبين أثناء اختيارك. حدّث الصفحة وأعد الاختيار.')
+                return False
+            for player in players:
+                AcademyTrainingGroupPlayer.objects.get_or_create(group=self.group, player=player)
+        return True

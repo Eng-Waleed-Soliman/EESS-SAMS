@@ -11,6 +11,15 @@ from .constants import OPERATION_PLACE_CHOICES
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class RestrictedAcademyAccessTests(TestCase):
+    def test_bulk_placement_for_limited_academy_user(self):
+        self.grant('placement')
+        group = AcademyTrainingGroup.objects.create(academy=self.academy, name='Bulk limited', training_days=[5])
+        second = AcademyMember.objects.create(academy=self.academy, role='player', name='Second limited player')
+        url = reverse('restricted_academy_portal') + '?section=placement'
+        response = self.client.post(url, {'action': 'assign', 'group': group.pk, 'player': [self.player.pk, second.pk]})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(group.player_assignments.count(), 2)
+
     def setUp(self):
         self.user = User.objects.create_user('limited-user', password='safe-password-9274')
         self.academy = self.create_academy('الأكاديمية المسموحة')

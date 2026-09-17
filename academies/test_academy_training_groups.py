@@ -39,6 +39,22 @@ class AcademyTrainingGroupTests(TestCase):
             payload,
         )
 
+    def test_bulk_placement_and_invalid_batch_is_atomic(self):
+        group = AcademyTrainingGroup.objects.create(academy=self.academy, name='Bulk group', training_days=[5])
+        url = reverse('academy_training_group_players', args=[self.academy.pk, group.pk])
+        page = self.client.get(url)
+        self.assertContains(page, 'type="checkbox"')
+        response = self.client.post(url, {'player': [self.first_player.pk, self.second_player.pk]})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(group.player_assignments.count(), 2)
+        third = AcademyMember.objects.create(academy=self.academy, role='player', name='Third player')
+        response = self.client.post(url, {'player': [third.pk, 999999]})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(group.player_assignments.filter(player=third).exists())
+        response = self.client.post(url, {'player': [third.pk, self.first_player.pk]})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(group.player_assignments.filter(player=third).exists())
+
     def test_player_screen_button_create_edit_and_monthly_session_count(self):
         player_page = self.client.get(
             reverse('academy_member_list', args=[self.academy.pk]), {'role': 'player'},

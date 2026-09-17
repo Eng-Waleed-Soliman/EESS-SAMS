@@ -106,8 +106,7 @@ def restricted_academy_portal(request):
             if request.method == 'POST' and action != 'assign':
                 return HttpResponseForbidden('إجراء غير مسموح.')
             form = AcademyTrainingGroupPlayerForm(request.POST if request.method == 'POST' else None, academy=academy, group=group)
-            if request.method == 'POST' and form.is_valid():
-                AcademyTrainingGroupPlayer.objects.get_or_create(group=group, player=form.cleaned_data['player'])
+            if request.method == 'POST' and form.is_valid() and form.assign():
                 return redirect(f"{reverse('restricted_academy_portal')}?section=placement&group={group.pk}")
             context.update({'placement_form': form, 'assignments': group.player_assignments.filter(player__academy=academy, player__role=AcademyMember.ROLE_PLAYER).select_related('player')})
         elif group and section == 'attendance':

@@ -1,0 +1,8 @@
+<div class="player-picker">
+<input type="search" class="form-control mb-2" placeholder="ابحث باسم اللاعب" aria-label="بحث اللاعبين" oninput="filterPlacementPlayers(this)">
+<div class="player-options">{{ picker_form.player }}</div>
+<div class="text-danger">{{ picker_form.player.errors }}</div>
+<div class="form-text">حدد أكثر من اسم ثم اضغط تسكين اللاعبين. اللاعب المسكن بالفعل لا يظهر في القائمة.</div>
+</div>
+<style>.player-options{max-height:300px;overflow:auto;border:1px solid #cbd5e1;border-radius:12px;padding:12px}.player-options label{display:flex;gap:10px;align-items:center;padding:8px;cursor:pointer}.player-options input{width:18px;height:18px;flex-shrink:0}</style>
+<script>function filterPlacementPlayers(input){input.closest('.player-picker').querySelectorAll('.player-options label').forEach(label=>{label.style.display=label.textContent.toLowerCase().includes(input.value.trim().toLowerCase())?'flex':'none'})}</script>
