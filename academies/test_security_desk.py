@@ -142,19 +142,19 @@ class SecurityDeskTests(TestCase):
         self.assertNotIn('visitor_name', response.context['visitor_form'].initial)
         self.assertContains(response, 'اختر الزائر الصحيح')
 
-    def test_id_reader_uses_local_assets_and_no_image_submission_field(self):
+    def test_visitor_form_has_no_card_reader_or_image_upload(self):
         from django.contrib.staticfiles import finders
         response = self.client.get(reverse('security_home'))
-        self.assertContains(response, 'قراءة البطاقة محليًا')
-        self.assertContains(response, '?v=20260917-5')
-        self.assertContains(response, 'قارئ البطاقة — إصدار 5')
-        self.assertContains(response, 'data-engine="/static/academies/vendor/ocr/tesseract.min.js"')
-        self.assertContains(response, 'id="idImageFile"')
-        self.assertNotContains(response, 'name="idImageFile"')
+        self.assertContains(response, 'id="visitorEntryForm"')
+        self.assertContains(response, 'name="visitor_name"')
+        self.assertContains(response, 'name="national_id"')
+        self.assertContains(response, 'id="qrInput"')
+        for marker in ['idReader', 'idImageFile', 'id-card-reader', 'vendor/ocr', 'type="file"', 'قراءة البطاقة']:
+            self.assertNotContains(response, marker)
         self.assertNotContains(response, 'multipart/form-data')
         for asset in ['id-card-reader.js', 'vendor/ocr/tesseract.min.js', 'vendor/ocr/worker.min.js',
                       'vendor/ocr/core/tesseract-core-lstm.wasm.js', 'vendor/ocr/lang/ara.traineddata.gz']:
-            self.assertIsNotNone(finders.find('academies/' + asset))
+            self.assertIsNone(finders.find('academies/' + asset))
 
     def test_duplicate_entry_and_exit_without_entry_are_rejected(self):
         self.movement('exit', action='record_member', member_id=self.player.pk)
