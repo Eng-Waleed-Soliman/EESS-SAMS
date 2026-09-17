@@ -4668,7 +4668,7 @@ def academy_player_subscriptions(request, academy_id):
                 supplied_amount = positive_int(
                     request.POST.get(f'supplied_{player_id}'),
                     current_supplied,
-                )
+                ) if academy.subscription_type == 'revenue_share' else current_supplied
                 if supplied_amount > paid_amount:
                     transaction.set_rollback(True)
                     messages.error(
@@ -4686,7 +4686,9 @@ def academy_player_subscriptions(request, academy_id):
                         'expected_amount': expected_amount,
                         'paid_amount': paid_amount,
                         'supplied_amount': supplied_amount,
-                        'supply_is_recorded': current_supply_is_recorded or f'supplied_{player_id}' in request.POST,
+                        'supply_is_recorded': current_supply_is_recorded or (
+                            academy.subscription_type == 'revenue_share' and f'supplied_{player_id}' in request.POST
+                        ),
                     },
                 )
                 saved_count += 1

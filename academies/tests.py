@@ -2122,8 +2122,10 @@ class ApplicationFlowsTests(TestCase):
         )
         self.assertEqual(first_subscription.expected_amount, 1800)
         self.assertEqual(first_subscription.paid_amount, 1000)
-        self.assertEqual(first_subscription.supplied_amount, 500)
-        self.assertEqual(first_subscription.unsupplied_amount, 500)
+        self.assertEqual(first_subscription.supplied_amount, 0)
+        self.assertEqual(first_subscription.unsupplied_amount, 1000)
+        self.assertFalse(first_subscription.supply_is_recorded)
+        self.assertFalse(AcademyMonthlyRentPayment.objects.filter(academy=academy).exists())
         self.assertEqual(first_subscription.remaining_amount, 800)
         self.assertFalse(first_subscription.is_paid)
         self.assertEqual(paid_subscription.remaining_amount, 0)
@@ -2136,9 +2138,10 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(totals_page.context['totals'], {
             'expected': 3800,
             'paid': 3000,
-            'supplied': 2500,
+            'supplied': 0,
             'remaining': 800,
         })
+        self.assertNotContains(totals_page, 'المبلغ المورد للشركة')
         paid_page = self.client.get(subscriptions_url, {
             'year': today.year,
             'month': today.month,
@@ -2160,6 +2163,33 @@ class ApplicationFlowsTests(TestCase):
         })
         self.assertContains(search_page, first_player.name)
         self.assertNotContains(search_page, paid_player.name)
+
+    def test_non_share_player_subscriptions_do_not_change_contract_accounts(self):
+        today = date.today().replace(day=1)
+        for contract_type in ('fixed', 'variable'):
+            with self.subTest(contract_type=contract_type):
+                academy = Academy.objects.create(
+                    name=f'Independent {contract_type}', sport_activity='Football', company_name='Company',
+                    manager_name='Manager', manager_phone='01000000991',
+                    operation_place=OPERATION_PLACE_CHOICES[0][0],
+                    contract_start_date=today, contract_end_date=today + timedelta(days=365),
+                    subscription_type=contract_type, monthly_subscription=2000,
+                )
+                player = AcademyMember.objects.create(academy=academy, role='player', name='Independent player')
+                rent = AcademyMonthlyRentPayment.objects.create(
+                    academy=academy, month=today, expected_amount=2000, paid_amount=900, supplied_amount=700,
+                )
+                response = self.client.post(reverse('academy_player_subscriptions', args=[academy.pk]), {
+                    'year': today.year, 'month': today.month, 'player_id': [player.pk],
+                    f'expected_{player.pk}': 1500, f'paid_{player.pk}': 1000,
+                    f'supplied_{player.pk}': 99999,
+                })
+                self.assertEqual(response.status_code, 302)
+                rent.refresh_from_db()
+                self.assertEqual((rent.expected_amount, rent.paid_amount, rent.supplied_amount), (2000, 900, 700))
+                subscription = AcademyPlayerMonthlySubscription.objects.get(player=player, month=today)
+                self.assertEqual((subscription.expected_amount, subscription.paid_amount, subscription.supplied_amount), (1500, 1000, 0))
+                self.assertFalse(subscription.supply_is_recorded)
 
     def test_revenue_share_subscriptions_sync_company_due_paid_and_supplied_amounts(self):
         today = date.today()

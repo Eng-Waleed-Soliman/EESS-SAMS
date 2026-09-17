@@ -3,7 +3,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <div>
     <h3 class="mb-1">الاشتراكات الشهرية - {{ academy.name }}</h3>
-    <div class="text-muted">إدارة المبلغ المستحق والمسدد والمورد لكل لاعب حسب الشهر. التقارير تحتسب المبلغ المورد فقط.</div>
+    <div class="text-muted">{% if is_revenue_share %}إدارة المبلغ المستحق والمسدد والمورد لكل لاعب حسب الشهر. التقارير تحتسب المبلغ المورد فقط.{% else %}اشتراكات اللاعبين لإدارة الأكاديمية فقط، ولا تدخل في حسابات الشركة. إيجار التعاقد مستقل عن اشتراكات اللاعبين.{% endif %}</div>
   </div>
   <a class="btn btn-secondary" href="{% url 'academy_member_list' academy.id %}?role=player">رجوع للاعبين</a>
 </div>
@@ -46,7 +46,7 @@
   {% else %}
   <div class="subscription-summary-card paid"><span>إجمالي المبلغ المسدد</span><strong>{{ totals.paid }}</strong></div>
   {% endif %}
-  <div class="subscription-summary-card supplied"><span>إجمالي المبلغ المورد للشركة</span><strong>{{ totals.supplied }}</strong></div>
+  {% if is_revenue_share %}<div class="subscription-summary-card supplied"><span>إجمالي المبلغ المورد للشركة</span><strong>{{ totals.supplied }}</strong></div>{% endif %}
   <div class="subscription-summary-card remaining"><span>إجمالي المبلغ المتبقي</span><strong>{{ totals.remaining }}</strong></div>
 </div>
 
@@ -76,7 +76,7 @@
           <th>الحالة</th>
           <th>مبلغ الاشتراك الشهري</th>
           <th>المبلغ المسدد</th>
-          <th>المبلغ المورد للشركة</th>
+          {% if is_revenue_share %}<th>المبلغ المورد للشركة</th>{% endif %}
           <th>المبلغ المتبقي</th>
           <th>حالة السداد</th>
         </tr>
@@ -91,12 +91,12 @@
           <td>{% if row.player.is_active %}<span class="badge bg-success">نشط</span>{% else %}<span class="badge bg-secondary">غير نشط</span>{% endif %}</td>
           <td><input class="form-control expected-input" type="number" min="0" step="1" name="expected_{{ row.player.pk }}" value="{{ row.expected_amount }}"></td>
           <td><input class="form-control paid-input" type="number" min="0" step="1" name="paid_{{ row.player.pk }}" value="{{ row.paid_amount }}"></td>
-          <td><input class="form-control supplied-input" type="number" min="0" step="1" name="supplied_{{ row.player.pk }}" value="{{ row.supplied_amount }}"></td>
+          {% if is_revenue_share %}<td><input class="form-control supplied-input" type="number" min="0" step="1" name="supplied_{{ row.player.pk }}" value="{{ row.supplied_amount }}"></td>{% endif %}
           <td><strong class="remaining-value">{{ row.remaining_amount }}</strong></td>
           <td>{% if row.is_paid %}<span class="badge bg-success">مسدد بالكامل</span>{% elif row.remaining_amount > 0 %}<span class="badge bg-warning text-dark">متبقي</span>{% else %}<span class="badge bg-secondary">غير محدد</span>{% endif %}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="text-center text-muted py-4">لا يوجد لاعبون مطابقون للفلاتر المختارة.</td></tr>
+        <tr><td colspan="{% if is_revenue_share %}7{% else %}6{% endif %}" class="text-center text-muted py-4">لا يوجد لاعبون مطابقون للفلاتر المختارة.</td></tr>
         {% endfor %}
       </tbody>
     </table>
