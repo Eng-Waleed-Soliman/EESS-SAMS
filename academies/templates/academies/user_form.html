@@ -4,6 +4,8 @@
 <div class="alert alert-info">هذا حساب دخول للبرنامج مستقل عن الموظفين والمرتبات. حدد الشاشات المسموح بها من قسم الصلاحيات أدناه.</div>
 <form method="post" class="card p-4">
   {% csrf_token %}
+  {% if permission_form.errors %}<div class="alert alert-danger">لم يتم حفظ الصلاحيات. راجع الأخطاء التالية: {{ permission_form.errors }}</div>{% endif %}
+  <div class="alert alert-info">لوحة التحكم لا تظهر إلا عند تفعيل صلاحيتها ضمن الموديولات. وضع الأمن فقط أو الأكاديمية الواحدة يمنعها حتى لو تم تحديد صلاحيتها.</div>
   {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
   {% if form.new_password %}
   <div class="alert alert-warning">

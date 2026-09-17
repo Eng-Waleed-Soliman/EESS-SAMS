@@ -2025,6 +2025,7 @@ class EESSUserUpdateForm(forms.ModelForm):
 
 
 PERMISSION_MODULE_FIELDS = [
+    'can_dashboard',
     'can_academies', 'can_daily_booking', 'can_daily_income', 'can_academy_rent',
     'can_operation', 'can_security', 'can_shareholders', 'can_employees', 'can_general_expenses',
     'can_accounts', 'can_cafeteria', 'can_reports', 'can_settings'

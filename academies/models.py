@@ -1073,6 +1073,7 @@ class AcademyOperationOverride(models.Model):
 
 
 class UserPermission(models.Model):
+    can_dashboard = models.BooleanField(default=False, verbose_name='لوحة التحكم')
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='eess_permissions', verbose_name='المستخدم')
     academy_only = models.BooleanField(default=False, verbose_name='قصر الدخول على أكاديمية واحدة فقط')
     security_only = models.BooleanField(default=False, verbose_name='الأمن فقط')

@@ -999,6 +999,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertRedirects(response, reverse('dashboard'))
 
     def test_dashboard_is_the_direct_login_entry_point_for_anonymous_users(self):
+        UserPermission.objects.update_or_create(user=self.user, defaults={'can_dashboard': True})
         self.client.logout()
         response = self.client.get(reverse('dashboard'))
         self.assertEqual(response.status_code, 200)
@@ -1691,6 +1692,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertNotContains(response, reverse('operating_expense_list'))
 
     def test_dashboard_shows_activity_cards_instead_of_financial_cards(self):
+        UserPermission.objects.update_or_create(user=self.user, defaults={'can_dashboard': True})
         today = date.today()
         academy = Academy.objects.create(
             name='أكاديمية لوحة التحكم', sport_activity='كرة قدم', company_name='شركة',
@@ -1728,6 +1730,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertNotContains(response, 'dashboard-card-col')
 
     def test_dashboard_weekday_filter_marks_only_academy_training_slots_busy(self):
+        UserPermission.objects.update_or_create(user=self.user, defaults={'can_dashboard': True})
         football_field = OPERATION_PLACE_CHOICES[0][0]
         Academy.objects.create(
             name='Sunday Academy',
@@ -1769,6 +1772,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'Sunday Academy')
 
     def test_dashboard_does_not_leak_activities_between_branches(self):
+        UserPermission.objects.update_or_create(user=self.user, defaults={'can_dashboard': True})
         first = Branch.objects.create(name='الفرع الرئيسي')
         second = Branch.objects.create(name='الفرع الثاني')
         Academy.objects.create(

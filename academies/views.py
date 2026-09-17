@@ -495,6 +495,7 @@ REPORT_PERMISSION_FIELDS = {
 }
 
 SIDEBAR_PERMISSION_MODULES = [
+    {'key': 'dashboard', 'field': 'can_dashboard', 'label': 'لوحة التحكم', 'buttons': ['عرض لوحة التحكم']},
     {'key': 'academies', 'field': 'can_academies', 'label': 'الأكاديميات', 'buttons': ['إضافة أكاديمية', 'تعديل أكاديمية', 'حذف أكاديمية', 'المدربين والإداريين', 'اللاعبين', 'كروت التعارف']},
     {'key': 'daily_booking', 'field': 'can_daily_booking', 'label': 'الحجز اليومي', 'buttons': ['إضافة حجز', 'تعديل حجز', 'حذف حجز', 'Checkout', 'إلغاء يوم تشغيل']},
     {'key': 'academy_rent', 'field': 'can_academy_rent', 'label': 'إيجارات الأكاديميات', 'buttons': ['عرض', 'تعديل المسدد', 'تعديل التوريد للشركة', 'تصدير PDF']},
@@ -851,6 +852,9 @@ def _dashboard_academy_schedule_rows(academies, selected_date, branch=None, all_
 def dashboard(request):
     if not request.user.is_authenticated:
         return login_view(request)
+    profile = UserPermission.objects.filter(user=request.user).first()
+    if not profile or not profile.can_dashboard or profile.security_only or profile.academy_only:
+        return render(request, 'academies/access_landing.html')
     branch, all_branches = selected_branch(request)
     training_year = _selected_training_year(request)
     academies = Academy.objects.select_related('branch')
