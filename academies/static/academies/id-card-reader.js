@@ -24,6 +24,7 @@
     // Reject mixed numeric/header text from the explicitly labeled name.
     if (!/^[\u0621-\u064A\u066E-\u06D3\s]+$/.test(name) || name.split(/\s+/).length < 2) name = '';
     const possible = lines.filter(s => /^[\u0621-\u064A\u066E-\u06D3\s]+$/.test(s)
+      && !/^ش\s/.test(s)
       && !/(جمهورية|بطاقة|القومي|العنوان|الميلاد|الاسم|الإسم|وزارة|الداخلية|محافظة|شارع|حدائق|القاهرة|الجيزة|مركز|قسم|مدينة|قرية)/.test(s)
       && s.split(/\s+/).length <= 7);
     const nameOptions = [...new Set(possible.flatMap((s, i) => {
@@ -39,12 +40,25 @@
       .map(s => s.replace(/\s/g, '')).filter(s => /^[23]/.test(s)).sort((a,b) => b.length - a.length);
     return { nationalId: ids.length === 1 ? ids[0] : '', partialId: ids.length ? '' : partial[0] || '', name, nameOptions, ambiguous: ids.length > 1 };
   }
-  const api = { digits, extract };
+  function assess(data, mode) {
+    const candidate = extract(data.text, mode);
+    // Confidence is only an OCR quality filter, not identity verification.
+    const trusted = Number.isFinite(data.confidence) && data.confidence >= 85;
+    if (!trusted || mode === 'number' || mode === 'card') candidate.name = '';
+    candidate.nameOptions = trusted && mode === 'name' && candidate.name ? [candidate.name] : [];
+    if (!trusted || mode === 'name') candidate.nationalId = '';
+    candidate.lowConfidence = !trusted;
+    return candidate;
+  }
+  function needsRetry(candidate, mode) {
+    return mode === 'name' ? !candidate.name : !candidate.nationalId;
+  }
+  const api = { digits, extract, assess, needsRetry };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (!root.document) return;
   const panel = document.getElementById('idReader');
   if (!panel) return;
-  document.getElementById('idReaderVersion').textContent = 'قارئ البطاقة — إصدار 4 · جاهز';
+  document.getElementById('idReaderVersion').textContent = 'قارئ البطاقة — إصدار 5 · جاهز';
   const byId = id => document.getElementById(id);
   const canvas = byId('idPreview'), context = canvas.getContext('2d');
   const video = byId('idCameraVideo'), file = byId('idImageFile');
@@ -193,7 +207,7 @@
     const input = document.createElement('canvas'); processingCanvas = input;
     timeout = setTimeout(() => { cleanup(); panel.hidden = false; status('استغرقت القراءة وقتًا طويلًا؛ أعد المحاولة بصورة أوضح أو أدخل البيانات يدويًا.'); }, 120000);
     const crop = selection || {x: 0, y: 0, width: canvas.width, height: canvas.height};
-    const scale = Math.min(3, (mode === 'card' ? 1800 : 1600) / Math.max(crop.width, crop.height));
+    const scale = Math.min(3, (mode === 'card' ? 2400 : 2000) / Math.max(crop.width, crop.height));
     input.width = Math.round(crop.width * scale); input.height = Math.round(crop.height * scale);
     input.getContext('2d').drawImage(canvas, crop.x, crop.y, crop.width, crop.height, 0, 0, input.width, input.height);
     try {
@@ -202,9 +216,10 @@
       await worker.setParameters({tessedit_pageseg_mode: mode === 'number' ? '7' : mode === 'name' ? '6' : '11',
         tessedit_char_whitelist: mode === 'number' ? '0123456789٠١٢٣٤٥٦٧٨٩' : '', preserve_interword_spaces: '1', user_defined_dpi: '300'});
       let result = await worker.recognize(input);
-      let candidate = extract(result.data.text, mode);
-      // A bounded contrast pass only when the first read has no useful identity.
-      if (token === generation && !candidate.nationalId && !candidate.name && candidate.nameOptions.length === 0) {
+      let candidate = assess(result.data, mode);
+      // Retry the requested field independently; stray name text must not
+      // suppress another attempt to read the number.
+      if (token === generation && needsRetry(candidate, mode)) {
         status('القراءة الأولى غير واضحة؛ تحسين التباين ومحاولة إضافية…');
         const ctx = input.getContext('2d', {willReadFrequently: true});
         const pixels = ctx.getImageData(0,0,input.width,input.height);
@@ -215,19 +230,20 @@
         ctx.putImageData(pixels,0,0);
         if (mode === 'card') await worker.setParameters({tessedit_pageseg_mode:'6'});
         const retry = await worker.recognize(input);
-        const alternate = extract(retry.data.text, mode);
-        if (alternate.nationalId || alternate.name || alternate.nameOptions.length > candidate.nameOptions.length || alternate.partialId.length > candidate.partialId.length) {
+        const alternate = assess(retry.data, mode);
+        if (!needsRetry(alternate, mode) || (needsRetry(candidate, mode) && retry.data.confidence > result.data.confidence)) {
           result = retry; candidate = alternate;
         }
       }
       if (token !== generation) return;
-      byId('idReadName').value = candidate.name || (mode === 'number' ? previousName : '');
+      byId('idReadName').value = mode === 'name' ? candidate.name : previousName;
       for (const option of candidate.nameOptions) byId('idNameOptions').add(new Option(option, option));
-      byId('idReadNumber').value = candidate.nationalId || (mode === 'name' ? previousNumber : '');
+      byId('idReadNumber').value = mode === 'name' ? previousNumber : candidate.nationalId;
       byId('idReadText').value = result.data.text;
       byId('idReview').hidden = false;
       byId('idReview').scrollIntoView({behavior:'smooth',block:'nearest'});
-      status(candidate.ambiguous ? 'تم العثور على أكثر من رقم محتمل. راجع البطاقة واكتب الرقم الصحيح.' :
+      status(candidate.lowConfidence ? 'ثقة القراءة منخفضة؛ لم تُعبّأ الخانة المطلوبة. حدد منطقة الاسم وحدها أو سطر الرقم وحده، أو أدخل البيانات يدويًا. نسبة الثقة لا تثبت صحة البيانات.' :
+        candidate.ambiguous ? 'تم العثور على أكثر من رقم محتمل. راجع البطاقة واكتب الرقم الصحيح.' :
         mode === 'name' && candidate.name ? 'تم استخراج الاسم من المنطقة المحددة. راجع الاسم والرقم قبل استخدامهما.' :
         candidate.nationalId ? 'تم استخراج الرقم. راجع الاسم والرقم من البطاقة قبل استخدامهما.' :
         candidate.partialId ? `الرقم المقروء ناقص (${candidate.partialId.length} من 14 رقمًا). لا تعتمد عليه؛ حدد سطر الرقم واختر «الرقم فقط»، أو صححه يدويًا.` :

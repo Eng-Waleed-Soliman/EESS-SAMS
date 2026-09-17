@@ -37,11 +37,11 @@
 <datalist id="visitorHosts">{% for host in visitor_hosts %}<option value="{{ host }}">{% endfor %}</datalist>
 <button type="button" class="btn btn-secondary mb-2" id="idOpenReader">قراءة البطاقة محليًا</button>
 <section id="idReader" hidden data-engine="{% static 'academies/vendor/ocr/tesseract.min.js' %}" data-worker="{% static 'academies/vendor/ocr/worker.min.js' %}" data-core="{% static 'academies/vendor/ocr/core/' %}" data-lang="{% static 'academies/vendor/ocr/lang-precise' %}" aria-label="قراءة البطاقة">
-<small id="idReaderVersion" class="text-muted">قارئ البطاقة — إصدار 4</small>
+<small id="idReaderVersion" class="text-muted">قارئ البطاقة — إصدار 5</small>
 <p class="text-muted">اقرأ وجه البطاقة لاستخراج الاسم والرقم القومي. الصورة لا تُرفع أو تُحفظ، ويجب مراجعة البيانات قبل استخدامها.</p>
 <div class="d-flex flex-wrap gap-2 mb-2"><button type="button" class="btn btn-secondary" id="idStartCamera">فتح الكاميرا</button><button type="button" class="btn btn-secondary" id="idChooseImage">اختيار صورة</button><input type="file" id="idImageFile" accept="image/jpeg,image/png,image/webp" hidden><button type="button" class="btn btn-secondary" id="idRotateImage">تدوير الصورة</button><button type="button" class="btn btn-secondary" id="idCancelRead">إلغاء ومسح الصورة</button></div>
 <video id="idCameraVideo" playsinline muted hidden style="width:100%;max-height:260px"></video><button type="button" class="btn btn-primary" id="idTakePhoto" hidden>التقاط البطاقة</button>
-<label for="idReadMode">نوع القراءة</label><select id="idReadMode" class="form-select mb-2"><option value="card">البطاقة كاملة</option><option value="number">الرقم فقط — حدد سطر الرقم بالسحب على الصورة</option><option value="name">الاسم فقط — حدد منطقة الاسم بالسحب على الصورة</option></select>
+<p class="text-muted">اقرأ الاسم والرقم منفصلين: حدد منطقة الاسم بالسحب واقرأها، ثم حدد سطر الرقم واختر «الرقم فقط». القراءة الثانية تحتفظ بالخانة الأخرى. لا تشمل العنوان أو رقم البطاقة التسلسلي في التحديد.</p><label for="idReadMode">الخانة المطلوب قراءتها</label><select id="idReadMode" class="form-select mb-2"><option value="name">الاسم فقط — حدد منطقة الاسم بالسحب على الصورة</option><option value="number">الرقم فقط — حدد سطر الرقم بالسحب على الصورة</option><option value="card">البطاقة كاملة — لا يقترح اسمًا من نصوص متفرقة</option></select>
 <div class="id-image-wrap"><canvas id="idPreview" hidden></canvas><div id="idCropBox" hidden></div></div>
 <button type="button" class="btn btn-primary mt-2" id="idReadButton">قراءة البيانات</button><p id="idReadStatus" role="status" aria-live="polite" class="mt-2"></p>
 <div id="idReview" hidden><label for="idNameOptions">اختيارات من النص المقروء — ليست أسماء مؤكدة</label><select id="idNameOptions" class="form-select"><option value="">اختر الاسم الصحيح من النص أو اكتبه بالأسفل</option></select><label for="idReadName">الاسم المقترح — راجعه أو اكتبه من البطاقة</label><input id="idReadName" maxlength="200" class="form-control"><label for="idReadNumber">الرقم القومي المقترح</label><input id="idReadNumber" maxlength="14" inputmode="numeric" class="form-control"><details><summary>النص المقروء للمراجعة فقط</summary><textarea id="idReadText" readonly rows="3"></textarea></details><label class="id-review-check"><input type="checkbox" id="idReviewed"> راجعت الاسم والرقم وطابقتهما مع البطاقة</label><button type="button" class="btn btn-success" id="idUseData" disabled>استخدام البيانات ومسح الصورة</button></div>
@@ -82,6 +82,6 @@ setInterval(()=>{const dialog=document.getElementById('visitorDialog'),active=do
 if(document.visibilityState==='visible'&&!stream&&!dialog.open&&!document.querySelector('[name="action"][value="record_member"], [name="action"][value="record_employee"]')&&(!active||!active.closest('form'))&&new Date().getUTCHours()!==initialHour){window.location.reload()}},60000)}
 })();
 </script>
-<script src="{% static 'academies/id-card-reader.js' %}?v=20260917-4" defer></script>
+<script src="{% static 'academies/id-card-reader.js' %}?v=20260917-5" defer></script>
 </div>
 {% endblock %}

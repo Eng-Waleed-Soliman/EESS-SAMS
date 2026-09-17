@@ -6,7 +6,7 @@ class Element {
   addEventListener(type, fn) { this.listeners[type] = fn; }
   replaceChildren() {} add() {} focus() {} close() {} remove() {}
   scrollIntoView() {}
-  getContext() { return { drawImage() {}, translate() {}, rotate() {}, setTransform() {} }; }
+  getContext() { return { drawImage() {}, translate() {}, rotate() {}, setTransform() {}, getImageData() {return {data: new Uint8ClampedArray(4)};}, putImageData() {} }; }
   play() { return Promise.resolve(); }
 }
 const ids = [...fs.readFileSync(require.resolve('./templates/academies/security_desk.html'), 'utf8').matchAll(/id="([^"]+)"/g)].map(m => m[1]);
@@ -23,7 +23,7 @@ const window = {document, isSecureContext: true, addEventListener() {}, Tesserac
     assert.equal(options.cachePath, 'eess-id-arabic-best-v2');
     assert.equal(options.workerBlobURL, false);
     for (const key of ['workerPath', 'corePath', 'langPath']) assert.ok(options[key].startsWith('/static/'));
-    return {async setParameters() {}, async recognize() {return {data: {text: ocrText}};}, async terminate() {terminated++;}};
+    return {async setParameters() {}, async recognize() {return {data: {text: ocrText, confidence: 95}};}, async terminate() {terminated++;}};
   }
 }};
 const sandbox = {window, document, navigator: {mediaDevices: {async getUserMedia() {return {getTracks: () => [{stop: () => stopped++}]};}}},
@@ -39,6 +39,7 @@ vm.runInNewContext(fs.readFileSync(require.resolve('./static/academies/id-card-r
   assert.equal(terminated, 1);
   assert.equal(elements.idReadNumber.value, '29001010101234');
   assert.equal(elements.visitorEntryForm.elements.national_id.value, '');
+  elements.idReadName.value = 'أحمد محمد علي';
   elements.idUseData.listeners.click();
   assert.equal(elements.visitorEntryForm.elements.national_id.value, '');
   elements.idReviewed.checked = true;
