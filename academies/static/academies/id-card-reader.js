@@ -19,15 +19,18 @@
       name = lines[index].replace(/^(?:الاسم|الإسم|اسم)\s*[:：]?\s*/, '');
       if (!name) name = lines[index + 1] || '';
     }
-    // Never infer identity from address/header text when the name label is absent.
+    // Reject mixed numeric/header text from the explicitly labeled name.
     if (!/^[\u0621-\u064A\u066E-\u06D3\s]+$/.test(name) || name.split(/\s+/).length < 2) name = '';
     const possible = lines.filter(s => /^[\u0621-\u064A\u066E-\u06D3\s]+$/.test(s)
-      && !/(جمهورية|بطاقة|القومي|العنوان|الميلاد|الاسم|الإسم|وزارة|الداخلية|محافظة)/.test(s)
+      && !/(جمهورية|بطاقة|القومي|العنوان|الميلاد|الاسم|الإسم|وزارة|الداخلية|محافظة|شارع|حدائق|القاهرة|الجيزة|مركز|قسم|مدينة|قرية)/.test(s)
       && s.split(/\s+/).length <= 7);
     const nameOptions = [...new Set(possible.flatMap((s, i) => {
       const joined = possible[i + 1] ? `${s} ${possible[i + 1]}` : '';
       return [s, joined].filter(n => n.split(/\s+/).length >= 2 && n.split(/\s+/).length <= 7);
     }))].slice(0, 12);
+    // Egyptian cards often print the name over two lines without a name label.
+    // This is only an editable proposal; the review gate remains mandatory.
+    if (mode === 'card' && !name && nameOptions.length) name = nameOptions[0];
     if (mode === 'name' && !name) {
       const selectedName = possible.join(' ').trim();
       if (selectedName.split(/\s+/).length >= 2 && selectedName.split(/\s+/).length <= 7) name = selectedName;
@@ -41,6 +44,7 @@
   if (!root.document) return;
   const panel = document.getElementById('idReader');
   if (!panel) return;
+  document.getElementById('idReaderVersion').textContent = 'قارئ البطاقة — إصدار 3 · جاهز';
   const byId = id => document.getElementById(id);
   const canvas = byId('idPreview'), context = canvas.getContext('2d');
   const video = byId('idCameraVideo'), file = byId('idImageFile');
