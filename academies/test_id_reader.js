@@ -14,4 +14,9 @@ assert.equal(extract('2 9 0 0 1 0 1 0 1 0 1 2 3 4').nationalId, '29001010101234'
 assert.equal(extract('جمهورية مصر العربية\nبطاقة تحقيق الشخصية\nأحمد\nمحمد علي').name, '');
 assert.ok(extract('جمهورية مصر العربية\nأحمد\nمحمد علي').nameOptions.includes('أحمد محمد علي'));
 assert.ok(!extract('جمهورية مصر العربية').nameOptions.length);
+assert.equal(extract('‎الاسم: أحمد محمد علي‏\n‎٢٩٠٠١٠١٠١٠١٢٣٤‏').nationalId, '29001010101234');
+assert.equal(extract('‎الاسم: أحمد محمد علي‏').name, 'أحمد محمد علي');
+assert.equal(extract('‎أَحْمَد\nمُحَمَّد عَلِي‏', 'name').name, 'أحمد محمد علي');
+assert.equal(extract('٢٩٠٠١٠١٠١٠١').partialId, '29001010101');
+assert.equal(extract('٢٩٠٠١٠١٠١٠١').nationalId, '');
 console.log('ID reader extraction tests passed');

@@ -5,6 +5,7 @@ class Element {
   constructor() { this.listeners = {}; this.value = ''; this.hidden = true; this.style = {}; this.checked = false; this.width = this.height = 1; }
   addEventListener(type, fn) { this.listeners[type] = fn; }
   replaceChildren() {} add() {} focus() {} close() {} remove() {}
+  scrollIntoView() {}
   getContext() { return { drawImage() {}, translate() {}, rotate() {}, setTransform() {} }; }
   play() { return Promise.resolve(); }
 }
@@ -16,8 +17,9 @@ let stopped = 0, terminated = 0, closedBitmap = 0;
 const document = {getElementById: id => elements[id], createElement: () => new Element()};
 const window = {document, isSecureContext: true, addEventListener() {}, Tesseract: {
   async createWorker(langs, mode, options) {
-    assert.deepEqual(Array.from(langs), ['ara', 'eng']);
-    assert.equal(options.cacheMethod, 'none');
+    assert.deepEqual(Array.from(langs), ['ara']);
+    assert.equal(options.cacheMethod, 'write');
+    assert.equal(options.cachePath, 'eess-id-arabic-best-v2');
     assert.equal(options.workerBlobURL, false);
     for (const key of ['workerPath', 'corePath', 'langPath']) assert.ok(options[key].startsWith('/static/'));
     return {async setParameters() {}, async recognize() {return {data: {text: 'الاسم: أحمد محمد علي\n29001010101234'}};}, async terminate() {terminated++;}};
