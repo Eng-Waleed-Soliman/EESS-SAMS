@@ -38,6 +38,12 @@
   </div>
 </form>
 
+<div class="subscription-player-counts mb-3">
+  <div class="subscription-summary-card expected"><span>إجمالي اللاعبين المشتركين</span><strong>{{ player_counts.subscribed }}</strong></div>
+  <div class="subscription-summary-card paid"><span>اللاعبون المسددون بالكامل</span><strong>{{ player_counts.paid }}</strong></div>
+  <div class="subscription-summary-card remaining"><span>اللاعبون غير المسددين بالكامل</span><strong>{{ player_counts.unpaid }}</strong></div>
+</div>
+<div class="text-muted mb-3">الأعداد لكل الأكاديمية في الشهر المختار، للاعبين المحدد لهم اشتراك أكبر من صفر. غير المسددين بالكامل يشمل المسددين جزئيًا.</div>
 <div class="subscription-summary-grid mb-3">
   <div class="subscription-summary-card expected"><span>إجمالي الاشتراكات</span><strong>{{ totals.expected }}</strong></div>
   {% if is_revenue_share %}
@@ -105,6 +111,7 @@
 
 <style>
 .subscription-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.subscription-player-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .subscription-summary-card{padding:22px;border-radius:18px;color:#fff;box-shadow:0 12px 28px rgba(15,45,70,.12)}
 .subscription-summary-card span{display:block;font-size:.95rem;opacity:.9}.subscription-summary-card strong{display:block;font-size:2rem;margin-top:6px;white-space:nowrap}.subscription-summary-card strong small{font-size:1.12rem;font-weight:700;margin-inline-start:6px}
 .subscription-summary-card.expected{background:linear-gradient(135deg,#1769aa,#1f8ac0)}
@@ -113,7 +120,7 @@
 .subscription-summary-card.academy-share{background:linear-gradient(135deg,#6f42c1,#8d63d2)}
 .subscription-summary-card.remaining{background:linear-gradient(135deg,#b56b00,#df931d)}
 .subscription-table input[type=number]{min-width:145px}
-@media(max-width:760px){.subscription-summary-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.subscription-summary-grid,.subscription-player-counts{grid-template-columns:1fr}}
 </style>
 <script>
 function updateSubscriptionRemaining(row){

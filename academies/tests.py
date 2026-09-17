@@ -2071,6 +2071,10 @@ class ApplicationFlowsTests(TestCase):
             name='لاعب عليه متبقي',
             monthly_subscription=1500,
         )
+        AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_PLAYER,
+            name='لاعب لم يحدد له اشتراك', monthly_subscription=0,
+        )
         paid_player = AcademyMember.objects.create(
             academy=academy,
             role=AcademyMember.ROLE_PLAYER,
@@ -2095,6 +2099,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(page, first_player.name)
         self.assertContains(page, paid_player.name)
         self.assertEqual(page.context['totals']['expected'], 3000)
+        self.assertEqual(page.context['player_counts'], {'subscribed': 2, 'paid': 0, 'unpaid': 2})
         self.assertContains(page, 'إجمالي الاشتراكات')
         self.assertContains(page, 'إجمالي المبلغ المسدد')
         self.assertContains(page, 'إجمالي المبلغ المتبقي')
@@ -2142,12 +2147,14 @@ class ApplicationFlowsTests(TestCase):
             'remaining': 800,
         })
         self.assertNotContains(totals_page, 'المبلغ المورد للشركة')
+        self.assertEqual(totals_page.context['player_counts'], {'subscribed': 2, 'paid': 1, 'unpaid': 1})
         paid_page = self.client.get(subscriptions_url, {
             'year': today.year,
             'month': today.month,
             'status': 'paid',
         })
         self.assertContains(paid_page, paid_player.name)
+        self.assertEqual(paid_page.context['player_counts'], {'subscribed': 2, 'paid': 1, 'unpaid': 1})
         self.assertNotContains(paid_page, first_player.name)
         due_page = self.client.get(subscriptions_url, {
             'year': today.year,

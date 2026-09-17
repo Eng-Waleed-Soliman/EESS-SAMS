@@ -4760,6 +4760,12 @@ def academy_player_subscriptions(request, academy_id):
         'supplied': sum(row['supplied_amount'] for row in all_rows),
         'remaining': sum(row['remaining_amount'] for row in all_rows),
     }
+    subscribed_rows = [row for row in all_rows if row['expected_amount'] > 0]
+    player_counts = {
+        'subscribed': len(subscribed_rows),
+        'paid': sum(row['is_paid'] for row in subscribed_rows),
+        'unpaid': sum(not row['is_paid'] for row in subscribed_rows),
+    }
     search = request.GET.get('q', '').strip()
     payment_status = request.GET.get('status', '').strip()
     if payment_status not in {'paid', 'due'}:
@@ -4807,6 +4813,7 @@ def academy_player_subscriptions(request, academy_id):
         'payment_status': payment_status,
         'default_amount': default_amount,
         'is_revenue_share': is_revenue_share,
+        'player_counts': player_counts,
         'company_share_percentage': company_share_percentage,
         'company_share_amount': company_share_amount,
         'academy_share_percentage': 100 - company_share_percentage,
