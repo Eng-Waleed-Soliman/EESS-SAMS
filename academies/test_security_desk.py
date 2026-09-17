@@ -146,8 +146,8 @@ class SecurityDeskTests(TestCase):
         from django.contrib.staticfiles import finders
         response = self.client.get(reverse('security_home'))
         self.assertContains(response, 'قراءة البطاقة محليًا')
-        self.assertContains(response, '?v=20260917-3')
-        self.assertContains(response, 'قارئ البطاقة — إصدار 3')
+        self.assertContains(response, '?v=20260917-4')
+        self.assertContains(response, 'قارئ البطاقة — إصدار 4')
         self.assertContains(response, 'data-engine="/static/academies/vendor/ocr/tesseract.min.js"')
         self.assertContains(response, 'id="idImageFile"')
         self.assertNotContains(response, 'name="idImageFile"')

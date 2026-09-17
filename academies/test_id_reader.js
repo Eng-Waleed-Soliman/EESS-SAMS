@@ -11,7 +11,7 @@ assert.equal(extract('29001010101234\n29001010101235').nationalId, '');
 assert.equal(extract('290010101012345').nationalId, '');
 assert.equal(extract('1 2 3 4 5 6 7 8 9 0 1 2 3 4').nationalId, '');
 assert.equal(extract('2 9 0 0 1 0 1 0 1 0 1 2 3 4').nationalId, '29001010101234');
-assert.equal(extract('جمهورية مصر العربية\nبطاقة تحقيق الشخصية\nأحمد\nمحمد علي').name, 'أحمد محمد علي');
+assert.equal(extract('جمهورية مصر العربية\nبطاقة تحقيق الشخصية\nأحمد\nمحمد علي').name, '');
 assert.equal(extract('جمهورية مصر العربية\nحدائق القبة القاهرة\nمدينة القاهرة').name, '');
 assert.ok(extract('جمهورية مصر العربية\nأحمد\nمحمد علي').nameOptions.includes('أحمد محمد علي'));
 assert.ok(!extract('جمهورية مصر العربية').nameOptions.length);
@@ -21,3 +21,5 @@ assert.equal(extract('‎أَحْمَد\nمُحَمَّد عَلِي‏', 'name'
 assert.equal(extract('٢٩٠٠١٠١٠١٠١').partialId, '29001010101');
 assert.equal(extract('٢٩٠٠١٠١٠١٠١').nationalId, '');
 console.log('ID reader extraction tests passed');
+assert.equal(extract('LP29001010101234').nationalId, '');
+assert.equal(extract('LP36335593').partialId, '');

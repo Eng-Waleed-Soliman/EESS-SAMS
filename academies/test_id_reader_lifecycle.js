@@ -14,6 +14,7 @@ const elements = Object.fromEntries(ids.map(id => [id, new Element()]));
 elements.idReader.dataset = {engine: '/static/ocr/tesseract.js', worker: '/static/ocr/worker.js', core: '/static/ocr/core/', lang: '/static/ocr/lang'};
 elements.visitorEntryForm.elements = Object.fromEntries(['visitor_name', 'national_id', 'contact_phone'].map(id => [id, new Element()]));
 let stopped = 0, terminated = 0, closedBitmap = 0;
+let ocrText = 'الاسم: أحمد محمد علي\n29001010101234';
 const document = {getElementById: id => elements[id], createElement: () => new Element()};
 const window = {document, isSecureContext: true, addEventListener() {}, Tesseract: {
   async createWorker(langs, mode, options) {
@@ -22,7 +23,7 @@ const window = {document, isSecureContext: true, addEventListener() {}, Tesserac
     assert.equal(options.cachePath, 'eess-id-arabic-best-v2');
     assert.equal(options.workerBlobURL, false);
     for (const key of ['workerPath', 'corePath', 'langPath']) assert.ok(options[key].startsWith('/static/'));
-    return {async setParameters() {}, async recognize() {return {data: {text: 'الاسم: أحمد محمد علي\n29001010101234'}};}, async terminate() {terminated++;}};
+    return {async setParameters() {}, async recognize() {return {data: {text: ocrText}};}, async terminate() {terminated++;}};
   }
 }};
 const sandbox = {window, document, navigator: {mediaDevices: {async getUserMedia() {return {getTracks: () => [{stop: () => stopped++}]};}}},
@@ -44,11 +45,18 @@ vm.runInNewContext(fs.readFileSync(require.resolve('./static/academies/id-card-r
   elements.idReviewed.listeners.change();
   elements.idUseData.listeners.click();
   assert.equal(elements.visitorEntryForm.elements.national_id.value, '29001010101234');
+  assert.equal(elements.visitorEntryForm.elements.visitor_name.value, 'أحمد محمد علي');
   assert.equal(elements.idPreview.width, 1);
   assert.equal(elements.idPreview.height, 1);
   assert.equal(elements.idReadText.value, '');
   assert.equal(elements.idReadNumber.value, '');
   assert.equal(elements.idReader.hidden, true);
+  ocrText = 'الاسم: أحمد محمد علي\n36335593\nLP6335692';
+  elements.idOpenReader.listeners.click();
+  await elements.idImageFile.listeners.change();
+  await elements.idReadButton.listeners.click();
+  assert.equal(elements.idReadNumber.value, '', 'Incomplete OCR must not populate the ID field');
+  elements.visitorDialog.listeners.close();
   elements.idOpenReader.listeners.click();
   await elements.idStartCamera.listeners.click();
   elements.visitorDialog.listeners.close();

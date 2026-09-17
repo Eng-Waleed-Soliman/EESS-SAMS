@@ -8,7 +8,9 @@
     });
   }
   function extract(text, mode = 'card') {
-    const normalized = digits(text);
+    // A Latin-prefixed card serial is not a national ID, even when OCR
+    // confuses its digits with a plausible ID fragment.
+    const normalized = digits(text).replace(/\b[A-Za-z]{1,3}[ \t]*[0-9][0-9 \t]*/g, '');
     const ids = [...new Set((normalized.match(/(?<![0-9])(?:[0-9][ \t]*){14}(?![ \t]*[0-9])/g) || [])
       .map(s => s.replace(/\s/g, '')).filter(s => /^[23]\d{13}$/.test(s)))];
     const lines = normalized.replace(/[\u064b-\u065f\u0670\u0640]/g, '').split(/\r?\n/)
@@ -28,9 +30,7 @@
       const joined = possible[i + 1] ? `${s} ${possible[i + 1]}` : '';
       return [s, joined].filter(n => n.split(/\s+/).length >= 2 && n.split(/\s+/).length <= 7);
     }))].slice(0, 12);
-    // Egyptian cards often print the name over two lines without a name label.
-    // This is only an editable proposal; the review gate remains mandatory.
-    if (mode === 'card' && !name && nameOptions.length) name = nameOptions[0];
+    // Unlabeled whole-card text remains a choice, never an automatic name.
     if (mode === 'name' && !name) {
       const selectedName = possible.join(' ').trim();
       if (selectedName.split(/\s+/).length >= 2 && selectedName.split(/\s+/).length <= 7) name = selectedName;
@@ -44,7 +44,7 @@
   if (!root.document) return;
   const panel = document.getElementById('idReader');
   if (!panel) return;
-  document.getElementById('idReaderVersion').textContent = 'قارئ البطاقة — إصدار 3 · جاهز';
+  document.getElementById('idReaderVersion').textContent = 'قارئ البطاقة — إصدار 4 · جاهز';
   const byId = id => document.getElementById(id);
   const canvas = byId('idPreview'), context = canvas.getContext('2d');
   const video = byId('idCameraVideo'), file = byId('idImageFile');
@@ -223,7 +223,7 @@
       if (token !== generation) return;
       byId('idReadName').value = candidate.name || (mode === 'number' ? previousName : '');
       for (const option of candidate.nameOptions) byId('idNameOptions').add(new Option(option, option));
-      byId('idReadNumber').value = candidate.nationalId || candidate.partialId || (mode === 'name' ? previousNumber : '');
+      byId('idReadNumber').value = candidate.nationalId || (mode === 'name' ? previousNumber : '');
       byId('idReadText').value = result.data.text;
       byId('idReview').hidden = false;
       byId('idReview').scrollIntoView({behavior:'smooth',block:'nearest'});
