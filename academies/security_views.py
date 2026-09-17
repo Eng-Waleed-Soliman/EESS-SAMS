@@ -1,18 +1,18 @@
 import uuid
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from .branching import selected_branch
 from .models import (Academy, AcademyMember, AcademyPlayerMonthlySubscription, AcademyPlayerReceiver,
-                     Branch, Employee, SecurityMovement, SecurityMovementCorrection, UserPermission)
+                     AcademyTrainingGroup, Branch, Employee, SecurityMovement, SecurityMovementCorrection, UserPermission)
 
 
 class VisitorForm(forms.Form):
@@ -118,6 +118,64 @@ def member_card(member):
             'has_override': overrides.exists(), 'receivers': member.authorized_receivers.filter(is_active=True)}
 
 
+def expected_players(academies, branch, hour, current, q=''):
+    """One identity row, exact sessions, no attendance or financial mutations."""
+    today = timezone.localdate()
+    tz = timezone.get_current_timezone()
+    window_start = timezone.make_aware(datetime.combine(today, time(hour)), tz)
+    window_end = window_start + timedelta(hours=1)
+    groups = AcademyTrainingGroup.objects.filter(academy__in=academies).select_related('academy__branch').defer(
+        'academy__website_image_data', 'academy__manager_photo_data',
+        'academy__branch__logo_data', 'academy__branch__image_data',
+    ).prefetch_related(Prefetch('players', queryset=AcademyMember.objects.filter(
+        role='player', is_active=True, academy__in=academies,
+    ).defer('photo_data').order_by('name')))
+    rows = {}
+    inside = {item.member_id: item for item in current if item.member_id}
+    last = {}
+    events = SecurityMovement.objects.filter(member__academy__in=academies, recorded_at__date=today).order_by('recorded_at', 'pk')
+    for event in events:
+        last[event.member_id] = event
+    for group in groups:
+        if group.academy.contract_start_date > today or group.academy.contract_end_date < today:
+            continue
+        for session_day in (today - timedelta(days=1), today):
+            if str(session_day.weekday()) not in {str(day) for day in group.training_days}:
+                continue
+            timing = (group.training_times or {}).get(str(session_day.weekday()), {})
+            try:
+                start_time = datetime.strptime(timing.get('start', ''), '%H:%M').time()
+                end_time = datetime.strptime(timing.get('end', ''), '%H:%M').time()
+                start = timezone.make_aware(datetime.combine(session_day, start_time), tz)
+                end = timezone.make_aware(datetime.combine(session_day, end_time), tz)
+                if end <= start:
+                    end += timedelta(days=1)
+            except (ValueError, TypeError):
+                start = end = None
+            # Yesterday's session only remains relevant while it crosses midnight.
+            if session_day != today and (not end or end <= window_start):
+                continue
+            lead = group.academy.branch.security_arrival_lead_minutes if group.academy.branch else 30
+            in_hour = bool(start and start - timedelta(minutes=lead) < window_end and end > window_start)
+            for player in group.players.all():
+                if player.academy_id != group.academy_id:
+                    continue
+                row = rows.setdefault(player.pk, {'player': player, 'academy': group.academy, 'sessions': [], 'in_hour': False,
+                                                  'inside': inside.get(player.pk), 'last': last.get(player.pk)})
+                row['sessions'].append({'group': group.name, 'start': timing.get('start', 'غير محدد'),
+                                        'end': timing.get('end', 'غير محدد'), 'previous_day': session_day != today})
+                row['in_hour'] |= in_hour
+    subscriptions = {item.player_id: item for item in AcademyPlayerMonthlySubscription.objects.filter(
+        player_id__in=rows, month=today.replace(day=1))}
+    for pk, row in rows.items():
+        row['is_paid'] = bool(pk in subscriptions and subscriptions[pk].is_paid)
+        row['exited'] = bool(not row['inside'] and row['last'] and row['last'].movement_type == 'exit')
+    daily_total = len(rows)
+    visible = [row for row in rows.values() if row['in_hour'] and (not q or q.casefold() in row['player'].name.casefold() or q in row['player'].phone)]
+    visible.sort(key=lambda row: (min(session['start'] for session in row['sessions']), row['player'].name))
+    return visible, daily_total
+
+
 @login_required
 def security_home(request):
     return desk(request, 'entry')
@@ -146,6 +204,8 @@ def desk(request, movement_type):
     source = request.POST if request.method == 'POST' else request.GET
     if request.method == 'GET' and source.get('member_id'):
         scanned_member = get_object_or_404(members, pk=source['member_id'])
+    if request.method == 'GET' and source.get('employee_id'):
+        selected_employee = get_object_or_404(employees, pk=source['employee_id'])
     if request.method == 'POST':
         action = source.get('action')
         try:
@@ -178,6 +238,7 @@ def desk(request, movement_type):
                     target_branch = entry.branch
                     movement_type = 'exit'
                 else:
+                    movement_type = 'entry'
                     visitor_form = VisitorForm(source)
                     if not visitor_form.is_valid():
                         raise ValueError('أكمل بيانات الزائر المطلوبة.')
@@ -226,6 +287,15 @@ def desk(request, movement_type):
         log = log.filter(branch=branch)
     current = open_entries(branch, all_branches)
     totals = {'inside': len(current), 'entry': log.filter(movement_type='entry').count(), 'exit': log.filter(movement_type='exit').count(), 'visitors': log.filter(movement_type='entry', source='visitor').count()}
+    try:
+        selected_hour = max(0, min(23, int(request.GET.get('hour', timezone.localtime().hour))))
+    except (ValueError, TypeError):
+        selected_hour = timezone.localtime().hour
+    expected, totals['expected'] = expected_players(academies, branch, selected_hour, current, q)
+    totals['visitors_inside'] = sum(item.source == 'visitor' for item in current)
+    tab = request.GET.get('tab', 'expected')
+    if tab not in ('expected', 'inside', 'log'):
+        tab = 'expected'
     if q:
         log = log.filter(Q(person_name__icontains=q) | Q(contact_phone__icontains=q))
         current = [item for item in current if q.casefold() in item.person_name.casefold() or q in item.contact_phone]
@@ -243,6 +313,13 @@ def desk(request, movement_type):
     card = member_card(scanned_member) if scanned_member else None
     if card:
         card['inside'] = next((item for item in open_entries(scanned_member.academy.branch) if item.member_id == scanned_member.pk), None)
+        if source.get('action') in ('lookup_qr', 'lookup_person') or request.path == '/security/':
+            movement_type = 'exit' if card['inside'] else 'entry'
+    employee_inside = None
+    if selected_employee:
+        employee_inside = next((item for item in open_entries(selected_employee.branch) if item.employee_id == selected_employee.pk), None)
+        if source.get('action') == 'lookup_person' or request.path == '/security/':
+            movement_type = 'exit' if employee_inside else 'entry'
     return render(request, 'academies/security_desk.html', {
         'branch': branch, 'all_branches': all_branches, 'branches': Branch.objects.all() if not getattr(request, 'security_guard_profile', None) else [],
         'movement_type': movement_type, 'members': members[:100], 'employees': employees[:100],
@@ -251,6 +328,8 @@ def desk(request, movement_type):
         'category_filter': category_filter, 'can_correct': can_correct(request),
         'date_from': date_from, 'date_to': date_to,
         'card_source': 'qr' if source.get('action') == 'lookup_qr' else 'manual',
+        'expected': expected, 'tab': tab, 'selected_hour': selected_hour, 'hours': range(24),
+        'employee_inside': employee_inside, 'today': today,
     })
 
 

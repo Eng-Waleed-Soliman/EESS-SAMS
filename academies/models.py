@@ -111,6 +111,7 @@ class WebsiteSetting(models.Model):
 
 class Branch(models.Model):
     security_closing_time = models.TimeField(null=True, blank=True, verbose_name='موعد انتهاء العمل — تنبيه الزوار للأمن')
+    security_arrival_lead_minutes = models.PositiveSmallIntegerField(default=30, verbose_name='إظهار اللاعبين قبل التدريب بالدقائق')
     name = models.CharField(max_length=200, verbose_name='اسم الفرع')
     name_en = models.CharField(max_length=200, blank=True, verbose_name='اسم الفرع بالإنجليزية للموقع')
     short_name = models.CharField(max_length=100, blank=True, verbose_name='الاسم المختصر للفرع')

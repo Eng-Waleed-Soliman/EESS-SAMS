@@ -1,0 +1,15 @@
+{% if tab == 'expected' %}
+<section class="card p-3 mb-3 no-print">
+  <h4>المتوقع دخولهم — {{ selected_hour|stringformat:'02d' }}:00</h4>
+  <p class="text-muted">المواعيد بالدقيقة من المجموعات، مع إظهار اللاعبين قبل التدريب حسب إعداد الفرع. المجموعات بدون توقيت لا تظهر في قائمة الساعة. دخول البوابة لا يسجل حضور التدريب. عدم التسديد تنبيه فقط.</p>
+  <div class="table-responsive"><table class="table"><thead><tr><th>اللاعب</th><th>الأكاديمية / المجموعة والمواعيد</th><th>التسديد</th><th>حالة البوابة</th><th>الإجراء</th></tr></thead><tbody>
+  {% for row in expected %}<tr>
+    <td>{{ row.player.name }}</td>
+    <td>{{ row.academy.name }}{% for session in row.sessions %}<div>{{ session.group }} — {{ session.start }} إلى {{ session.end }}{% if session.previous_day %} (بدأ أمس){% endif %}</div>{% endfor %}</td>
+    <td>{% if row.is_paid %}<span class="text-success">مسدد ✓</span>{% else %}<span class="text-danger">غير مسدد ✗</span>{% endif %}</td>
+    <td>{% if row.inside %}بالداخل منذ {{ row.inside.recorded_at|date:'H:i' }}{% elif row.exited %}خرج {{ row.last.recorded_at|date:'H:i' }}{% else %}لم يدخل{% endif %}</td>
+    <td>{% if row.inside %}<a class="btn btn-secondary" href="{% url 'security_movement' 'exit' %}?member_id={{ row.player.pk }}">خروج</a>{% elif row.exited %}<details><summary>إعادة دخول استثنائية</summary><a class="btn btn-secondary" href="{% url 'security_home' %}?member_id={{ row.player.pk }}">مراجعة وتأكيد</a></details>{% else %}<a class="btn btn-success" href="{% url 'security_home' %}?member_id={{ row.player.pk }}">دخول</a>{% endif %}</td>
+  </tr>{% empty %}<tr><td colspan="5">لا يوجد لاعبون لهم تدريب في الساعة المختارة. يمكن البحث أو المسح للدخول خارج الموعد.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endif %}

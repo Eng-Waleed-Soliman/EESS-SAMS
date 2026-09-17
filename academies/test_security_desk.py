@@ -29,6 +29,66 @@ class SecurityDeskTests(TestCase):
     def movement(self, kind='entry', **payload):
         return self.client.post(reverse('security_movement', args=[kind]), payload)
 
+    def training_group(self, name='مجموعة الساعة', start='17:30', end='19:00'):
+        today = timezone.localdate()
+        self.academy.contract_start_date = today - timedelta(days=30)
+        self.academy.contract_end_date = today + timedelta(days=30)
+        self.academy.save()
+        group = AcademyTrainingGroup.objects.create(
+            academy=self.academy, name=name, training_days=[today.weekday()],
+            training_times={str(today.weekday()): {'start': start, 'end': end}},
+        )
+        AcademyTrainingGroupPlayer.objects.create(group=group, player=self.player)
+        return group
+
+    def test_expected_hour_deduplicates_players_and_is_scoped(self):
+        self.training_group()
+        self.training_group('مجموعة ثانية', '18:00', '20:00')
+        other_academy = Academy.objects.create(
+            branch=self.other, name='Hidden academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000000', operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=timezone.localdate(), contract_end_date=timezone.localdate()+timedelta(days=30),
+        )
+        outsider = AcademyMember.objects.create(academy=other_academy, role='player', name='لاعب فرع آخر')
+        group = AcademyTrainingGroup.objects.create(academy=other_academy, name='Hidden group', training_days=[timezone.localdate().weekday()], training_times={str(timezone.localdate().weekday()): {'start':'17:00','end':'19:00'}})
+        AcademyTrainingGroupPlayer.objects.create(group=group, player=outsider)
+        page = self.client.get(reverse('security_home'), {'hour':17, 'branch_id':self.other.pk})
+        self.assertEqual(len(page.context['expected']), 1)
+        self.assertEqual(len(page.context['expected'][0]['sessions']), 2)
+        self.assertEqual(page.context['totals']['expected'], 1)
+        self.assertContains(page, '17:30')
+        self.assertNotContains(page, outsider.name)
+        self.assertFalse(SecurityMovement.objects.exists())
+
+    def test_arrival_lead_setting_and_exact_hour_boundaries(self):
+        self.training_group(start='17:00', end='19:00')
+        self.assertEqual(len(self.client.get(reverse('security_home'), {'hour':16}).context['expected']),1)
+        self.branch.security_arrival_lead_minutes = 0
+        self.branch.save()
+        self.assertEqual(len(self.client.get(reverse('security_home'), {'hour':16}).context['expected']),0)
+        self.assertEqual(len(self.client.get(reverse('security_home'), {'hour':19}).context['expected']),0)
+        self.assertEqual(len(self.client.get(reverse('security_home'), {'hour':17}).context['expected']),1)
+
+    def test_lookup_automatically_selects_exit_but_scan_does_not_record(self):
+        self.training_group()
+        self.movement(action='record_member', member_id=self.player.pk)
+        page = self.movement(action='lookup_qr', qr_value=str(self.player.qr_token))
+        self.assertEqual(page.context['movement_type'], 'exit')
+        self.assertContains(page, 'action="/security/exit/"')
+        self.assertEqual(SecurityMovement.objects.count(),1)
+        self.movement('exit', action='record_member', member_id=self.player.pk)
+        page = self.client.get(reverse('security_home'), {'hour':17})
+        self.assertTrue(page.context['expected'][0]['exited'])
+        self.assertContains(page, 'إعادة دخول استثنائية')
+
+    def test_visitor_dialog_works_from_exit_page_and_invalid_data_stays_visible(self):
+        page = self.movement('exit', action='record_visitor', visitor_name='زائر جديد', contact_phone='01011111111', visit_reason='مقابلة', host_name='المدير')
+        self.assertEqual(page.status_code,302)
+        self.assertEqual(SecurityMovement.objects.get().movement_type,'entry')
+        page = self.client.post(reverse('security_home'), {'action':'record_visitor','visitor_name':'ناقص'})
+        self.assertContains(page, 'id="visitorDialog" open')
+        self.assertEqual(SecurityMovement.objects.count(),1)
+
     def test_duplicate_entry_and_exit_without_entry_are_rejected(self):
         self.movement('exit', action='record_member', member_id=self.player.pk)
         self.assertFalse(SecurityMovement.objects.exists())

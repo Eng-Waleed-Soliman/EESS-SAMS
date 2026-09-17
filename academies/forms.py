@@ -913,9 +913,18 @@ class DailyIncomeSupplyForm(forms.ModelForm):
 
 
 class BranchForm(forms.ModelForm):
+    security_arrival_lead_minutes = forms.IntegerField(
+        required=False, min_value=0, max_value=1440, initial=30,
+        label='إظهار اللاعبين قبل التدريب بالدقائق',
+    )
+
+    def clean_security_arrival_lead_minutes(self):
+        value = self.cleaned_data.get('security_arrival_lead_minutes')
+        return self.instance.security_arrival_lead_minutes if value is None else value
+
     class Meta:
         model = Branch
-        fields = ['name', 'name_en', 'short_name', 'security_closing_time', 'location', 'location_en', 'logo', 'image', 'notes', 'website_description', 'website_description_en', 'is_published_on_website']
+        fields = ['name', 'name_en', 'short_name', 'security_closing_time', 'security_arrival_lead_minutes', 'location', 'location_en', 'logo', 'image', 'notes', 'website_description', 'website_description_en', 'is_published_on_website']
         widgets = {
             'security_closing_time': forms.TimeInput(attrs={'type': 'time'}, format='%H:%M'),
             'logo': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
