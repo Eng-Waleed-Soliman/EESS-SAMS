@@ -75,6 +75,9 @@ class SecurityDeskTests(TestCase):
         page = self.movement(action='lookup_qr', qr_value=str(self.player.qr_token))
         self.assertEqual(page.context['movement_type'], 'exit')
         self.assertContains(page, 'action="/security/exit/"')
+        self.assertContains(page, 'id="movementDialog" class="security-dialog" data-auto-open')
+        self.assertContains(page, 'id="manualDialog" class="security-dialog"')
+        self.assertContains(page, 'class="security-toolstrip no-print"')
         self.assertEqual(SecurityMovement.objects.count(),1)
         self.movement('exit', action='record_member', member_id=self.player.pk)
         page = self.client.get(reverse('security_home'), {'hour':17})
@@ -86,7 +89,7 @@ class SecurityDeskTests(TestCase):
         self.assertEqual(page.status_code,302)
         self.assertEqual(SecurityMovement.objects.get().movement_type,'entry')
         page = self.client.post(reverse('security_home'), {'action':'record_visitor','visitor_name':'ناقص'})
-        self.assertContains(page, 'id="visitorDialog" open')
+        self.assertContains(page, 'open data-auto-open')
         self.assertEqual(SecurityMovement.objects.count(),1)
 
     def test_duplicate_entry_and_exit_without_entry_are_rejected(self):

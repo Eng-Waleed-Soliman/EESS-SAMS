@@ -2,7 +2,7 @@
 <section class="card p-3 mb-3 no-print">
   <h4>المتوقع دخولهم — {{ selected_hour|stringformat:'02d' }}:00</h4>
   <p class="text-muted">المواعيد بالدقيقة من المجموعات، مع إظهار اللاعبين قبل التدريب حسب إعداد الفرع. المجموعات بدون توقيت لا تظهر في قائمة الساعة. دخول البوابة لا يسجل حضور التدريب.</p>
-  <div class="table-responsive"><table class="table"><thead><tr><th>اللاعب</th><th>الأكاديمية / المجموعة والمواعيد</th><th>حالة البوابة</th><th>الإجراء</th></tr></thead><tbody>
+  <div class="table-responsive"><table class="table"><colgroup><col style="width:25%"><col style="width:40%"><col style="width:20%"><col style="width:15%"></colgroup><thead><tr><th>اللاعب</th><th>المجموعة والموعد</th><th>حالة البوابة</th><th>الإجراء</th></tr></thead><tbody>
   {% for row in expected %}<tr>
     <td>{{ row.player.name }}</td>
     <td>{{ row.academy.name }}{% for session in row.sessions %}<div>{{ session.group }} — {{ session.start }} إلى {{ session.end }}{% if session.previous_day %} (بدأ أمس){% endif %}</div>{% endfor %}</td>
