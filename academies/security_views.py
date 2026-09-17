@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from .branching import selected_branch
-from .models import (Academy, AcademyMember, AcademyPlayerMonthlySubscription, AcademyPlayerReceiver,
+from .models import (Academy, AcademyMember, AcademyPlayerReceiver,
                      AcademyTrainingGroup, Branch, Employee, SecurityMovement, SecurityMovementCorrection, UserPermission)
 
 
@@ -101,7 +101,6 @@ def member_card(member):
         if today.weekday() in [int(day) for day in group.training_days]:
             timing = (group.training_times or {}).get(str(today.weekday()), {})
             schedule.append({'name': group.name, 'start': timing.get('start', 'غير محدد'), 'end': timing.get('end', 'غير محدد')})
-    subscription = AcademyPlayerMonthlySubscription.objects.filter(player=member, month=today.replace(day=1)).first() if member.role == 'player' else None
     overrides = member.academy.operation_overrides.filter(booking_date=today)
     now = timezone.localtime().time()
     valid_times = []
@@ -113,7 +112,7 @@ def member_card(member):
         except ValueError:
             pass
     return {'person': member, 'schedule': schedule, 'is_player': member.role == 'player',
-            'has_groups': bool(groups), 'is_paid': bool(subscription and subscription.is_paid),
+            'has_groups': bool(groups),
             'outside_training_time': bool(valid_times and not any(valid_times)),
             'has_override': overrides.exists(), 'receivers': member.authorized_receivers.filter(is_active=True)}
 
@@ -165,10 +164,7 @@ def expected_players(academies, branch, hour, current, q=''):
                 row['sessions'].append({'group': group.name, 'start': timing.get('start', 'غير محدد'),
                                         'end': timing.get('end', 'غير محدد'), 'previous_day': session_day != today})
                 row['in_hour'] |= in_hour
-    subscriptions = {item.player_id: item for item in AcademyPlayerMonthlySubscription.objects.filter(
-        player_id__in=rows, month=today.replace(day=1))}
     for pk, row in rows.items():
-        row['is_paid'] = bool(pk in subscriptions and subscriptions[pk].is_paid)
         row['exited'] = bool(not row['inside'] and row['last'] and row['last'].movement_type == 'exit')
     daily_total = len(rows)
     visible = [row for row in rows.values() if row['in_hour'] and (not q or q.casefold() in row['player'].name.casefold() or q in row['player'].phone)]

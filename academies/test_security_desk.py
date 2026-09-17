@@ -138,7 +138,12 @@ class SecurityDeskTests(TestCase):
         page = self.movement(action='lookup_qr',qr_value=str(self.player.qr_token))
         self.assertContains(page,'17:00')
         self.assertContains(page,'19:00')
-        self.assertContains(page,'مسدد ✓')
+        self.assertNotContains(page,'مسدد')
+        self.assertNotContains(page,'التسديد')
+        self.assertNotIn('is_paid', page.context['card'])
+        roster = self.client.get(reverse('security_home'), {'hour':17})
+        self.assertNotContains(roster, 'التسديد')
+        self.assertNotContains(roster, 'مسدد')
         self.assertNotContains(page,'>1500<')
         self.assertFalse(SecurityMovement.objects.exists())
 
