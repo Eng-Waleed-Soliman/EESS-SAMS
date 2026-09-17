@@ -1,0 +1,17 @@
+const assert = require('node:assert/strict');
+const { extract, digits } = require('./static/academies/id-card-reader.js');
+assert.equal(digits('٢٩٠٠١٠١٠١٠١٢٣٤'), '29001010101234');
+assert.equal(digits('۲۹۰۰۱۰۱۰۱۰۱۲۳۴'), '29001010101234');
+const labeled = extract('الاسم: أحمد محمد علي\n٢٩٠٠١٠١٠١٠١٢٣٤');
+assert.equal(labeled.name, 'أحمد محمد علي');
+assert.equal(labeled.nationalId, '29001010101234');
+assert.equal(extract('الاسم\nأحمد محمد علي').name, 'أحمد محمد علي');
+assert.equal(extract('29001010101234\n29001010101235').ambiguous, true);
+assert.equal(extract('29001010101234\n29001010101235').nationalId, '');
+assert.equal(extract('290010101012345').nationalId, '');
+assert.equal(extract('1 2 3 4 5 6 7 8 9 0 1 2 3 4').nationalId, '');
+assert.equal(extract('2 9 0 0 1 0 1 0 1 0 1 2 3 4').nationalId, '29001010101234');
+assert.equal(extract('جمهورية مصر العربية\nبطاقة تحقيق الشخصية\nأحمد\nمحمد علي').name, '');
+assert.ok(extract('جمهورية مصر العربية\nأحمد\nمحمد علي').nameOptions.includes('أحمد محمد علي'));
+assert.ok(!extract('جمهورية مصر العربية').nameOptions.length);
+console.log('ID reader extraction tests passed');

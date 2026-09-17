@@ -142,6 +142,18 @@ class SecurityDeskTests(TestCase):
         self.assertNotIn('visitor_name', response.context['visitor_form'].initial)
         self.assertContains(response, 'اختر الزائر الصحيح')
 
+    def test_id_reader_uses_local_assets_and_no_image_submission_field(self):
+        from django.contrib.staticfiles import finders
+        response = self.client.get(reverse('security_home'))
+        self.assertContains(response, 'قراءة البطاقة محليًا')
+        self.assertContains(response, 'data-engine="/static/academies/vendor/ocr/tesseract.min.js"')
+        self.assertContains(response, 'id="idImageFile"')
+        self.assertNotContains(response, 'name="idImageFile"')
+        self.assertNotContains(response, 'multipart/form-data')
+        for asset in ['id-card-reader.js', 'vendor/ocr/tesseract.min.js', 'vendor/ocr/worker.min.js',
+                      'vendor/ocr/core/tesseract-core-lstm.wasm.js', 'vendor/ocr/lang/ara.traineddata.gz']:
+            self.assertIsNotNone(finders.find('academies/' + asset))
+
     def test_duplicate_entry_and_exit_without_entry_are_rejected(self):
         self.movement('exit', action='record_member', member_id=self.player.pk)
         self.assertFalse(SecurityMovement.objects.exists())
