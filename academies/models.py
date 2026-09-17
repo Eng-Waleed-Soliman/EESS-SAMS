@@ -681,6 +681,7 @@ class SecurityMovement(models.Model):
     visit_token = models.UUIDField(null=True, blank=True, db_index=True)
     employee = models.ForeignKey('Employee', null=True, blank=True, on_delete=models.SET_NULL)
     contact_phone = models.CharField(max_length=50, blank=True, verbose_name='الهاتف')
+    national_id = models.CharField(max_length=14, blank=True, verbose_name='الرقم القومي')
     visit_reason = models.CharField(max_length=300, blank=True, verbose_name='سبب الزيارة')
     host_name = models.CharField(max_length=200, blank=True, verbose_name='الشخص المطلوب مقابلته')
     receiver_name = models.CharField(max_length=200, blank=True, verbose_name='اسم المستلم')

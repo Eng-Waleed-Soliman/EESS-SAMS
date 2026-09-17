@@ -18,9 +18,17 @@ from .models import (Academy, AcademyMember, AcademyPlayerReceiver,
 class VisitorForm(forms.Form):
     visitor_name = forms.CharField(label='اسم الزائر', max_length=200)
     contact_phone = forms.CharField(label='الهاتف', max_length=50)
+    national_id = forms.CharField(label='الرقم القومي', max_length=14, required=False,
+                                 widget=forms.TextInput(attrs={'inputmode': 'numeric', 'maxlength': '14'}))
     visit_reason = forms.CharField(label='سبب الزيارة', max_length=300)
     host_name = forms.CharField(label='الشخص المطلوب مقابلته', max_length=200)
     notes = forms.CharField(label='ملاحظات', required=False, widget=forms.Textarea(attrs={'rows': 2}))
+
+    def clean_national_id(self):
+        value = self.cleaned_data['national_id'].translate(str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789'))
+        if value and (len(value) != 14 or not value.isascii() or not value.isdecimal()):
+            raise forms.ValidationError('الرقم القومي يجب أن يتكون من 14 رقمًا.')
+        return value
 
 
 class CorrectionForm(forms.Form):
@@ -230,7 +238,7 @@ def desk(request, movement_type):
                     target_branch = person.branch
                 elif action == 'exit_visit':
                     entry = get_object_or_404(SecurityMovement, pk=source.get('visit_id'), pk__in=[item.pk for item in open_entries(branch, all_branches)])
-                    fields = {key: getattr(entry, key) for key in ('member_id', 'employee_id', 'academy_id', 'academy_name', 'person_name', 'person_type', 'contact_phone', 'visit_reason', 'host_name', 'source')}
+                    fields = {key: getattr(entry, key) for key in ('member_id', 'employee_id', 'academy_id', 'academy_name', 'person_name', 'person_type', 'contact_phone', 'national_id', 'visit_reason', 'host_name', 'source')}
                     target_branch = entry.branch
                     movement_type = 'exit'
                 else:

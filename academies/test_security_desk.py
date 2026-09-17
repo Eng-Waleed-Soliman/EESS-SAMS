@@ -92,6 +92,22 @@ class SecurityDeskTests(TestCase):
         self.assertContains(page, 'open data-auto-open')
         self.assertEqual(SecurityMovement.objects.count(),1)
 
+    def test_visitor_national_id_is_validated_saved_and_preserved_on_exit(self):
+        payload = {'action': 'record_visitor', 'visitor_name': 'زائر اختبار',
+                   'contact_phone': '01011111111', 'visit_reason': 'مقابلة', 'host_name': 'المسؤول'}
+        page = self.client.get(reverse('security_home'))
+        self.assertContains(page, 'name="national_id"')
+        invalid = self.client.post(reverse('security_home'), {**payload, 'national_id': '123'})
+        self.assertContains(invalid, 'الرقم القومي يجب أن يتكون من 14 رقمًا.')
+        self.assertFalse(SecurityMovement.objects.exists())
+        response = self.client.post(reverse('security_home'), {**payload, 'national_id': '٢٩٠٠١٠١٠١٠١٢٣٤'})
+        self.assertEqual(response.status_code, 302)
+        entry = SecurityMovement.objects.get()
+        self.assertEqual(entry.national_id, '29001010101234')
+        response = self.client.post(reverse('security_home'), {'action': 'exit_visit', 'visit_id': entry.pk})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(SecurityMovement.objects.get(movement_type='exit').national_id, entry.national_id)
+
     def test_duplicate_entry_and_exit_without_entry_are_rejected(self):
         self.movement('exit', action='record_member', member_id=self.player.pk)
         self.assertFalse(SecurityMovement.objects.exists())
