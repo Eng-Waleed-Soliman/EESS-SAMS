@@ -15,7 +15,7 @@ class RestrictedAcademyAccessMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.user.is_authenticated:
+        if request.user.is_authenticated and not (request.user.is_superuser or request.user.is_staff):
             from .models import UserPermission
             profile = UserPermission.objects.filter(user=request.user, academy_only=True).first()
             if profile:
@@ -36,7 +36,7 @@ class SecurityGuardAccessMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.user.is_authenticated:
+        if request.user.is_authenticated and not (request.user.is_superuser or request.user.is_staff):
             from .models import UserPermission
             profile = UserPermission.objects.filter(user=request.user, security_only=True).first()
             if profile:

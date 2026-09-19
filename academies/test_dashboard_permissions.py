@@ -13,26 +13,38 @@ class DashboardPermissionTests(TestCase):
         self.profile = UserPermission.objects.create(user=self.user, can_security=True)
         self.client.force_login(self.user)
 
-    def test_dashboard_is_explicit_even_for_staff_and_superuser(self):
-        for superuser in (False, True):
-            self.user.is_superuser = superuser
-            self.user.save()
-            response = self.client.get(reverse('dashboard'))
-            self.assertTemplateUsed(response, 'academies/access_landing.html')
-            self.assertNotContains(response, 'href="/dashboard/"')
-        self.profile.can_dashboard = True
-        self.profile.save()
+    def test_staff_and_superuser_have_dashboard_without_explicit_permission(self):
+        response = self.client.get(reverse('dashboard'))
+        self.assertTemplateUsed(response, 'academies/dashboard.html')
+        self.assertContains(response, 'href="/dashboard/"')
+        self.user.is_staff = False
+        self.user.is_superuser = True
+        self.user.save(update_fields=['is_staff', 'is_superuser'])
         response = self.client.get(reverse('dashboard'))
         self.assertTemplateUsed(response, 'academies/dashboard.html')
         self.assertContains(response, 'href="/dashboard/"')
 
-    def test_security_only_overrides_dashboard_permission(self):
+    def test_admin_ignores_security_only_and_sees_all_sidebar_modules(self):
         self.profile.security_only = True
         self.profile.security_branch = self.branch
         self.profile.can_dashboard = True
         self.profile.save()
-        self.assertRedirects(self.client.get(reverse('dashboard')), reverse('security_home'))
-        self.assertNotContains(self.client.get(reverse('security_home')), 'href="/dashboard/"')
+        response = self.client.get(reverse('dashboard'))
+        self.assertTemplateUsed(response, 'academies/dashboard.html')
+        for label in ['لوحة التحكم', 'الأكاديميات', 'الحجز اليومي', 'إيجارات الأكاديميات',
+                      'التشغيل', 'الأمن', 'إدارة الشركة', 'الحسابات', 'الكافيتريا',
+                      'التقارير', 'الإعدادات', 'لوحة الإدارة']:
+            self.assertContains(response, label)
+
+    def test_superuser_ignores_academy_only_restriction(self):
+        self.user.is_staff = False
+        self.user.is_superuser = True
+        self.user.save(update_fields=['is_staff', 'is_superuser'])
+        self.profile.academy_only = True
+        self.profile.save(update_fields=['academy_only'])
+        response = self.client.get(reverse('accounts_home'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'لوحة التحكم')
 
     def test_permission_form_can_save_security_without_academy(self):
         form = EESSPermissionForm(data={'security_only': 'on', 'security_branch': self.branch.pk}, instance=self.profile)

@@ -853,7 +853,10 @@ def dashboard(request):
     if not request.user.is_authenticated:
         return login_view(request)
     profile = UserPermission.objects.filter(user=request.user).first()
-    if not profile or not profile.can_dashboard or profile.security_only or profile.academy_only:
+    is_admin = request.user.is_superuser or request.user.is_staff
+    if not is_admin and (
+        not profile or not profile.can_dashboard or profile.security_only or profile.academy_only
+    ):
         return render(request, 'academies/access_landing.html')
     branch, all_branches = selected_branch(request)
     training_year = _selected_training_year(request)

@@ -37,7 +37,7 @@
       <a href="{% url 'cafe_menu' %}">المنيو</a>
       {% else %}
       {% with p=request.user.eess_permissions %}
-      {% if p.can_dashboard %}<a href="{% url 'dashboard' %}">لوحة التحكم</a>{% endif %}
+      {% if request.user.is_superuser or request.user.is_staff or p.can_dashboard %}<a href="{% url 'dashboard' %}">لوحة التحكم</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_academies %}<a href="{% url 'academy_list' %}">الأكاديميات</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_daily_booking %}<a href="{% url 'booking_list' %}">الحجز اليومي</a>{% endif %}
       {% if request.user.is_superuser or request.user.is_staff or p.can_academy_rent or p.can_report_income %}<a href="{% url 'academy_rent_payments' %}">إيجارات الأكاديميات</a>{% endif %}
