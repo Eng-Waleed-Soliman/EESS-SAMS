@@ -335,6 +335,20 @@ def desk(request, movement_type):
         members = members.filter(Q(name__icontains=q) | Q(phone__icontains=q))
         employees = employees.filter(name__icontains=q)
     category_filter = request.GET.get('category', 'all')
+    selected_academy = None
+    roster_kind = request.GET.get('roster', '')
+    if request.GET.get('academy_id'):
+        selected_academy = get_object_or_404(academies, pk=request.GET['academy_id'])
+    roster_members = members.none()
+    if selected_academy and roster_kind == 'staff':
+        roster_members = members.filter(
+            academy=selected_academy,
+            role__in=(AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN),
+        ).order_by('role', 'name')
+    elif selected_academy and roster_kind == 'players':
+        roster_members = members.filter(
+            academy=selected_academy, role=AcademyMember.ROLE_PLAYER,
+        ).order_by('name')
     today = timezone.localdate()
     try:
         day = timezone.datetime.strptime(request.GET.get('day', str(today)), '%Y-%m-%d').date()
@@ -358,9 +372,9 @@ def desk(request, movement_type):
         selected_hour = timezone.localtime().hour
     expected, totals['expected'] = expected_players(academies, branch, selected_hour, current, q)
     totals['visitors_inside'] = sum(item.source == 'visitor' for item in current)
-    tab = request.GET.get('tab', 'expected')
-    if tab not in ('expected', 'inside', 'log'):
-        tab = 'expected'
+    tab = request.GET.get('tab', 'register')
+    if tab not in ('register', 'expected', 'inside', 'log'):
+        tab = 'register'
     if q:
         log = log.filter(Q(person_name__icontains=q) | Q(contact_phone__icontains=q))
         current = [item for item in current if q.casefold() in item.person_name.casefold() or q in item.contact_phone]
@@ -398,6 +412,9 @@ def desk(request, movement_type):
         'card_source': 'qr' if source.get('action') == 'lookup_qr' else 'manual',
         'expected': expected, 'tab': tab, 'selected_hour': selected_hour, 'hours': range(24),
         'employee_inside': employee_inside, 'today': today,
+        'academy_cards': academies.order_by('name'), 'selected_academy': selected_academy,
+        'roster_kind': roster_kind, 'roster_members': roster_members,
+        'inside_member_ids': {item.member_id for item in open_entries(branch, all_branches) if item.member_id},
     })
 
 

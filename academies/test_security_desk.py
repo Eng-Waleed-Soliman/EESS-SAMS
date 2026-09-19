@@ -52,13 +52,44 @@ class SecurityDeskTests(TestCase):
         outsider = AcademyMember.objects.create(academy=other_academy, role='player', name='لاعب فرع آخر')
         group = AcademyTrainingGroup.objects.create(academy=other_academy, name='Hidden group', training_days=[timezone.localdate().weekday()], training_times={str(timezone.localdate().weekday()): {'start':'17:00','end':'19:00'}})
         AcademyTrainingGroupPlayer.objects.create(group=group, player=outsider)
-        page = self.client.get(reverse('security_home'), {'hour':17, 'branch_id':self.other.pk})
+        page = self.client.get(reverse('security_home'), {'tab':'expected', 'hour':17, 'branch_id':self.other.pk})
         self.assertEqual(len(page.context['expected']), 1)
         self.assertEqual(len(page.context['expected'][0]['sessions']), 2)
         self.assertEqual(page.context['totals']['expected'], 1)
         self.assertContains(page, '17:30')
         self.assertNotContains(page, outsider.name)
         self.assertFalse(SecurityMovement.objects.exists())
+
+    def test_registration_opens_with_academy_cards_then_sections_and_rosters(self):
+        coach = AcademyMember.objects.create(
+            academy=self.academy, role=AcademyMember.ROLE_COACH,
+            name='مدرب الأكاديمية', job_title='مدرب سباحة',
+        )
+        administrator = AcademyMember.objects.create(
+            academy=self.academy, role=AcademyMember.ROLE_ADMIN,
+            name='إداري الأكاديمية', job_title='مشرف',
+        )
+        page = self.client.get(reverse('security_home'))
+        self.assertEqual(page.context['tab'], 'register')
+        self.assertContains(page, 'اختر الأكاديمية')
+        self.assertContains(page, self.academy.name)
+        page = self.client.get(reverse('security_home'), {'tab':'register', 'academy_id':self.academy.pk})
+        self.assertContains(page, 'المدربون والإداريون')
+        self.assertContains(page, 'اللاعبون')
+        page = self.client.get(reverse('security_home'), {'tab':'register', 'academy_id':self.academy.pk, 'roster':'staff'})
+        self.assertContains(page, coach.name)
+        self.assertContains(page, administrator.name)
+        self.assertContains(page, coach.job_title)
+        self.assertNotIn(self.player, list(page.context['roster_members']))
+        players = self.client.get(reverse('security_home'), {'tab':'register', 'academy_id':self.academy.pk, 'roster':'players'})
+        self.assertContains(players, self.player.name)
+        self.assertNotIn(coach, list(players.context['roster_members']))
+        response = self.movement(action='record_member', member_id=coach.pk, source='manual')
+        self.assertEqual(response.status_code, 302)
+        movement = SecurityMovement.objects.get(member=coach)
+        self.assertEqual(movement.person_name, coach.name)
+        self.assertEqual(movement.person_type, SecurityMovement.PERSON_STAFF)
+        self.assertEqual(timezone.localdate(movement.recorded_at), timezone.localdate())
 
     def test_arrival_lead_setting_and_exact_hour_boundaries(self):
         self.training_group(start='17:00', end='19:00')
@@ -77,10 +108,10 @@ class SecurityDeskTests(TestCase):
         self.assertContains(page, 'action="/security/exit/"')
         self.assertContains(page, 'id="movementDialog" class="security-dialog" data-auto-open')
         self.assertContains(page, 'id="manualDialog" class="security-dialog"')
-        self.assertContains(page, 'class="security-toolstrip no-print"')
+        self.assertContains(page, 'id="movementDialog"')
         self.assertEqual(SecurityMovement.objects.count(),1)
         self.movement('exit', action='record_member', member_id=self.player.pk)
-        page = self.client.get(reverse('security_home'), {'hour':17})
+        page = self.client.get(reverse('security_home'), {'tab':'expected', 'hour':17})
         self.assertTrue(page.context['expected'][0]['exited'])
         self.assertContains(page, 'إعادة دخول استثنائية')
 
@@ -148,7 +179,8 @@ class SecurityDeskTests(TestCase):
         self.assertContains(response, 'id="visitorEntryForm"')
         self.assertContains(response, 'name="visitor_name"')
         self.assertContains(response, 'name="national_id"')
-        self.assertContains(response, 'id="qrInput"')
+        expected_page = self.client.get(reverse('security_home'), {'tab':'expected'})
+        self.assertContains(expected_page, 'id="qrInput"')
         for marker in ['idReader', 'idImageFile', 'id-card-reader', 'vendor/ocr', 'type="file"', 'قراءة البطاقة']:
             self.assertNotContains(response, marker)
         self.assertNotContains(response, 'multipart/form-data')
