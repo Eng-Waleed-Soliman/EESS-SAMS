@@ -1,0 +1,2 @@
+academy-register-v1
+commit-base: 3e47514139b04931aa449fbc5ce7300b2ada5213
