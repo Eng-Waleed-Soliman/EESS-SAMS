@@ -160,6 +160,8 @@ class RestrictedAcademyAccessTests(TestCase):
         home = self.client.get(portal)
         self.assertContains(home, 'اللاعبين')
         self.assertContains(home, 'المدربين والإداريين')
+        self.assertContains(home, 'mobile-menu-toggle')
+        self.assertContains(home, 'portal-cards')
 
         response = self.client.post(portal + '?section=staff_form', {
             'role': AcademyMember.ROLE_COACH,
