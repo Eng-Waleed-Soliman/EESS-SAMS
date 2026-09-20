@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -6,7 +6,7 @@ from django.utils import timezone
 from .models import (Academy, AcademyMember, AcademyPlayerMonthlySubscription, AcademyTrainingGroup,
                      AcademyTrainingGroupPlayer, AcademyPlayerReceiver, Branch, Employee, SecurityMovement,
                      SecurityMovementCorrection, UserPermission)
-from .security_views import open_entries
+from .security_views import academy_security_cards, open_entries
 from .constants import OPERATION_PLACE_CHOICES
 from django.apps import apps
 from django.db import connection
@@ -90,6 +90,31 @@ class SecurityDeskTests(TestCase):
         self.assertEqual(movement.person_name, coach.name)
         self.assertEqual(movement.person_type, SecurityMovement.PERSON_STAFF)
         self.assertEqual(timezone.localdate(movement.recorded_at), timezone.localdate())
+
+    def test_academy_cards_obey_group_window_and_show_staff_for_whole_day(self):
+        group = self.training_group(start='17:00', end='18:00')
+        coach = AcademyMember.objects.create(
+            academy=self.academy, role=AcademyMember.ROLE_COACH,
+            name='مدرب اليوم', job_title='مدرب رئيسي',
+        )
+        tz = timezone.get_current_timezone()
+        today = timezone.localdate()
+
+        def card_at(hour, minute):
+            moment = timezone.make_aware(datetime.combine(today, datetime.min.time()), tz)
+            moment += timedelta(hours=hour, minutes=minute)
+            return academy_security_cards(Academy.objects.filter(pk=self.academy.pk), moment)[0]
+
+        self.assertFalse(card_at(16, 29)['active_groups'])
+        self.assertEqual(card_at(16, 30)['active_groups'][0]['group'], group)
+        self.assertEqual(card_at(16, 30)['active_groups'][0]['players'], [self.player])
+        self.assertEqual(card_at(19, 0)['active_groups'][0]['group'], group)
+        self.assertFalse(card_at(19, 1)['active_groups'])
+        self.assertEqual(card_at(8, 0)['staff'], [coach])
+
+        page = self.client.get(reverse('security_home'))
+        self.assertContains(page, 'المدربون والإداريون اليوم')
+        self.assertContains(page, coach.name)
 
     def test_arrival_lead_setting_and_exact_hour_boundaries(self):
         self.training_group(start='17:00', end='19:00')

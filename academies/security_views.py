@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from .branching import selected_branch
+from .constants import WEEKDAY_AR
 from .models import (Academy, AcademyMember, AcademyPlayerReceiver,
                      AcademyTrainingGroup, Branch, Employee, SecurityMovement, SecurityMovementCorrection, UserPermission)
 
@@ -207,6 +208,83 @@ def expected_players(academies, branch, hour, current, q=''):
     visible = [row for row in rows.values() if row['in_hour'] and (not q or q.casefold() in row['player'].name.casefold() or q in row['player'].phone)]
     visible.sort(key=lambda row: (min(session['start'] for session in row['sessions']), row['player'].name))
     return visible, daily_total
+
+
+def academy_security_cards(academies, now=None):
+    """Build the academy gate cards without changing attendance or movements.
+
+    Player sessions are visible from 30 minutes before their start until one
+    hour after their end. Academy staff are visible for the whole registered
+    training day, independently of the session time.
+    """
+    now = now or timezone.now()
+    if timezone.is_naive(now):
+        now = timezone.make_aware(now, timezone.get_current_timezone())
+    now = timezone.localtime(now)
+    today = now.date()
+    tz = timezone.get_current_timezone()
+    player_queryset = AcademyMember.objects.filter(
+        role=AcademyMember.ROLE_PLAYER, is_active=True,
+    ).defer('photo_data').order_by('name')
+    group_queryset = AcademyTrainingGroup.objects.order_by('name').prefetch_related(
+        Prefetch('players', queryset=player_queryset),
+    )
+    staff_queryset = AcademyMember.objects.filter(
+        role__in=(AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN), is_active=True,
+    ).defer('photo_data').order_by('role', 'name')
+    academies = academies.order_by('name').prefetch_related(
+        Prefetch('training_groups', queryset=group_queryset, to_attr='security_groups'),
+        Prefetch('members', queryset=staff_queryset, to_attr='security_staff'),
+    )
+    cards = []
+    for academy in academies:
+        active_groups = []
+        today_has_group = False
+        contract_active_today = academy.contract_start_date <= today <= academy.contract_end_date
+        for group in academy.security_groups:
+            try:
+                weekdays = {int(day) for day in (group.training_days or [])}
+            except (TypeError, ValueError):
+                continue
+            today_has_group |= today.weekday() in weekdays
+            for session_day in (today - timedelta(days=1), today):
+                if session_day.weekday() not in weekdays:
+                    continue
+                if not (academy.contract_start_date <= session_day <= academy.contract_end_date):
+                    continue
+                timing = (group.training_times or {}).get(str(session_day.weekday()), {})
+                try:
+                    start_time = datetime.strptime(timing.get('start', ''), '%H:%M').time()
+                    end_time = datetime.strptime(timing.get('end', ''), '%H:%M').time()
+                    starts_at = timezone.make_aware(datetime.combine(session_day, start_time), tz)
+                    ends_at = timezone.make_aware(datetime.combine(session_day, end_time), tz)
+                    if ends_at <= starts_at:
+                        ends_at += timedelta(days=1)
+                except (TypeError, ValueError):
+                    continue
+                if starts_at - timedelta(minutes=30) <= now <= ends_at + timedelta(hours=1):
+                    active_groups.append({
+                        'group': group,
+                        'session_date': session_day,
+                        'start': timing.get('start'),
+                        'end': timing.get('end'),
+                        'players': [player for player in group.players.all() if player.academy_id == academy.pk],
+                    })
+        registered_days = set(academy.training_days_list)
+        registered_days.update(
+            row.get('day') for row in (academy.training_schedule or [])
+            if isinstance(row, dict) and row.get('day')
+        )
+        staff_day = contract_active_today and (
+            today_has_group or WEEKDAY_AR[today.weekday()] in registered_days
+        )
+        cards.append({
+            'academy': academy,
+            'active_groups': active_groups,
+            'staff': academy.security_staff if staff_day else [],
+            'staff_day': staff_day,
+        })
+    return cards
 
 
 @login_required
@@ -412,7 +490,7 @@ def desk(request, movement_type):
         'card_source': 'qr' if source.get('action') == 'lookup_qr' else 'manual',
         'expected': expected, 'tab': tab, 'selected_hour': selected_hour, 'hours': range(24),
         'employee_inside': employee_inside, 'today': today,
-        'academy_cards': academies.order_by('name'), 'selected_academy': selected_academy,
+        'academy_cards': academy_security_cards(academies), 'selected_academy': selected_academy,
         'roster_kind': roster_kind, 'roster_members': roster_members,
         'inside_member_ids': {item.member_id for item in open_entries(branch, all_branches) if item.member_id},
     })

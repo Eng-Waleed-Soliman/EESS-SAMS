@@ -17,7 +17,7 @@
   </section>
   <div class="portal-cards">
     {% if can_players %}<a class="portal-card players-card" href="?section=players"><div class="portal-card-media"><img src="{% static 'academies/images/academy-players-card.webp' %}" alt="فريق لاعبي الأكاديمية"></div><div class="portal-card-body"><h2>اللاعبين</h2><p>عرض اللاعبين وإضافة وتعديل البيانات وإدارة المجموعات.</p><span class="open-card">فتح القسم ←</span></div></a>{% endif %}
-    {% if can_staff %}<a class="portal-card staff-card" href="?section=staff"><div class="portal-card-media"><img src="{% static 'academies/images/academy-staff-card.webp' %}" alt="فريق المدربين والإداريين"></div><div class="portal-card-body"><h2>المدربين والإداريين</h2><p>عرض وتحديث بيانات فريق الأكاديمية الإداري والفني.</p><span class="open-card">فتح القسم ←</span></div></a>{% endif %}
+    {% if can_staff %}<a class="portal-card staff-card" href="?section=staff"><div class="portal-card-media"><img src="{% static 'academies/images/academy-staff-card-v2.webp' %}" alt="فريق المدربين والإداريين بملابس التدريب الرياضية"></div><div class="portal-card-body"><h2>المدربين والإداريين</h2><p>عرض وتحديث بيانات فريق الأكاديمية الإداري والفني.</p><span class="open-card">فتح القسم ←</span></div></a>{% endif %}
   </div>
   {% if not can_players and not can_staff %}<div class="alert alert-warning">لم يتم منح هذا الحساب صلاحية اللاعبين أو المدربين والإداريين. راجع مسؤول البرنامج.</div>{% endif %}
 
