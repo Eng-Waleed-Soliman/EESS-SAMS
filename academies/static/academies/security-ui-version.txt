@@ -1,2 +1,2 @@
-academy-mobile-responsive-v2
+academy-card-art-v3
 release-date: 2026-09-20
