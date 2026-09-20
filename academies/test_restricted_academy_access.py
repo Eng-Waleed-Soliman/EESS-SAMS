@@ -49,7 +49,7 @@ class RestrictedAcademyAccessTests(TestCase):
         self.assertEqual(self.client.get(url).status_code, 403)
         self.assertEqual(self.client.post(url, {'name': 'لاعب جديد'}).status_code, 403)
         self.grant('players_add')
-        self.assertContains(self.client.get(url), 'حفظ اللاعب')
+        self.assertContains(self.client.get(url), 'إضافة لاعب')
         response = self.client.post(url, {
             'name': 'لاعب جديد', 'phone': '01011111111', 'is_active': 'on',
             'academy': self.other.pk, 'role': 'coach', 'is_published_on_website': 'on',
@@ -59,7 +59,7 @@ class RestrictedAcademyAccessTests(TestCase):
         self.assertEqual(player.academy, self.academy)
         self.assertEqual(player.role, AcademyMember.ROLE_PLAYER)
         self.assertFalse(player.is_published_on_website)
-        self.assertEqual(self.client.get(reverse('restricted_academy_portal'), {'section': 'players'}).status_code, 403)
+        self.assertEqual(self.client.get(reverse('restricted_academy_portal'), {'section': 'players'}).status_code, 200)
 
     def test_placement_only_uses_authorized_groups_and_eligible_players(self):
         group = AcademyTrainingGroup.objects.create(academy=self.academy, name='مجموعة مسموحة', training_days=[2])
@@ -69,7 +69,7 @@ class RestrictedAcademyAccessTests(TestCase):
         url = reverse('restricted_academy_portal') + '?section=placement'
         self.assertEqual(self.client.post(url, {'group': group.pk, 'player': self.player.pk}).status_code, 403)
         self.grant('placement')
-        page = self.client.get(url)
+        page = self.client.get(reverse('restricted_academy_portal'), {'section': 'placement', 'group': group.pk})
         self.assertNotContains(page, other_group.name)
         self.assertNotContains(page, outsider.name)
         self.assertEqual(self.client.post(url, {'group': other_group.pk, 'player': self.player.pk}).status_code, 404)
@@ -88,7 +88,7 @@ class RestrictedAcademyAccessTests(TestCase):
         AcademyTrainingGroupPlayer.objects.create(group=group, player=self.player)
         url = reverse('restricted_academy_portal') + '?section=attendance'
         self.grant('attendance')
-        page = self.client.get(url, {'group': group.pk, 'month': '2026-09'})
+        page = self.client.get(reverse('restricted_academy_portal'), {'section': 'attendance', 'group': group.pk, 'month': '2026-09'})
         self.assertTemplateUsed(page, 'academies/academy_training_group_attendance.html')
         self.assertContains(page, 'التسديد')
         self.assertContains(page, 'المبلغ المتبقي')
@@ -113,20 +113,23 @@ class RestrictedAcademyAccessTests(TestCase):
         url = reverse('restricted_academy_portal')
         self.grant('groups')
         page = self.client.get(url, {'section': 'groups', 'month': '2026-09'})
-        self.assertTemplateUsed(page, 'academies/academy_training_group_list.html')
+        self.assertTemplateUsed(page, 'academies/restricted_academy_portal.html')
         self.assertEqual(page.context['rows'][0]['sessions_count'], 5)
         self.assertEqual(page.context['rows'][0]['players_count'], 1)
         self.assertContains(page, '17:00 - 19:00')
         self.assertNotContains(page, 'مجموعة أخرى محجوبة')
-        for action in ['إضافة مجموعة', 'تسكين لاعب', 'تسجيل الحضور', 'حذف']:
+        self.assertContains(page, 'إضافة مجموعة')
+        self.assertContains(page, 'حذف')
+        for action in ['تسكين اللاعبين', 'حضور اللاعبين']:
             self.assertNotContains(page, action)
         self.grant('groups', 'placement', 'attendance_record')
         page = self.client.get(url, {'section': 'groups', 'month': '2026-09'})
-        self.assertContains(page, 'تسكين لاعب')
-        self.assertContains(page, 'تسجيل الحضور')
+        detail = self.client.get(url, {'section': 'group_detail', 'group': group.pk})
+        self.assertContains(detail, 'تسكين اللاعبين')
+        self.assertContains(detail, 'حضور اللاعبين')
         self.grant('attendance_record')
         page = self.client.get(url, {'section': 'attendance', 'list': '1', 'month': '2026-09'})
-        self.assertTemplateUsed(page, 'academies/academy_training_group_list.html')
+        self.assertTemplateUsed(page, 'academies/restricted_academy_portal.html')
         self.assertNotContains(page, 'مجموعة أخرى محجوبة')
 
     def test_subscription_view_does_not_grant_writes_or_other_sections(self):
@@ -134,7 +137,7 @@ class RestrictedAcademyAccessTests(TestCase):
         AcademyPlayerMonthlySubscription.objects.create(player=self.player, month=date(2026, 9, 1), expected_amount=1500, paid_amount=500)
         AcademyPlayerMonthlySubscription.objects.create(player=self.other.members.get(role='player'), month=date(2026, 9, 1), expected_amount=9000)
         url = reverse('restricted_academy_portal') + '?section=subscriptions'
-        page = self.client.get(url, {'month': '2026-09'})
+        page = self.client.get(reverse('restricted_academy_portal'), {'section': 'subscriptions', 'month': '2026-09'})
         self.assertContains(page, self.player.name)
         self.assertNotContains(page, 'لاعب محجوب')
         self.assertContains(page, '1000')
@@ -143,10 +146,50 @@ class RestrictedAcademyAccessTests(TestCase):
 
     def test_portal_only_shows_selected_academy_and_section(self):
         page = self.client.get(reverse('restricted_academy_portal'))
-        self.assertContains(page, self.player.name)
-        for hidden in ['لاعب محجوب', 'مدرب محجوب', 'لوحة التحكم', 'الحسابات', 'الإعدادات', 'الاشتراكات الشهرية', 'المجموعات']:
+        self.assertContains(page, f'مرحبًا بكم في أكاديمية {self.academy.name}')
+        self.assertContains(page, 'اللاعبين')
+        players = self.client.get(reverse('restricted_academy_portal'), {'section': 'players'})
+        self.assertContains(players, self.player.name)
+        for hidden in ['لاعب محجوب', 'مدرب محجوب', 'لوحة التحكم', 'الحسابات', 'الإعدادات', 'الاشتراكات الشهرية']:
             self.assertNotContains(page, hidden)
         self.assertEqual(self.client.get(reverse('restricted_academy_portal'), {'section': 'subscriptions'}).status_code, 403)
+
+    def test_welcome_cards_member_crud_and_group_schedule_are_scoped(self):
+        self.grant('players', 'players_add', 'coaches', 'administrators', 'groups', 'placement', 'attendance_record')
+        portal = reverse('restricted_academy_portal')
+        home = self.client.get(portal)
+        self.assertContains(home, 'اللاعبين')
+        self.assertContains(home, 'المدربين والإداريين')
+
+        response = self.client.post(portal + '?section=staff_form', {
+            'role': AcademyMember.ROLE_COACH,
+            'name': 'مدرب جديد',
+            'job_title': 'مدرب لياقة',
+            'is_active': 'on',
+        })
+        self.assertEqual(response.status_code, 302)
+        coach = self.academy.members.get(name='مدرب جديد')
+        self.assertEqual(coach.role, AcademyMember.ROLE_COACH)
+        self.assertEqual(coach.job_title, 'مدرب لياقة')
+
+        response = self.client.post(portal + '?section=group_form', {
+            'name': 'مجموعة المساء',
+            'training_days': ['5', '1'],
+            'start_5': '16:00', 'end_5': '18:00',
+            'start_1': '17:00', 'end_1': '19:00',
+        })
+        self.assertEqual(response.status_code, 302)
+        group = self.academy.training_groups.get(name='مجموعة المساء')
+        self.assertEqual(group.training_times['5'], {'start': '16:00', 'end': '18:00'})
+        detail = self.client.get(portal, {'section': 'group_detail', 'group': group.pk})
+        self.assertContains(detail, 'الاشتراكات الشهرية — تحت التطوير')
+        self.assertContains(detail, 'تسكين اللاعبين')
+        self.assertContains(detail, 'حضور اللاعبين')
+
+        outsider = self.other.members.get(role=AcademyMember.ROLE_PLAYER)
+        self.assertEqual(self.client.get(portal, {'section': 'player_form', 'member': outsider.pk}).status_code, 404)
+        self.assertEqual(self.client.post(portal + '?section=player_delete', {'member': outsider.pk}).status_code, 404)
+        self.assertTrue(AcademyMember.objects.filter(pk=outsider.pk).exists())
 
     def test_direct_urls_and_mutations_are_blocked_even_with_broad_flags(self):
         portal = reverse('restricted_academy_portal')

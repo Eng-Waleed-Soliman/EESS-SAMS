@@ -1,39 +1,86 @@
 {% extends 'academies/base.html' %}
 {% block content %}
-<h3>{{ academy.name }} — {{ section_label }}</h3>
-<div class="d-flex gap-2 flex-wrap mb-3">
-{% for item in sections %}<a class="btn btn-primary" href="?section={{ item.key }}">{{ item.label }}</a>{% endfor %}
+<div class="academy-portal" dir="rtl">
+  {% if section == 'home' %}
+  <section class="portal-welcome">
+    <div class="welcome-logo">
+      {% if app_settings and app_settings.company_logo_name %}<img src="{% url 'persistent_media' 'branding' app_settings.pk 'company_logo' %}" alt="شعار الشركة">
+      {% elif app_settings and app_settings.company_logo %}<img src="{{ app_settings.company_logo.url }}" alt="شعار الشركة">
+      {% else %}<span>EESS</span>{% endif %}
+    </div>
+    <div>
+      <div class="company-name">{% if app_settings and app_settings.company_name %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
+      <h1>مرحبًا بكم في أكاديمية {{ academy.name }}</h1>
+      <p>اختر القسم المطلوب لإدارة بيانات الأكاديمية.</p>
+    </div>
+  </section>
+  <div class="portal-cards">
+    {% if can_players %}<a class="portal-card players-card" href="?section=players"><span class="portal-icon">⚽</span><h2>اللاعبين</h2><p>عرض اللاعبين وإضافة وتعديل البيانات وإدارة المجموعات.</p><span class="open-card">فتح القسم ←</span></a>{% endif %}
+    {% if can_staff %}<a class="portal-card staff-card" href="?section=staff"><span class="portal-icon">👥</span><h2>المدربين والإداريين</h2><p>عرض وتحديث بيانات فريق الأكاديمية الإداري والفني.</p><span class="open-card">فتح القسم ←</span></a>{% endif %}
+  </div>
+  {% if not can_players and not can_staff %}<div class="alert alert-warning">لم يتم منح هذا الحساب صلاحية اللاعبين أو المدربين والإداريين. راجع مسؤول البرنامج.</div>{% endif %}
+
+  {% elif section == 'players' %}
+  <div class="portal-heading"><div><a class="back-link" href="?section=home">← الصفحة الرئيسية</a><h1>لاعبو أكاديمية {{ academy.name }}</h1></div><div class="portal-actions">{% if can_add_players %}<a class="btn btn-primary" href="?section=player_form">إضافة لاعب</a>{% endif %}{% if can_groups %}<a class="btn btn-info" href="?section=groups">المجموعات</a>{% endif %}</div></div>
+  <div class="portal-panel"><div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>م</th><th>الاسم</th><th>الهاتف</th><th>الرقم القومي</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody>
+    {% for member in members %}<tr><td>{{ forloop.counter }}</td><td><strong>{{ member.name }}</strong></td><td>{{ member.phone|default:'—' }}</td><td>{{ member.national_id|default:'—' }}</td><td>{% if member.is_active %}<span class="badge bg-success">نشط</span>{% else %}<span class="badge bg-secondary">غير نشط</span>{% endif %}</td><td><div class="row-actions">{% if can_add_players %}<a class="btn btn-sm btn-primary" href="?section=player_form&amp;member={{ member.pk }}">تعديل</a><form method="post" action="?section=player_delete" onsubmit="return confirm('هل تريد حذف اللاعب {{ member.name|escapejs }}؟');">{% csrf_token %}<input type="hidden" name="member" value="{{ member.pk }}"><button class="btn btn-sm btn-danger" type="submit">حذف</button></form>{% endif %}</div></td></tr>
+    {% empty %}<tr><td colspan="6" class="empty-row">لا يوجد لاعبون مسجلون في الأكاديمية.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+
+  {% elif section == 'staff' %}
+  <div class="portal-heading"><div><a class="back-link" href="?section=home">← الصفحة الرئيسية</a><h1>المدربون والإداريون — {{ academy.name }}</h1></div><a class="btn btn-primary" href="?section=staff_form">إضافة مدرب/إداري</a></div>
+  <div class="portal-panel"><div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>م</th><th>الاسم</th><th>النوع</th><th>الوظيفة</th><th>الهاتف</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody>
+    {% for member in members %}<tr><td>{{ forloop.counter }}</td><td><strong>{{ member.name }}</strong></td><td>{{ member.get_role_display }}</td><td>{{ member.job_title|default:'—' }}</td><td>{{ member.phone|default:'—' }}</td><td>{% if member.is_active %}<span class="badge bg-success">نشط</span>{% else %}<span class="badge bg-secondary">غير نشط</span>{% endif %}</td><td><div class="row-actions"><a class="btn btn-sm btn-primary" href="?section=staff_form&amp;member={{ member.pk }}">تعديل</a><form method="post" action="?section=staff_delete" onsubmit="return confirm('هل تريد حذف {{ member.name|escapejs }}؟');">{% csrf_token %}<input type="hidden" name="member" value="{{ member.pk }}"><button class="btn btn-sm btn-danger" type="submit">حذف</button></form></div></td></tr>
+    {% empty %}<tr><td colspan="7" class="empty-row">لا يوجد مدربون أو إداريون مسجلون.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+
+  {% elif section == 'player_form' or section == 'staff_form' %}
+  <div class="portal-heading"><div><a class="back-link" href="?section={% if member_kind == 'player' %}players{% else %}staff{% endif %}">← رجوع</a><h1>{% if member %}تعديل{% else %}إضافة{% endif %} {% if member_kind == 'player' %}لاعب{% else %}مدرب/إداري{% endif %}</h1></div></div>
+  <form class="portal-panel p-4" method="post" enctype="multipart/form-data">{% csrf_token %}
+    {% if member_form.non_field_errors %}<div class="alert alert-danger">{{ member_form.non_field_errors }}</div>{% endif %}
+    <div class="row g-3">{% for field in member_form %}{% if field.name != 'delete_photo' %}<div class="col-md-6"><label class="form-label fw-bold">{{ field.label }}</label>{{ field }}{% if field.name == 'photo' and member and member.photo_data_uri %}<div class="mt-2">{{ member_form.delete_photo }} <label for="{{ member_form.delete_photo.id_for_label }}">حذف الصورة الحالية</label></div>{% endif %}<div class="text-danger small">{{ field.errors }}</div></div>{% endif %}{% endfor %}</div>
+    <div class="form-buttons"><button class="btn btn-success" type="submit">حفظ</button><a class="btn btn-secondary" href="?section={% if member_kind == 'player' %}players{% else %}staff{% endif %}">رجوع</a></div>
+  </form>
+
+  {% elif section == 'groups' %}
+  <div class="portal-heading"><div><a class="back-link" href="?section=players">← رجوع للاعبين</a><h1>مجموعات أكاديمية {{ academy.name }}</h1><p>انقر مرتين على اسم المجموعة لفتح تفاصيلها.</p></div>{% if can_manage_groups %}<a class="btn btn-primary" href="?section=group_form">إضافة مجموعة</a>{% endif %}</div>
+  <div class="portal-panel"><div class="table-responsive"><table class="table table-striped align-middle group-table"><thead><tr><th>اسم المجموعة</th><th>أيام ومواعيد التدريب</th><th>عدد اللاعبين</th><th>الإجراءات</th></tr></thead><tbody>
+    {% for row in rows %}<tr><td><a class="group-name" data-group-link="?section=group_detail&amp;group={{ row.group.pk }}" href="?section=group_detail&amp;group={{ row.group.pk }}">{{ row.group.name }}</a></td><td>{{ row.group.training_schedule_display }}</td><td>{{ row.players_count }}</td><td><div class="row-actions"><a class="btn btn-sm btn-outline-primary" href="?section=group_detail&amp;group={{ row.group.pk }}">فتح</a>{% if can_manage_groups %}<a class="btn btn-sm btn-primary" href="?section=group_form&amp;group={{ row.group.pk }}">تعديل</a><form method="post" action="?section=group_delete" onsubmit="return confirm('حذف المجموعة {{ row.group.name|escapejs }}؟ لن يتم حذف اللاعبين.');">{% csrf_token %}<input type="hidden" name="group" value="{{ row.group.pk }}"><button class="btn btn-sm btn-danger" type="submit">حذف</button></form>{% endif %}</div></td></tr>
+    {% empty %}<tr><td colspan="4" class="empty-row">لا توجد مجموعات مسجلة.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+
+  {% elif section == 'group_form' %}
+  <div class="portal-heading"><div><a class="back-link" href="?section=groups">← رجوع للمجموعات</a><h1>{% if group %}تعديل مجموعة {{ group.name }}{% else %}إضافة مجموعة{% endif %}</h1></div></div>
+  <form method="post" class="portal-panel p-4">{% csrf_token %}{{ group_form.non_field_errors }}
+    <div class="mb-4"><label class="form-label fw-bold">اسم المجموعة</label>{{ group_form.name }}<div class="text-danger">{{ group_form.name.errors }}</div></div>
+    <fieldset class="mb-4"><legend class="h5">أيام التدريب</legend><div class="weekday-grid">{% for checkbox in group_form.training_days %}<label class="weekday-choice">{{ checkbox.tag }} <span>{{ checkbox.choice_label }}</span></label>{% endfor %}</div><div class="text-danger">{{ group_form.training_days.errors }}</div></fieldset>
+    <fieldset><legend class="h5">توقيت التدريب لكل يوم</legend><p class="text-muted">عند اختيار اليوم تظهر خانات البداية والنهاية الخاصة به.</p><div class="schedule-grid">{% for schedule in group_form.schedule_fields %}<div class="schedule-row" data-day="{{ schedule.day }}"><strong>{{ schedule.label }}</strong><div><label class="form-label">بداية توقيت التدريب</label>{{ schedule.start }}<div class="text-danger">{{ schedule.start.errors }}</div></div><div><label class="form-label">نهاية توقيت التدريب</label>{{ schedule.end }}<div class="text-danger">{{ schedule.end.errors }}</div></div></div>{% endfor %}</div></fieldset>
+    <div class="form-buttons"><button class="btn btn-success" type="submit">حفظ</button><a class="btn btn-secondary" href="?section=groups">رجوع</a></div>
+  </form>
+
+  {% elif section == 'group_detail' %}
+  <div class="portal-heading"><div><a class="back-link" href="?section=groups">← رجوع للمجموعات</a><h1>{{ group.name }}</h1><p>{{ group.training_schedule_display }}</p></div><div class="portal-actions"><button class="btn btn-outline-secondary" type="button" disabled title="تحت التطوير">الاشتراكات الشهرية — تحت التطوير</button>{% if can_view_attendance %}<a class="btn btn-info" href="?section=attendance&amp;group={{ group.pk }}">حضور اللاعبين</a>{% endif %}{% if can_place_players %}<a class="btn btn-success" href="?section=placement&amp;group={{ group.pk }}">تسكين اللاعبين</a>{% endif %}</div></div>
+  <div class="portal-panel p-4"><h3>أيام ومواعيد التدريب</h3><div class="schedule-summary"><strong>{{ group.training_schedule_display|default:'لا توجد مواعيد.' }}</strong></div><hr><h3>اللاعبون داخل المجموعة</h3><div class="table-responsive"><table class="table"><thead><tr><th>م</th><th>اسم اللاعب</th><th>الحالة</th></tr></thead><tbody>{% for assignment in assignments %}<tr><td>{{ forloop.counter }}</td><td>{{ assignment.player.name }}</td><td>{% if assignment.player.is_active %}<span class="badge bg-success">نشط</span>{% else %}<span class="badge bg-secondary">غير نشط</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="3" class="empty-row">لم يتم تسكين لاعبين في هذه المجموعة.</td></tr>{% endfor %}</tbody></table></div></div>
+
+  {% elif section == 'placement' %}
+  <div class="portal-heading"><div><a class="back-link" href="?section=group_detail&amp;group={{ group.pk }}">← رجوع للمجموعة</a><h1>تسكين لاعبي مجموعة {{ group.name }}</h1></div></div>
+  <form method="post" class="portal-panel p-4 mb-4">{% csrf_token %}<input type="hidden" name="group" value="{{ group.pk }}"><input type="hidden" name="action" value="assign"><h3>اختر اللاعبين</h3><p class="text-muted">فعّل مربع الاختيار بجوار كل لاعب تريد تسكينه ثم اضغط حفظ.</p>{% include 'academies/player_multi_picker.html' with picker_form=placement_form %}<div class="form-buttons"><button class="btn btn-success" type="submit">حفظ التسكين</button><a class="btn btn-secondary" href="?section=group_detail&amp;group={{ group.pk }}">رجوع</a></div></form>
+  <div class="portal-panel p-4"><h3>اللاعبون المسكنون حاليًا</h3><table class="table"><tbody>{% for assignment in assignments %}<tr><td>{{ assignment.player.name }}</td><td><form method="post" onsubmit="return confirm('إزالة اللاعب من المجموعة؟');">{% csrf_token %}<input type="hidden" name="group" value="{{ group.pk }}"><input type="hidden" name="action" value="remove"><input type="hidden" name="assignment" value="{{ assignment.pk }}"><button class="btn btn-sm btn-danger">إزالة</button></form></td></tr>{% empty %}<tr><td class="empty-row">لا يوجد لاعبون مسكنون.</td></tr>{% endfor %}</tbody></table></div>
+
+  {% elif section == 'subscriptions' %}
+  <div class="portal-heading"><div><a class="back-link" href="?section=players">← رجوع للاعبين</a><h1>الاشتراكات الشهرية</h1></div></div><div class="alert alert-info">هذه الشاشة للعرض فقط، وتطوير إدارة الاشتراكات من حساب الأكاديمية قيد التنفيذ.</div>
+  <form class="portal-panel p-3 mb-3"><input type="hidden" name="section" value="subscriptions"><label class="form-label">الشهر</label><div class="d-flex gap-2"><input class="form-control" type="month" name="month" value="{{ month_value }}"><button class="btn btn-primary">عرض</button></div></form>
+  <div class="portal-panel"><table class="table"><thead><tr><th>اللاعب</th><th>المستحق</th><th>المسدد</th><th>المتبقي</th></tr></thead><tbody>{% for item in subscriptions %}<tr><td>{{ item.player.name }}</td><td>{{ item.expected_amount }}</td><td>{{ item.paid_amount }}</td><td>{{ item.remaining_amount }}</td></tr>{% empty %}<tr><td colspan="4" class="empty-row">لا توجد اشتراكات للشهر المحدد.</td></tr>{% endfor %}</tbody></table></div>
+  {% endif %}
 </div>
-<div class="card p-3">
-{% if section == 'players_add' %}
-{% if request.GET.saved %}<div class="alert alert-success">تمت إضافة اللاعب إلى الأكاديمية.</div>{% endif %}
-<form method="post" enctype="multipart/form-data">{% csrf_token %}
-{{ player_form.non_field_errors }}
-<div class="row g-3">{% for field in player_form %}<div class="col-md-6"><label class="form-label fw-bold">{{ field.label }}</label><div>{{ field }}</div>{{ field.errors }}</div>{% endfor %}</div>
-<button class="btn btn-success mt-3">حفظ اللاعب</button></form>
-{% elif section == 'placement' or section == 'attendance' %}
-<form method="get" class="row g-2 mb-3"><input type="hidden" name="section" value="{{ section }}">
-<div class="col-md-5"><label class="form-label">المجموعة</label><select name="group" class="form-select">{% for group in available_groups %}<option value="{{ group.pk }}" {% if group.pk == selected_group.pk %}selected{% endif %}>{{ group.name }}</option>{% endfor %}</select></div>
-{% if section == 'attendance' %}<div class="col-md-4"><label class="form-label">الشهر</label><input type="month" class="form-control" name="month" value="{{ month_value }}"></div>{% endif %}
-<div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary">عرض</button></div></form>
-{% if selected_group %}
-<h5>{{ selected_group.name }} — {{ selected_group.training_days_display }}</h5>
-{% if section == 'placement' %}
-<form method="post" class="mb-3">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><input type="hidden" name="action" value="assign">{% include 'academies/player_multi_picker.html' with picker_form=placement_form %}<button class="btn btn-success">تسكين اللاعبين</button></form>
-<table class="table"><thead><tr><th>اللاعبون داخل المجموعة</th><th></th></tr></thead><tbody>{% for assignment in assignments %}<tr><td>{{ assignment.player.name }}</td><td><form method="post">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><input type="hidden" name="action" value="remove"><input type="hidden" name="assignment" value="{{ assignment.pk }}"><button class="btn btn-danger">إزالة من المجموعة</button></form></td></tr>{% empty %}<tr><td colspan="2">لا يوجد لاعبون مسكنون.</td></tr>{% endfor %}</tbody></table>
-{% else %}
-{% if can_record_attendance %}<form method="post">{% csrf_token %}<input type="hidden" name="group" value="{{ selected_group.pk }}"><input type="hidden" name="month" value="{{ month_value }}">{% endif %}
-<div class="table-responsive"><table class="table text-center"><thead><tr><th>م</th><th>اسم اللاعب</th>{% for item in training_dates %}<th>{{ item.date|date:'d/m' }}<br>{{ item.weekday }}</th>{% endfor %}</tr></thead><tbody>{% for row in attendance_rows %}<tr><td>{{ forloop.counter }}</td><td>{{ row.player.name }}</td>{% for cell in row.cells %}<td>{% if can_record_attendance %}<input type="checkbox" class="form-check-input" name="{{ cell.field }}" aria-label="حضور {{ row.player.name }}" {% if cell.present %}checked{% endif %}>{% elif cell.present %}✓{% else %}✗{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="2">لا يوجد لاعبون مسكنون.</td></tr>{% endfor %}</tbody></table></div>
-{% if can_record_attendance %}<button class="btn btn-success mt-3">حفظ الحضور والغياب</button></form>{% endif %}
-{% endif %}
-{% else %}<p>لا توجد مجموعات مسجلة في الأكاديمية.</p>{% endif %}
-{% elif section == 'subscriptions' %}
-<form method="get" class="d-flex gap-2 mb-3"><input type="hidden" name="section" value="subscriptions"><input type="month" class="form-control" name="month" value="{{ month_value }}"><button class="btn btn-primary">عرض</button></form>
-<table class="table"><thead><tr><th>اسم اللاعب</th><th>الاشتراك</th><th>المسدد</th><th>المتبقي</th></tr></thead><tbody>{% for item in subscriptions %}<tr><td>{{ item.player.name }}</td><td>{{ item.expected_amount }}</td><td>{{ item.paid_amount }}</td><td>{{ item.remaining_amount }}</td></tr>{% empty %}<tr><td colspan="4">لا توجد اشتراكات مسجلة للشهر المحدد.</td></tr>{% endfor %}</tbody></table>
-{% elif section == 'groups' %}
-<table class="table"><thead><tr><th>المجموعة</th><th>أيام التدريب</th></tr></thead><tbody>{% for group in groups %}<tr><td>{{ group.name }}</td><td>{{ group.training_days_display }}</td></tr>{% empty %}<tr><td colspan="2">لا توجد مجموعات.</td></tr>{% endfor %}</tbody></table>
-{% else %}
-<table class="table"><thead><tr><th>م</th><th>الاسم</th><th>الهاتف</th><th>الحالة</th></tr></thead><tbody>{% for member in members %}<tr><td>{{ forloop.counter }}</td><td>{{ member.name }}</td><td>{{ member.phone|default:'—' }}</td><td>{% if member.is_active %}نشط{% else %}غير نشط{% endif %}</td></tr>{% empty %}<tr><td colspan="4">لا توجد أسماء مسجلة.</td></tr>{% endfor %}</tbody></table>
-{% endif %}
-</div>
+
+<style>
+.academy-portal{max-width:1180px;margin:auto}.portal-welcome{display:flex;align-items:center;gap:28px;background:linear-gradient(135deg,#fff,#eaf3ff);padding:34px;border-radius:24px;box-shadow:0 12px 35px rgba(20,58,105,.1);margin-bottom:26px;border:1px solid #d8e7fb}.welcome-logo{width:120px;height:120px;background:#fff;border-radius:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(0,0,0,.08);flex:none}.welcome-logo img{max-width:100px;max-height:100px;object-fit:contain}.welcome-logo span{font-size:28px;font-weight:900;color:#155eef}.company-name{color:#155eef;font-weight:800;font-size:18px;margin-bottom:6px}.portal-welcome h1{font-weight:900;margin:0 0 8px}.portal-welcome p,.portal-heading p{color:#64748b;margin:0}.portal-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.portal-card{display:block;background:#fff;border-radius:22px;padding:30px;color:#172033;text-decoration:none;border:2px solid transparent;box-shadow:0 12px 30px rgba(15,23,42,.08);transition:.2s}.portal-card:hover{transform:translateY(-4px);border-color:#60a5fa;color:#172033}.portal-icon{font-size:46px}.portal-card h2{font-weight:900;margin:15px 0 8px}.portal-card p{color:#64748b;min-height:48px}.open-card{color:#155eef;font-weight:800}.portal-heading{display:flex;justify-content:space-between;align-items:end;gap:18px;flex-wrap:wrap;margin-bottom:22px}.portal-heading h1{font-size:30px;font-weight:900;margin:7px 0 4px}.back-link{font-weight:700;text-decoration:none}.portal-actions,.row-actions,.form-buttons{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.row-actions form{margin:0}.portal-panel{background:#fff;border-radius:20px;box-shadow:0 10px 28px rgba(15,23,42,.07);overflow:hidden}.portal-panel table{margin:0}.portal-panel th{background:#f1f6fd;white-space:nowrap}.portal-panel th,.portal-panel td{padding:15px;vertical-align:middle}.empty-row{text-align:center!important;color:#64748b;padding:30px!important}.group-name{font-size:17px;font-weight:900;text-decoration:none;cursor:pointer}.weekday-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px}.weekday-choice{display:flex;gap:9px;align-items:center;padding:13px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;cursor:pointer}.schedule-grid{display:grid;gap:12px}.schedule-row{display:none;grid-template-columns:150px 1fr 1fr;gap:14px;align-items:start;padding:15px;border:1px solid #cbd5e1;border-radius:14px;background:#f8fafc}.schedule-row.active{display:grid}.schedule-row>strong{padding-top:36px}.form-buttons{margin-top:24px}.schedule-summary{background:#f8fafc;border:1px solid #dbe4ef;padding:18px;border-radius:14px}
+@media(max-width:760px){.portal-welcome{flex-direction:column;text-align:center;padding:24px}.portal-cards{grid-template-columns:1fr}.portal-heading{align-items:stretch}.portal-heading>.btn,.portal-actions{width:100%}.portal-actions .btn{flex:1}.weekday-grid{grid-template-columns:repeat(2,1fr)}.schedule-row{grid-template-columns:1fr}.schedule-row>strong{padding-top:0}}
+</style>
+<script>
+function updateTrainingTimeRows(){const selected=new Set(Array.from(document.querySelectorAll('input[name="training_days"]:checked')).map(input=>input.value));document.querySelectorAll('.schedule-row').forEach(row=>row.classList.toggle('active',selected.has(row.dataset.day)));}
+document.querySelectorAll('input[name="training_days"]').forEach(input=>input.addEventListener('change',updateTrainingTimeRows));updateTrainingTimeRows();
+document.querySelectorAll('[data-group-link]').forEach(link=>link.closest('tr').addEventListener('dblclick',()=>window.location.href=link.dataset.groupLink));
+</script>
 {% endblock %}
