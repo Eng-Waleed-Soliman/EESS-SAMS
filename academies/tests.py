@@ -1579,6 +1579,11 @@ class ApplicationFlowsTests(TestCase):
         CafeteriaPurchase.objects.create(item=item, purchase_date=today, quantity=5, unit_price=10)
         CafeteriaSale.objects.create(item=item, sale_date=today, quantity=3, unit_price=20)
 
+        default_response = self.client.get(reverse('reports_home'))
+        self.assertEqual(default_response.context['report_type'], 'monthly_income')
+        self.assertEqual(default_response.context['allowed_report_options'][0], ('monthly_income', 'الدخل الشهري'))
+        self.assertContains(default_response, '<option value="monthly_income" selected>الدخل الشهري</option>', html=True)
+
         response = self.client.get(reverse('reports_home'), {'report_type': 'board_members'})
         self.assertNotContains(response, 'أعضاء مجلس الإدارة')
         self.assertEqual(response.context['report_type'], 'academies')

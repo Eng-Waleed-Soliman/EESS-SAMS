@@ -486,9 +486,9 @@ def _ensure_user_profile(user):
 
 
 REPORT_PERMISSION_FIELDS = {
+    'monthly_income': 'can_report_income',
     'employees': 'can_report_employees',
     'academies': 'can_report_income',
-    'monthly_income': 'can_report_income',
     'expenses': 'can_report_expenses',
     'cafeteria': 'can_report_cafeteria',
     'security_log': 'can_security',
@@ -523,9 +523,9 @@ SIDEBAR_PERMISSION_MODULES = [
 ]
 
 REPORT_TYPE_OPTIONS = [
+    ('monthly_income', 'الدخل الشهري'),
     ('employees', 'بيانات الموظفين'),
     ('academies', 'بيانات الأكاديميات'),
-    ('monthly_income', 'الدخل الشهري'),
     ('expenses', 'المصروفات'),
     ('cafeteria', 'الكافيتريا'),
     ('security_log', 'سجل الأمن'),
