@@ -487,6 +487,7 @@ def _ensure_user_profile(user):
 
 REPORT_PERMISSION_FIELDS = {
     'monthly_income': 'can_report_income',
+    'statistical_analysis': 'can_report_income',
     'employees': 'can_report_employees',
     'academies': 'can_report_income',
     'expenses': 'can_report_expenses',
@@ -524,6 +525,7 @@ SIDEBAR_PERMISSION_MODULES = [
 
 REPORT_TYPE_OPTIONS = [
     ('monthly_income', 'الدخل الشهري'),
+    ('statistical_analysis', 'التحليل الإحصائي'),
     ('employees', 'بيانات الموظفين'),
     ('academies', 'بيانات الأكاديميات'),
     ('expenses', 'المصروفات'),
@@ -560,6 +562,7 @@ def _user_allowed_report_types(user):
             'employees': ('employees',),
             'academies': ('income', 'academy_rent_payments', 'deposits', 'board_members', 'shareholders'),
             'monthly_income': ('company_income', 'income', 'academy_rent_payments', 'daily_booking_monthly'),
+            'statistical_analysis': ('company_income', 'income', 'academy_rent_payments', 'daily_booking_monthly'),
             'expenses': ('expenses', 'monthly_expenses', 'daily_expenses', 'operating_expenses'),
             'cafeteria': ('cafeteria', 'cafeteria_inventory', 'cafeteria_sales', 'cafeteria_purchases'),
         }
@@ -3752,6 +3755,139 @@ def reports_home_v2(request):
             elif section == 'player':
                 context['academy_members'] = selected_academy.members.filter(role=section).order_by('name')
 
+    elif report_type == 'statistical_analysis':
+        analysis_metric_options = [
+            ('total_income', 'إجمالي الدخل'),
+            ('net_profit', 'الربح'),
+            ('academies', 'الأكاديميات الرياضية'),
+            ('daily_booking', 'الحجز اليومي'),
+            ('cafeteria', 'الكافيتريا'),
+        ]
+        valid_metrics = {value for value, _ in analysis_metric_options}
+        analysis_metric = request.GET.get('analysis_metric', 'total_income')
+        if analysis_metric not in valid_metrics:
+            analysis_metric = 'total_income'
+        training_year = _selected_training_year(request)
+        analysis_start, analysis_end = _training_year_bounds(training_year)
+        month_starts = []
+        cursor = analysis_start
+        for _ in range(12):
+            month_starts.append(cursor)
+            cursor = date(
+                cursor.year + (1 if cursor.month == 12 else 0),
+                1 if cursor.month == 12 else cursor.month + 1,
+                1,
+            )
+        month_indexes = {(month.year, month.month): index for index, month in enumerate(month_starts)}
+        series = {
+            'academies': [0] * 12,
+            'daily_booking': [0] * 12,
+            'cafeteria_income': [0] * 12,
+            'cafeteria_expenses': [0] * 12,
+            'general_expenses': [0] * 12,
+        }
+        for index, month_start in enumerate(month_starts):
+            month_end = date(
+                month_start.year, month_start.month,
+                monthrange(month_start.year, month_start.month)[1],
+            )
+            rent_rows = _academy_rent_rows(
+                month_start.year, month_start.month, month_start, month_end,
+                None if all_branches else active_branch,
+            )
+            series['academies'][index] = sum(int(row['supplied'] or 0) for row in rent_rows)
+        for row in booking_checkout_qs.filter(
+            income_date__range=(analysis_start, analysis_end)
+        ).values('income_date', 'total_amount'):
+            index = month_indexes.get((row['income_date'].year, row['income_date'].month))
+            if index is not None:
+                series['daily_booking'][index] += int(row['total_amount'] or 0)
+        for sale in CafeteriaSale.objects.filter(
+            sale_date__range=(analysis_start, analysis_end), item__in=cafeteria_item_qs
+        ).select_related('item'):
+            index = month_indexes.get((sale.sale_date.year, sale.sale_date.month))
+            if index is not None:
+                series['cafeteria_income'][index] += int(sale.total_amount or 0)
+        for purchase in CafeteriaPurchase.objects.filter(
+            purchase_date__range=(analysis_start, analysis_end), item__in=cafeteria_item_qs
+        ).select_related('item'):
+            index = month_indexes.get((purchase.purchase_date.year, purchase.purchase_date.month))
+            if index is not None:
+                series['cafeteria_expenses'][index] += int(purchase.total_amount or 0)
+        for expense in cafeteria_operating_expense_qs.filter(
+            expense_date__range=(analysis_start, analysis_end)
+        ):
+            index = month_indexes.get((expense.expense_date.year, expense.expense_date.month))
+            if index is not None:
+                series['cafeteria_expenses'][index] += int(expense.amount or 0)
+        for expense in monthly_expense_qs.filter(expense_month__range=(analysis_start, analysis_end)):
+            index = month_indexes.get((expense.expense_month.year, expense.expense_month.month))
+            if index is not None:
+                series['general_expenses'][index] += int(expense.amount or 0)
+        for expense in daily_expense_qs.filter(expense_date__range=(analysis_start, analysis_end)):
+            index = month_indexes.get((expense.expense_date.year, expense.expense_date.month))
+            if index is not None:
+                series['general_expenses'][index] += int(expense.amount or 0)
+        series['total_income'] = [
+            series['academies'][index] + series['daily_booking'][index] + series['cafeteria_income'][index]
+            for index in range(12)
+        ]
+        series['net_profit'] = [
+            series['total_income'][index] - series['general_expenses'][index] - series['cafeteria_expenses'][index]
+            for index in range(12)
+        ]
+        series['cafeteria_profit'] = [
+            series['cafeteria_income'][index] - series['cafeteria_expenses'][index]
+            for index in range(12)
+        ]
+        chart_catalog = {
+            'total_income': [{
+                'key': 'total_income', 'title': 'إجمالي الدخل في كل شهر',
+                'values': series['total_income'], 'color': '#1d4ed8', 'background': 'rgba(37,99,235,.68)',
+            }],
+            'net_profit': [{
+                'key': 'net_profit', 'title': 'صافي الربح في كل شهر',
+                'values': series['net_profit'], 'color': '#15803d', 'background': 'rgba(34,197,94,.68)',
+            }],
+            'academies': [{
+                'key': 'academies', 'title': 'إجمالي دخل الأكاديميات الرياضية في كل شهر',
+                'values': series['academies'], 'color': '#6d28d9', 'background': 'rgba(124,58,237,.68)',
+            }],
+            'daily_booking': [{
+                'key': 'daily_booking', 'title': 'إجمالي دخل الحجز اليومي في كل شهر',
+                'values': series['daily_booking'], 'color': '#b45309', 'background': 'rgba(245,158,11,.72)',
+            }],
+            'cafeteria': [
+                {
+                    'key': 'cafeteria_income', 'title': 'دخل الكافيتريا في كل شهر',
+                    'values': series['cafeteria_income'], 'color': '#0369a1', 'background': 'rgba(14,165,233,.7)',
+                },
+                {
+                    'key': 'cafeteria_expenses', 'title': 'مصروفات الكافيتريا في كل شهر',
+                    'values': series['cafeteria_expenses'], 'color': '#b91c1c', 'background': 'rgba(239,68,68,.68)',
+                },
+                {
+                    'key': 'cafeteria_profit', 'title': 'ربح الكافيتريا في كل شهر',
+                    'values': series['cafeteria_profit'], 'color': '#047857', 'background': 'rgba(16,185,129,.7)',
+                },
+            ],
+        }
+        analysis_charts = chart_catalog[analysis_metric]
+        for chart in analysis_charts:
+            chart['total'] = sum(chart['values'])
+            chart['script_id'] = f"analysis-{chart['key']}-values"
+        context.update({
+            'period_label': f'العام التدريبي {training_year}',
+            'analysis_metric': analysis_metric,
+            'analysis_metric_options': analysis_metric_options,
+            'analysis_training_year': training_year,
+            'analysis_training_year_choices': TRAINING_YEAR_CHOICES,
+            'analysis_labels': [
+                f'{ARABIC_MONTH_NAMES[month.month]} {month.year}' for month in month_starts
+            ],
+            'analysis_charts': analysis_charts,
+            'analysis_has_values': any(any(chart['values']) for chart in analysis_charts),
+        })
     elif report_type == 'monthly_income':
         monthly_rent_rows = []
         if range_mode == 'custom':

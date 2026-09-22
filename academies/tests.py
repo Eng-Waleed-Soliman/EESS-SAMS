@@ -675,8 +675,8 @@ class ApplicationFlowsTests(TestCase):
         )
 
         response = self.client.get(reverse('security_home'))
-        self.assertContains(response, 'الدخول')
-        self.assertContains(response, 'الخروج')
+        self.assertContains(response, 'تسجيل الدخول')
+        self.assertContains(response, 'اختر الأكاديمية')
 
         response = self.client.post(reverse('security_movement', args=['entry']), {
             'action': 'record_member',
@@ -1587,8 +1587,8 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.get(reverse('reports_home'), {'report_type': 'board_members'})
         self.assertNotContains(response, 'أعضاء مجلس الإدارة')
         self.assertEqual(response.context['report_type'], 'academies')
-        self.assertEqual(len(response.context['allowed_report_options']), 6)
-        for label in ['بيانات الموظفين', 'بيانات الأكاديميات', 'الدخل الشهري', 'المصروفات', 'الكافيتريا']:
+        self.assertEqual(len(response.context['allowed_report_options']), 7)
+        for label in ['الدخل الشهري', 'التحليل الإحصائي', 'بيانات الموظفين', 'بيانات الأكاديميات', 'المصروفات', 'الكافيتريا']:
             self.assertContains(response, label)
         self.assertNotContains(response, 'تقرير المرتبات الشهرية والبونص')
         self.assertNotContains(response, 'تقرير مبالغ التأمين')
@@ -1644,6 +1644,56 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.context['income_total'], 860)
         self.assertEqual(response.context['income_net_total'], 510)
 
+        training_start_year = today.year if today.month >= 7 else today.year - 1
+        training_year = f'{training_start_year}-{training_start_year + 1}'
+        analysis_month_index = (today.year - training_start_year) * 12 + today.month - 7
+        analysis_response = self.client.get(reverse('reports_home'), {
+            'report_type': 'statistical_analysis',
+            'analysis_metric': 'total_income',
+            'training_year': training_year,
+        })
+        self.assertEqual(analysis_response.context['report_type'], 'statistical_analysis')
+        self.assertEqual(analysis_response.context['analysis_metric'], 'total_income')
+        self.assertEqual(len(analysis_response.context['analysis_labels']), 12)
+        self.assertEqual(len(analysis_response.context['analysis_charts']), 1)
+        self.assertEqual(
+            analysis_response.context['analysis_charts'][0]['values'][analysis_month_index], 860
+        )
+        self.assertContains(analysis_response, 'العام التدريبي')
+        self.assertContains(analysis_response, 'إجمالي الدخل في كل شهر')
+        self.assertContains(analysis_response, 'id="chart-total_income"')
+        self.assertContains(analysis_response, 'chart.js@4.4.7')
+
+        expected_analysis_values = {
+            'net_profit': 510,
+            'academies': 500,
+            'daily_booking': 300,
+        }
+        for metric, expected_value in expected_analysis_values.items():
+            metric_response = self.client.get(reverse('reports_home'), {
+                'report_type': 'statistical_analysis',
+                'analysis_metric': metric,
+                'training_year': training_year,
+            })
+            self.assertEqual(
+                metric_response.context['analysis_charts'][0]['values'][analysis_month_index],
+                expected_value,
+            )
+
+        cafeteria_analysis = self.client.get(reverse('reports_home'), {
+            'report_type': 'statistical_analysis',
+            'analysis_metric': 'cafeteria',
+            'training_year': training_year,
+        })
+        self.assertEqual(len(cafeteria_analysis.context['analysis_charts']), 3)
+        cafeteria_charts = {
+            chart['key']: chart for chart in cafeteria_analysis.context['analysis_charts']
+        }
+        self.assertEqual(cafeteria_charts['cafeteria_income']['values'][analysis_month_index], 60)
+        self.assertEqual(cafeteria_charts['cafeteria_expenses']['values'][analysis_month_index], 50)
+        self.assertEqual(cafeteria_charts['cafeteria_profit']['values'][analysis_month_index], 10)
+        for chart_key in ('cafeteria_income', 'cafeteria_expenses', 'cafeteria_profit'):
+            self.assertContains(cafeteria_analysis, f'id="chart-{chart_key}"')
         outside_academy = Academy.objects.create(
             name='أكاديمية سداد خارج الفترة', sport_activity='سباحة',
             company_name='شركة خارج الفترة', manager_name='مدير خارج الفترة',
