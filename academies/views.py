@@ -5016,12 +5016,15 @@ def academy_player_subscriptions(request, academy_id):
     company_share_percentage = max(0, min(100, int(academy.eess_share_percentage or 0)))
     company_share_amount = int(totals['expected'] * company_share_percentage / 100)
     academy_share_amount = totals['expected'] - company_share_amount
+    displayed_paid_total = sum(row['paid_amount'] for row in rows)
     return render(request, 'academies/academy_player_subscriptions.html', {
         'academy': academy,
         'rows': rows,
         'totals': totals,
         'selected_year': selected_year,
         'selected_month': selected_month,
+        'selected_month_label': ARABIC_MONTH_NAMES[selected_month],
+        'displayed_paid_total': displayed_paid_total,
         'year_choices': year_choices,
         'month_choices': month_choices,
         'search': search,

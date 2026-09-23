@@ -69,8 +69,9 @@
     <div class="col-md-3">
       <button class="btn btn-outline-primary w-100" type="button" onclick="applyDefaultSubscription()">تطبيق على كل اللاعبين الظاهرين</button>
     </div>
-    <div class="col-md-2 ms-md-auto">
-      <button class="btn btn-success w-100" type="submit">حفظ الاشتراكات</button>
+    <div class="col-md-4 ms-md-auto subscription-actions">
+      <button class="btn btn-success" type="submit">حفظ الاشتراكات</button>
+      <button class="btn btn-danger" type="button" onclick="printSubscriptionsPdf()">تصدير PDF</button>
     </div>
   </div>
 
@@ -109,6 +110,21 @@
   </div>
 </form>
 
+<section id="subscriptionPdfReport" class="subscription-pdf-report" dir="rtl" aria-hidden="true">
+  <header class="subscription-pdf-header">
+    <h1>اشتراكات أكاديمية {{ academy.name }}</h1>
+    <h2>شهر {{ selected_month_label }} {{ selected_year }}</h2>
+  </header>
+  <table class="subscription-pdf-table">
+    <thead><tr><th>م</th><th>اسم اللاعب</th><th>مبلغ الاشتراك</th><th>المبلغ المسدد</th></tr></thead>
+    <tbody>
+      {% for row in rows %}<tr><td>{{ forloop.counter }}</td><td>{{ row.player.name }}</td><td>{{ row.expected_amount }}</td><td>{{ row.paid_amount }}</td></tr>
+      {% empty %}<tr><td colspan="4">لا توجد بيانات مطابقة للفلاتر المختارة.</td></tr>{% endfor %}
+    </tbody>
+    <tfoot><tr><th colspan="3">إجمالي المبلغ المسدد</th><th>{{ displayed_paid_total }} جنيه</th></tr></tfoot>
+  </table>
+</section>
+
 <style>
 .subscription-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 .subscription-player-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
@@ -119,10 +135,25 @@
 .subscription-summary-card.supplied{background:linear-gradient(135deg,#0f766e,#14b8a6)}
 .subscription-summary-card.academy-share{background:linear-gradient(135deg,#6f42c1,#8d63d2)}
 .subscription-summary-card.remaining{background:linear-gradient(135deg,#b56b00,#df931d)}
-.subscription-table input[type=number]{min-width:145px}
+.subscription-table input[type=number]{min-width:145px}.subscription-actions{display:flex;gap:9px;align-items:stretch}.subscription-actions .btn{flex:1 1 0;min-width:135px!important}.subscription-pdf-report{display:none}@media print{@page{size:A4 portrait;margin:14mm}body.subscription-pdf-mode{background:#fff!important}body.subscription-pdf-mode main>*:not(.subscription-pdf-report){display:none!important}body.subscription-pdf-mode .subscription-pdf-report{display:block!important;width:100%;color:#111;font-family:"Times New Roman",Times,serif}body.subscription-pdf-mode .subscription-pdf-header{text-align:center;margin:0 0 24px}body.subscription-pdf-mode .subscription-pdf-header h1{display:inline-block;margin:0;padding:0 8px 7px;border-bottom:3px solid #111;font-size:25px;font-weight:900}body.subscription-pdf-mode .subscription-pdf-header h2{margin:11px 0 0;font-size:20px;font-weight:900;text-decoration:underline;text-underline-offset:6px}body.subscription-pdf-mode .subscription-pdf-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:16px}body.subscription-pdf-mode .subscription-pdf-table th,body.subscription-pdf-mode .subscription-pdf-table td{border:1px solid #222;padding:10px 8px;text-align:center;vertical-align:middle}body.subscription-pdf-mode .subscription-pdf-table thead th{background:#dbeafe!important;font-weight:900;-webkit-print-color-adjust:exact;print-color-adjust:exact}body.subscription-pdf-mode .subscription-pdf-table th:first-child,body.subscription-pdf-mode .subscription-pdf-table td:first-child{width:9%}body.subscription-pdf-mode .subscription-pdf-table th:nth-child(2),body.subscription-pdf-mode .subscription-pdf-table td:nth-child(2){width:43%}body.subscription-pdf-mode .subscription-pdf-table tfoot th{background:#e2e8f0!important;font-size:18px;font-weight:900;-webkit-print-color-adjust:exact;print-color-adjust:exact}body.subscription-pdf-mode .subscription-pdf-table tr{break-inside:avoid;page-break-inside:avoid}}
 @media(max-width:760px){.subscription-summary-grid,.subscription-player-counts{grid-template-columns:1fr}}
 </style>
 <script>
+let subscriptionPrintTitle = '';
+function finishSubscriptionsPdf(){
+  document.body.classList.remove('subscription-pdf-mode');
+  document.getElementById('subscriptionPdfReport').setAttribute('aria-hidden', 'true');
+  if(subscriptionPrintTitle) document.title = subscriptionPrintTitle;
+}
+function printSubscriptionsPdf(){
+  subscriptionPrintTitle = document.title;
+  document.title = 'اشتراكات {{ academy.name|escapejs }} - {{ selected_month_label|escapejs }} {{ selected_year }}';
+  document.body.classList.add('subscription-pdf-mode');
+  document.getElementById('subscriptionPdfReport').setAttribute('aria-hidden', 'false');
+  window.print();
+  window.setTimeout(finishSubscriptionsPdf, 700);
+}
+window.addEventListener('afterprint', finishSubscriptionsPdf);
 function updateSubscriptionRemaining(row){
   const expected = Number(row.querySelector('.expected-input').value || 0);
   const paid = Number(row.querySelector('.paid-input').value || 0);

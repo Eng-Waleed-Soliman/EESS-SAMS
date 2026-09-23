@@ -2198,7 +2198,14 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(page, 'إجمالي الاشتراكات')
         self.assertContains(page, 'إجمالي المبلغ المسدد')
         self.assertContains(page, 'إجمالي المبلغ المتبقي')
-
+        self.assertContains(page, 'onclick="printSubscriptionsPdf()"')
+        self.assertContains(page, 'id="subscriptionPdfReport"')
+        self.assertContains(page, f'اشتراكات أكاديمية {academy.name}')
+        self.assertContains(page, f"شهر {page.context['selected_month_label']} {today.year}")
+        self.assertContains(page, '<th>م</th>', html=True)
+        self.assertContains(page, '<th>اسم اللاعب</th>', html=True)
+        self.assertContains(page, '<th>مبلغ الاشتراك</th>', html=True)
+        self.assertContains(page, '<th>المبلغ المسدد</th>', html=True)
         response = self.client.post(subscriptions_url, {
             'year': str(today.year),
             'month': str(today.month),
@@ -2243,6 +2250,8 @@ class ApplicationFlowsTests(TestCase):
         })
         self.assertNotContains(totals_page, 'المبلغ المورد للشركة')
         self.assertEqual(totals_page.context['player_counts'], {'subscribed': 2, 'paid': 1, 'unpaid': 1})
+        self.assertEqual(totals_page.context['displayed_paid_total'], 3000)
+        self.assertContains(totals_page, '<th>3000 جنيه</th>', html=True)
         paid_page = self.client.get(subscriptions_url, {
             'year': today.year,
             'month': today.month,
@@ -2250,6 +2259,8 @@ class ApplicationFlowsTests(TestCase):
         })
         self.assertContains(paid_page, paid_player.name)
         self.assertEqual(paid_page.context['player_counts'], {'subscribed': 2, 'paid': 1, 'unpaid': 1})
+        self.assertEqual(paid_page.context['displayed_paid_total'], 2000)
+        self.assertContains(paid_page, '<th>2000 جنيه</th>', html=True)
         self.assertNotContains(paid_page, first_player.name)
         due_page = self.client.get(subscriptions_url, {
             'year': today.year,
