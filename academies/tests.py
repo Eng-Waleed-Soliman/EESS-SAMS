@@ -1721,6 +1721,15 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(daily_averages, 'متوسط دخل الحجز اليومي')
         self.assertContains(daily_averages, 'name="analysis_month"')
         self.assertContains(daily_averages, 'إجمالي الربح')
+        self.assertContains(
+            daily_averages,
+            'class="btn btn-sm average-sort-button no-print"',
+            count=2,
+        )
+        self.assertContains(daily_averages, 'data-target="cafeteriaAverageTable"')
+        self.assertContains(daily_averages, 'data-target="bookingAverageTable"')
+        self.assertContains(daily_averages, 'function setupAverageSorting()')
+
         outside_academy = Academy.objects.create(
             name='أكاديمية سداد خارج الفترة', sport_activity='سباحة',
             company_name='شركة خارج الفترة', manager_name='مدير خارج الفترة',
