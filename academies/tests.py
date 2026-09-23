@@ -2200,6 +2200,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(page, 'إجمالي المبلغ المتبقي')
         self.assertContains(page, 'onclick="printSubscriptionsPdf()"')
         self.assertContains(page, 'id="subscriptionPdfReport"')
+        self.assertContains(page, 'class="subscription-pdf-total-row"')
+        self.assertNotContains(page, '<tfoot>')
         self.assertContains(page, f'اشتراكات أكاديمية {academy.name}')
         self.assertContains(page, f"شهر {page.context['selected_month_label']} {today.year}")
         self.assertContains(page, '<th>م</th>', html=True)
