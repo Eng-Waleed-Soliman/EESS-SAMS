@@ -3758,10 +3758,11 @@ def reports_home_v2(request):
     elif report_type == 'statistical_analysis':
         analysis_metric_options = [
             ('total_income', 'إجمالي الدخل'),
-            ('net_profit', 'الربح'),
+            ('net_profit', 'إجمالي الربح'),
             ('academies', 'الأكاديميات الرياضية'),
             ('daily_booking', 'الحجز اليومي'),
             ('cafeteria', 'الكافيتريا'),
+            ('daily_income_averages', 'متوسطات الدخل اليومي'),
         ]
         valid_metrics = {value for value, _ in analysis_metric_options}
         analysis_metric = request.GET.get('analysis_metric', 'total_income')
@@ -3769,6 +3770,23 @@ def reports_home_v2(request):
             analysis_metric = 'total_income'
         training_year = _selected_training_year(request)
         analysis_start, analysis_end = _training_year_bounds(training_year)
+        today = timezone.localdate()
+        default_analysis_month = today.replace(day=1)
+        if not analysis_start <= default_analysis_month <= analysis_end:
+            default_analysis_month = analysis_start
+        try:
+            analysis_month_start = date.fromisoformat(
+                f"{request.GET.get('analysis_month', default_analysis_month.strftime('%Y-%m'))}-01"
+            )
+        except ValueError:
+            analysis_month_start = default_analysis_month
+        if not analysis_start <= analysis_month_start <= analysis_end:
+            analysis_month_start = default_analysis_month
+        analysis_month_end = date(
+            analysis_month_start.year,
+            analysis_month_start.month,
+            monthrange(analysis_month_start.year, analysis_month_start.month)[1],
+        )
         month_starts = []
         cursor = analysis_start
         for _ in range(12):
@@ -3872,7 +3890,54 @@ def reports_home_v2(request):
                 },
             ],
         }
-        analysis_charts = chart_catalog[analysis_metric]
+        analysis_charts = chart_catalog.get(analysis_metric, [])
+        daily_average_rows = []
+        cafeteria_daily_average = 0
+        booking_daily_average = 0
+        daily_average_has_values = False
+        if analysis_metric == 'daily_income_averages':
+            effective_month_end = min(analysis_month_end, today)
+            eligible_dates = []
+            if effective_month_end >= analysis_month_start:
+                eligible_dates = [
+                    analysis_month_start + timedelta(days=offset)
+                    for offset in range((effective_month_end - analysis_month_start).days + 1)
+                ]
+            cafeteria_by_date = {day: 0 for day in eligible_dates}
+            booking_by_date = {day: 0 for day in eligible_dates}
+            cafeteria_sales = CafeteriaSale.objects.none()
+            if eligible_dates:
+                cafeteria_sales = CafeteriaSale.objects.filter(
+                    sale_date__range=(analysis_month_start, effective_month_end),
+                    item__in=cafeteria_item_qs,
+                ).select_related('item')
+            for sale in cafeteria_sales:
+                cafeteria_by_date[sale.sale_date] += int(sale.total_amount or 0)
+            if eligible_dates:
+                for row in booking_checkout_qs.filter(
+                    income_date__range=(analysis_month_start, effective_month_end)
+                ).values('income_date').annotate(total=Sum('total_amount')):
+                    booking_by_date[row['income_date']] += int(row['total'] or 0)
+            eligible_day_count = len(eligible_dates)
+            if eligible_day_count:
+                cafeteria_daily_average = round(sum(cafeteria_by_date.values()) / eligible_day_count, 2)
+                booking_daily_average = round(sum(booking_by_date.values()) / eligible_day_count, 2)
+            weekday_indexes = [5, 6, 0, 1, 2, 3, 4]
+            for weekday_index in weekday_indexes:
+                matching_dates = [day for day in eligible_dates if day.weekday() == weekday_index]
+                matching_count = len(matching_dates)
+                daily_average_rows.append({
+                    'day_name': WEEKDAY_AR[weekday_index],
+                    'cafeteria_average': round(
+                        sum(cafeteria_by_date[day] for day in matching_dates) / matching_count, 2
+                    ) if matching_count else 0,
+                    'booking_average': round(
+                        sum(booking_by_date[day] for day in matching_dates) / matching_count, 2
+                    ) if matching_count else 0,
+                })
+            daily_average_has_values = bool(
+                sum(cafeteria_by_date.values()) or sum(booking_by_date.values())
+            )
         for chart in analysis_charts:
             chart['total'] = sum(chart['values'])
             chart['script_id'] = f"analysis-{chart['key']}-values"
@@ -3882,6 +3947,14 @@ def reports_home_v2(request):
             'analysis_metric_options': analysis_metric_options,
             'analysis_training_year': training_year,
             'analysis_training_year_choices': TRAINING_YEAR_CHOICES,
+            'analysis_month': analysis_month_start.strftime('%Y-%m'),
+            'analysis_month_min': analysis_start.strftime('%Y-%m'),
+            'analysis_month_max': analysis_end.strftime('%Y-%m'),
+            'analysis_month_label': f'{ARABIC_MONTH_NAMES[analysis_month_start.month]} {analysis_month_start.year}',
+            'cafeteria_daily_average': cafeteria_daily_average,
+            'booking_daily_average': booking_daily_average,
+            'daily_average_rows': daily_average_rows,
+            'daily_average_has_values': daily_average_has_values,
             'analysis_labels': [
                 f'{ARABIC_MONTH_NAMES[month.month]} {month.year}' for month in month_starts
             ],

@@ -1694,6 +1694,33 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(cafeteria_charts['cafeteria_profit']['values'][analysis_month_index], 10)
         for chart_key in ('cafeteria_income', 'cafeteria_expenses', 'cafeteria_profit'):
             self.assertContains(cafeteria_analysis, f'id="chart-{chart_key}"')
+        daily_averages = self.client.get(reverse('reports_home'), {
+            'report_type': 'statistical_analysis',
+            'analysis_metric': 'daily_income_averages',
+            'training_year': training_year,
+            'analysis_month': today.strftime('%Y-%m'),
+        })
+        elapsed_days = today.day
+        self.assertEqual(daily_averages.context['analysis_metric'], 'daily_income_averages')
+        self.assertEqual(daily_averages.context['analysis_month'], today.strftime('%Y-%m'))
+        self.assertEqual(daily_averages.context['cafeteria_daily_average'], round(60 / elapsed_days, 2))
+        self.assertEqual(daily_averages.context['booking_daily_average'], round(300 / elapsed_days, 2))
+        self.assertEqual(len(daily_averages.context['daily_average_rows']), 7)
+        same_weekday_count = sum(
+            1 for day_number in range(1, today.day + 1)
+            if date(today.year, today.month, day_number).weekday() == today.weekday()
+        )
+        weekday_row = next(
+            row for row in daily_averages.context['daily_average_rows']
+            if row['day_name'] == WEEKDAY_AR[today.weekday()]
+        )
+        self.assertEqual(weekday_row['cafeteria_average'], round(60 / same_weekday_count, 2))
+        self.assertEqual(weekday_row['booking_average'], round(300 / same_weekday_count, 2))
+        self.assertContains(daily_averages, 'متوسطات الدخل اليومي')
+        self.assertContains(daily_averages, 'متوسط الدخل اليومي للكافيتريا')
+        self.assertContains(daily_averages, 'متوسط دخل الحجز اليومي')
+        self.assertContains(daily_averages, 'name="analysis_month"')
+        self.assertContains(daily_averages, 'إجمالي الربح')
         outside_academy = Academy.objects.create(
             name='أكاديمية سداد خارج الفترة', sport_activity='سباحة',
             company_name='شركة خارج الفترة', manager_name='مدير خارج الفترة',
