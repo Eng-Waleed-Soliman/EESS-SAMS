@@ -2882,7 +2882,13 @@ def _academy_rent_rows(year, month, start, end, branch=None):
         if payment.expected_amount != expected:
             payment.expected_amount = expected
             update_fields.append('expected_amount')
-        if academy.subscription_type == 'revenue_share':
+        # Once finance records payment/supply movements, those entries become the
+        # authoritative source for the monthly totals. Do not overwrite them
+        # with a player-subscription rollup that can still contain an older zero.
+        has_financial_entries = payment.entries.exists()
+        if has_financial_entries:
+            _sync_rent_payment(payment)
+        elif academy.subscription_type == 'revenue_share':
             player_subscriptions = AcademyPlayerMonthlySubscription.objects.filter(
                 player__academy=academy,
                 player__role=AcademyMember.ROLE_PLAYER,
@@ -2943,14 +2949,20 @@ def _sync_rent_payment(payment):
     latest_payment = payment.entries.exclude(payment_date=None).order_by('-payment_date', '-id').first()
     latest_supply = payment.entries.exclude(supplied_date=None).order_by('-supplied_date', '-id').first()
     latest_note = payment.entries.exclude(notes='').order_by('-updated_at', '-id').first()
-    payment.paid_amount = totals['paid'] or 0
-    payment.supplied_amount = totals['supplied'] or 0
-    payment.payment_date = latest_payment.payment_date if latest_payment else None
-    payment.supplied_date = latest_supply.supplied_date if latest_supply else None
-    payment.notes = latest_note.notes if latest_note else ''
-    payment.save(update_fields=[
-        'paid_amount', 'supplied_amount', 'payment_date', 'supplied_date', 'notes', 'updated_at',
-    ])
+    values = {
+        'paid_amount': totals['paid'] or 0,
+        'supplied_amount': totals['supplied'] or 0,
+        'payment_date': latest_payment.payment_date if latest_payment else None,
+        'supplied_date': latest_supply.supplied_date if latest_supply else None,
+        'notes': latest_note.notes if latest_note else '',
+    }
+    changed_fields = []
+    for field_name, value in values.items():
+        if getattr(payment, field_name) != value:
+            setattr(payment, field_name, value)
+            changed_fields.append(field_name)
+    if changed_fields:
+        payment.save(update_fields=[*changed_fields, 'updated_at'])
 
 
 def _sync_deposit_plan(plan):
@@ -5275,6 +5287,8 @@ def academy_rent_payment_entries(request, payment_id):
         AcademyMonthlyRentPayment.objects.select_related('academy', 'academy__branch'),
         pk=payment_id,
     )
+    if payment.entries.exists():
+        _sync_rent_payment(payment)
     action = request.POST.get('action', '') if request.method == 'POST' else ''
 
     if action == 'delete_entry':

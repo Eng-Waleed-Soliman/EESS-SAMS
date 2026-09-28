@@ -2445,6 +2445,47 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(payment.supplied_amount, 700)
         self.assertEqual(payment.supplied_date, today)
 
+    def test_rent_entries_remain_authoritative_over_revenue_share_rollup(self):
+        today = date.today()
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_reports = True
+        profile.save(update_fields=['can_reports'])
+        month_start = date(today.year, today.month, 1)
+        academy = Academy.objects.create(
+            name='Manual Supply Academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000995',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(today.year, 1, 1), contract_end_date=date(today.year, 12, 31),
+            subscription_type='revenue_share', eess_share_percentage=50,
+        )
+        player = AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_PLAYER, name='Manual Supply Player',
+        )
+        AcademyPlayerMonthlySubscription.objects.create(
+            player=player, month=month_start, expected_amount=10080, paid_amount=10080,
+            supplied_amount=0, supply_is_recorded=True,
+        )
+        payment = AcademyMonthlyRentPayment.objects.create(
+            academy=academy, month=month_start,
+            expected_amount=5040, paid_amount=5040, supplied_amount=0,
+        )
+        AcademyRentPaymentEntry.objects.create(
+            payment=payment, paid_amount=5040, payment_date=today,
+            supplied_amount=5040, supplied_date=today, recorded_by=self.user,
+        )
+
+        response = self.client.get(reverse('academy_rent_payments'), {
+            'month': f'{today.year}-{today.month:02d}',
+        })
+
+        row = next(row for row in response.context['rows'] if row['academy'] == academy)
+        self.assertEqual(row['paid'], 5040)
+        self.assertEqual(row['supplied'], 5040)
+        self.assertEqual(row['unsupplied'], 0)
+        payment.refresh_from_db()
+        self.assertEqual(payment.supplied_amount, 5040)
+        self.assertEqual(payment.supplied_date, today)
+
     def test_training_year_selector_and_portrait_identity_cards(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_reports = True
