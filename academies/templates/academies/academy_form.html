@@ -61,7 +61,7 @@
         {{ form.training_schedule_data }}
         <label class="form-label fw-bold">جدول أماكن وأيام وساعات التدريب</label>
         <div class="alert alert-light border mb-3">
-          في القيمة المتغيرة اختر المكان ثم اليوم ثم توقيت البداية والنهاية وقيمة إيجار الساعة. في نسبة المشاركة اختر المكان والأيام والساعات بدون إيجار ساعة. في القيمة الثابتة يكفي اختيار مكان التدريب فقط.
+          اختر المكان ثم اليوم وتوقيت البداية والنهاية. تظهر قيمة إيجار الساعة للقيمة المتغيرة فقط، أما القيمة الثابتة فتظل محسوبة من القيم الشهرية المسجلة ولا تتأثر بالمواعيد.
         </div>
         <div class="training-schedule-grid" id="trainingScheduleGrid"></div>
       </div>
@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function(){
       placeRow.classList.toggle('active', placeChecked);
       if(!placeChecked) return;
       selectedPlaces.push(place);
-      const hasDetailedSchedule = subscriptionType === 'variable' || subscriptionType === 'revenue_share';
+      const hasDetailedSchedule = ['fixed', 'variable', 'revenue_share'].includes(subscriptionType);
       if(!hasDetailedSchedule){
         rows.push({place: place});
         return;
@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('.variable-subscription').forEach(el => el.style.display = type === 'variable' ? '' : 'none');
     document.querySelectorAll('.fixed-subscription').forEach(el => el.style.display = type === 'fixed' ? '' : 'none');
     document.querySelectorAll('.share-subscription').forEach(el => el.style.display = type === 'revenue_share' ? '' : 'none');
-    const hasDetailedSchedule = type === 'variable' || type === 'revenue_share';
+    const hasDetailedSchedule = ['fixed', 'variable', 'revenue_share'].includes(type);
     document.querySelectorAll('.training-days').forEach(el => el.style.display = hasDetailedSchedule ? '' : 'none');
     document.querySelectorAll('.hourly-rent-field').forEach(el => el.style.display = type === 'variable' ? '' : 'none');
     collectSchedule();

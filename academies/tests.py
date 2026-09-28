@@ -1373,6 +1373,82 @@ class ApplicationFlowsTests(TestCase):
             )
         self.assertEqual(calculated_income, 300)
 
+    def test_fixed_academy_can_save_optional_schedule_without_variable_pricing(self):
+        place = OPERATION_PLACE_CHOICES[0][0]
+        selected_date = date.today()
+        day_name = WEEKDAY_AR[selected_date.weekday()]
+        schedule = [{
+            'place': place,
+            'day': day_name,
+            'start_time': TIME_CHOICES[0][0],
+            'end_time': TIME_CHOICES[2][0],
+            'hourly_rent': 9999,
+        }]
+        form = AcademyForm(data={
+            'name': 'Fixed schedule academy', 'sport_activity': 'كرة قدم',
+            'company_name': 'Test company', 'manager_name': 'Test manager',
+            'manager_phone': '01000000003', 'contract_start_date': selected_date.isoformat(),
+            'contract_end_date': (selected_date + timedelta(days=30)).isoformat(),
+            'subscription_type': 'fixed', 'monthly_subscription': 1200,
+            'variable_rent_type': 'hour', 'variable_rent_value': 9999,
+            'eess_share_percentage': 0, 'security_deposit': 0,
+            'training_schedule_data': json.dumps(schedule), 'operation_place': [place],
+        })
+        self.assertTrue(form.is_valid(), form.errors.as_json())
+        academy = form.save()
+
+        self.assertEqual(academy.training_schedule, [{
+            'place': place, 'day': day_name,
+            'start_time': TIME_CHOICES[0][0], 'end_time': TIME_CHOICES[2][0],
+            'hourly_rent': 0,
+        }])
+        self.assertEqual(academy.training_days, day_name)
+        self.assertEqual(len(academy.training_hours_list), 2)
+        self.assertEqual(academy.variable_rent_type, '')
+        self.assertEqual(academy.variable_rent_value, 0)
+        self.assertEqual(academy.fixed_rent_for_month(selected_date.year, selected_date.month), 1200)
+        self.assertEqual(
+            _calculate_variable_income_by_facility(academy, selected_date.year, selected_date.month),
+            1200,
+        )
+        self.assertEqual(len(_academy_schedule_occurrences_for_date(academy, selected_date)), 2)
+        self.assertEqual(
+            _academy_schedule_occurrences_for_date(academy, selected_date + timedelta(days=1)),
+            [],
+        )
+
+    def test_fixed_schedule_conflicts_only_with_its_selected_times(self):
+        place = OPERATION_PLACE_CHOICES[0][0]
+        selected_date = date.today()
+        day_name = WEEKDAY_AR[selected_date.weekday()]
+        common = {
+            'sport_activity': 'كرة قدم', 'company_name': 'Test company',
+            'manager_name': 'Test manager', 'manager_phone': '01000000004',
+            'contract_start_date': selected_date.isoformat(),
+            'contract_end_date': (selected_date + timedelta(days=30)).isoformat(),
+            'subscription_type': 'fixed', 'monthly_subscription': 1200,
+            'eess_share_percentage': 0, 'security_deposit': 0, 'operation_place': [place],
+        }
+        first_schedule = [{
+            'place': place, 'day': day_name,
+            'start_time': TIME_CHOICES[0][0], 'end_time': TIME_CHOICES[2][0],
+        }]
+        first_form = AcademyForm(data={
+            **common, 'name': 'First fixed schedule',
+            'training_schedule_data': json.dumps(first_schedule),
+        })
+        self.assertTrue(first_form.is_valid(), first_form.errors.as_json())
+        first_form.save()
+        second_schedule = [{
+            'place': place, 'day': day_name,
+            'start_time': TIME_CHOICES[3][0], 'end_time': TIME_CHOICES[5][0],
+        }]
+        second_form = AcademyForm(data={
+            **common, 'name': 'Second fixed schedule',
+            'training_schedule_data': json.dumps(second_schedule),
+        })
+        self.assertTrue(second_form.is_valid(), second_form.errors.as_json())
+
     def test_revenue_share_academy_saves_schedule_without_hourly_rent(self):
         place = OPERATION_PLACE_CHOICES[0][0]
         selected_date = date.today()

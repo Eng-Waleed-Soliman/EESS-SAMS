@@ -1194,7 +1194,29 @@ def _academy_schedule_occurrences_for_date(academy, selected_date):
     selected_day_ar = WEEKDAY_AR[selected_date.weekday()]
     occurrences = []
     if academy.subscription_type == 'fixed':
+        detailed_rows = [
+            row for row in academy.training_schedule
+            if row.get('place') and row.get('day') and _time_range_indexes(
+                row.get('start_time'), row.get('end_time')
+            )
+        ]
+        detailed_places = {row.get('place') for row in detailed_rows}
+        for row in detailed_rows:
+            if row.get('day') != selected_day_ar:
+                continue
+            place = row.get('place')
+            for idx in _time_range_indexes(row.get('start_time'), row.get('end_time')):
+                occurrences.append({
+                    'place': place,
+                    'slot_index': idx,
+                    'original_place': place,
+                    'original_slot_index': idx,
+                    'is_extra': False,
+                    'hourly_rent': 0,
+                })
         for place in academy.operation_places_list:
+            if place in detailed_places:
+                continue
             for idx in range(len(SLOT_LABELS)):
                 occurrences.append({'place': place, 'slot_index': idx, 'original_place': place, 'original_slot_index': idx, 'is_extra': False, 'hourly_rent': 0})
         return occurrences

@@ -150,9 +150,24 @@ def _schedule_entries(name, places, days, hours, source_label):
 def _entries_from_detailed_schedule(schedule_rows, academy_name, subscription_type, selected_places=None):
     entries = []
     if subscription_type == 'fixed':
+        for row in schedule_rows or []:
+            place = row.get('place')
+            day = row.get('day')
+            slots = set(_range_indexes(row.get('start_time'), row.get('end_time')))
+            if place and day and slots:
+                entries.append({
+                    'name': academy_name,
+                    'place': place,
+                    'day': day,
+                    'slots': slots,
+                    'source': 'جدول الإيجار الثابت',
+                })
         all_days = [value for value, _ in TRAINING_DAY_CHOICES]
         all_slots = set(range(len(TIME_CHOICES) - 1))
+        detailed_places = {entry['place'] for entry in entries}
         for place in selected_places or []:
+            if place in detailed_places:
+                continue
             for day in all_days:
                 entries.append({'name': academy_name, 'place': place, 'day': day, 'slots': all_slots, 'source': 'إيجار ثابت'})
         return entries
@@ -578,6 +593,24 @@ class AcademyForm(forms.ModelForm):
                 place = row.get('place')
                 if place and place not in selected_places:
                     selected_places.append(place)
+                day = row.get('day')
+                start_time = row.get('start_time')
+                end_time = row.get('end_time')
+                slots = _range_indexes(start_time, end_time)
+                if not (place and day and slots):
+                    continue
+                normalized_rows.append({
+                    'place': place,
+                    'day': day,
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'hourly_rent': 0,
+                })
+                if day not in selected_days:
+                    selected_days.append(day)
+                for label in _slot_labels_from_range(start_time, end_time):
+                    if label not in selected_hours:
+                        selected_hours.append(label)
             if not selected_places:
                 selected_places = cleaned_data.get('operation_place') or []
             if not selected_places:
@@ -612,16 +645,19 @@ class AcademyForm(forms.ModelForm):
             if not normalized_rows:
                 required_details = '، وقيمة إيجار الساعة' if requires_hourly_rent else ''
                 raise forms.ValidationError(f'أضف جدول تدريب واحد على الأقل: مكان التدريب، اليوم، من الساعة، إلى الساعة{required_details}.')
-        cleaned_data['parsed_training_schedule'] = normalized_rows if subscription_type in {'variable', 'revenue_share'} else [{'place': place} for place in selected_places]
+        if subscription_type == 'fixed':
+            detailed_places = {row['place'] for row in normalized_rows}
+            cleaned_data['parsed_training_schedule'] = normalized_rows + [
+                {'place': place} for place in selected_places if place not in detailed_places
+            ]
+        else:
+            cleaned_data['parsed_training_schedule'] = normalized_rows
         cleaned_data['operation_place'] = selected_places
-        if subscription_type in {'variable', 'revenue_share'}:
+        if subscription_type in {'fixed', 'variable', 'revenue_share'}:
             cleaned_data['training_days'] = selected_days
             cleaned_data['training_hours'] = selected_hours
         if subscription_type == 'variable':
             cleaned_data['variable_rent_value'] = variable_rent_value or 0
-        if subscription_type == 'fixed':
-            cleaned_data['training_days'] = []
-            cleaned_data['training_hours'] = []
         if cleaned_data.get('has_extra_hours'):
             if not cleaned_data.get('extra_training_place'):
                 raise forms.ValidationError('اختر مكان التدريب الإضافي.')
