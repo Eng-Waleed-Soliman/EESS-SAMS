@@ -1189,13 +1189,14 @@ def _slot_label_to_index(slot_label):
 
 
 def _academy_schedule_occurrences_for_date(academy, selected_date):
-    if not academy.training_schedule:
+    schedule = academy.training_schedule_for_date(selected_date)
+    if not schedule:
         return []
     selected_day_ar = WEEKDAY_AR[selected_date.weekday()]
     occurrences = []
     if academy.subscription_type == 'fixed':
         detailed_rows = [
-            row for row in academy.training_schedule
+            row for row in schedule
             if row.get('place') and row.get('day') and _time_range_indexes(
                 row.get('start_time'), row.get('end_time')
             )
@@ -1214,13 +1215,17 @@ def _academy_schedule_occurrences_for_date(academy, selected_date):
                     'is_extra': False,
                     'hourly_rent': 0,
                 })
-        for place in academy.operation_places_list:
+        schedule_places = {
+            row.get('place') for row in schedule
+            if isinstance(row, dict) and row.get('place')
+        } or set(academy.operation_places_list)
+        for place in schedule_places:
             if place in detailed_places:
                 continue
             for idx in range(len(SLOT_LABELS)):
                 occurrences.append({'place': place, 'slot_index': idx, 'original_place': place, 'original_slot_index': idx, 'is_extra': False, 'hourly_rent': 0})
         return occurrences
-    for row in academy.training_schedule:
+    for row in schedule:
         if row.get('day') != selected_day_ar:
             continue
         place = row.get('place')
@@ -1311,6 +1316,8 @@ def _academy_occurrences_for_date(selected_date, include_cancelled=False, branch
                     'is_extra': occ.get('is_extra', False),
                     'hourly_rent': occ.get('hourly_rent', 0),
                 })
+            continue
+        if academy.training_schedule_for_date(selected_date):
             continue
         # أساسي
         if _contains_value(academy.training_days, selected_day_ar):
@@ -2673,6 +2680,8 @@ def _academy_variable_occurrences_for_date(academy, selected_date, context):
     detailed_occurrences = _academy_schedule_occurrences_for_date(academy, selected_date)
     if detailed_occurrences:
         source_occurrences = detailed_occurrences
+    elif academy.training_schedule_for_date(selected_date):
+        source_occurrences = []
     else:
         selected_day_ar = WEEKDAY_AR[selected_date.weekday()]
         source_occurrences = []
@@ -2794,6 +2803,8 @@ def _monthly_academy_operation_counts(year, month, academies):
                         day_active_count += 1
                 if day_active_count:
                     active_days[academy.id] = active_days.get(academy.id, 0) + 1
+                continue
+            if academy.training_schedule_for_date(current):
                 continue
             occurrence_sources = []
             if _contains_value(academy.training_days, day_ar):

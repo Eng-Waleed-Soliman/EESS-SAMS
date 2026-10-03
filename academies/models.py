@@ -2,6 +2,7 @@ from calendar import monthrange
 from decimal import Decimal
 import base64
 import datetime
+import json
 import uuid
 from django.db import models
 from django.contrib.auth.models import User
@@ -323,6 +324,12 @@ class Academy(models.Model):
     training_days = models.CharField(max_length=250, blank=True, verbose_name='أيام التدريب')
     training_hours = models.TextField(blank=True, verbose_name='ساعات التدريب الأساسية')
     training_schedule = models.JSONField(default=list, blank=True, verbose_name='جدول التدريب التفصيلي')
+    training_schedule_effective_date = models.DateField(
+        null=True, blank=True, verbose_name='تاريخ تطبيق جدول التدريب الحالي',
+    )
+    training_schedule_history = models.JSONField(
+        default=list, blank=True, verbose_name='سجل جداول التدريب السابقة',
+    )
     has_extra_hours = models.BooleanField(default=False, verbose_name='إضافة ساعات تدريب إضافية')
     extra_training_days = models.CharField(max_length=250, blank=True, verbose_name='أيام التدريب الإضافية')
     extra_training_place = models.CharField(max_length=500, blank=True, verbose_name='مكان التدريب الإضافي')
@@ -360,6 +367,48 @@ class Academy(models.Model):
     @property
     def training_days_list(self):
         return split_values(self.training_days)
+
+    def training_schedule_for_date(self, selected_date):
+        """Return the schedule version effective on a specific calendar date."""
+        versions = []
+        for item in self.training_schedule_history or []:
+            if not isinstance(item, dict) or not isinstance(item.get('schedule'), list):
+                continue
+            try:
+                effective_date = datetime.date.fromisoformat(str(item.get('effective_date') or ''))
+            except (TypeError, ValueError):
+                continue
+            versions.append((effective_date, item['schedule']))
+        current_effective = self.training_schedule_effective_date or self.contract_start_date
+        versions.append((current_effective, self.training_schedule or []))
+        eligible = [item for item in versions if item[0] <= selected_date]
+        if eligible:
+            return max(eligible, key=lambda item: item[0])[1]
+        return min(versions, key=lambda item: item[0])[1] if versions else []
+
+    def training_schedules_between(self, start_date, end_date):
+        dates = {start_date}
+        for item in self.training_schedule_history or []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                effective_date = datetime.date.fromisoformat(str(item.get('effective_date') or ''))
+            except (TypeError, ValueError):
+                continue
+            if start_date <= effective_date <= end_date:
+                dates.add(effective_date)
+        current_effective = self.training_schedule_effective_date or self.contract_start_date
+        if start_date <= current_effective <= end_date:
+            dates.add(current_effective)
+        schedules = []
+        seen = set()
+        for selected_date in sorted(dates):
+            schedule = self.training_schedule_for_date(selected_date)
+            marker = json.dumps(schedule, ensure_ascii=False, sort_keys=True)
+            if marker not in seen:
+                seen.add(marker)
+                schedules.append(schedule)
+        return schedules
 
     @property
     def extra_training_hours_list(self):

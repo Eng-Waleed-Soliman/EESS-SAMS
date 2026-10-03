@@ -270,11 +270,13 @@ def academy_security_cards(academies, now=None):
                         'end': timing.get('end'),
                         'players': [player for player in group.players.all() if player.academy_id == academy.pk],
                     })
-        registered_days = set(academy.training_days_list)
-        registered_days.update(
-            row.get('day') for row in (academy.training_schedule or [])
+        active_schedule = academy.training_schedule_for_date(today)
+        registered_days = {
+            row.get('day') for row in (active_schedule or [])
             if isinstance(row, dict) and row.get('day')
-        )
+        }
+        if not active_schedule:
+            registered_days.update(academy.training_days_list)
         staff_day = contract_active_today and (
             today_has_group or WEEKDAY_AR[today.weekday()] in registered_days
         )

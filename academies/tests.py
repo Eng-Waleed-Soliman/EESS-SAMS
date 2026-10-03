@@ -1449,6 +1449,87 @@ class ApplicationFlowsTests(TestCase):
         })
         self.assertTrue(second_form.is_valid(), second_form.errors.as_json())
 
+    def test_schedule_effective_date_blends_old_and_new_variable_rent_in_same_month(self):
+        place = OPERATION_PLACE_CHOICES[0][0]
+        month_start = date(2026, 10, 1)
+        month_end = date(2026, 10, 31)
+        effective_date = date(2026, 10, 16)
+        old_day = WEEKDAY_AR[0]
+        new_day = WEEKDAY_AR[2]
+        old_schedule = [{
+            'place': place, 'day': old_day,
+            'start_time': TIME_CHOICES[0][0], 'end_time': TIME_CHOICES[2][0],
+            'hourly_rent': 100,
+        }]
+        new_schedule = [{
+            'place': place, 'day': new_day,
+            'start_time': TIME_CHOICES[4][0], 'end_time': TIME_CHOICES[6][0],
+            'hourly_rent': 200,
+        }]
+        academy = Academy.objects.create(
+            name='Effective schedule academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000111', operation_place=place,
+            contract_start_date=month_start, contract_end_date=month_end,
+            subscription_type='variable', variable_rent_type='hour', variable_rent_value=50,
+            training_days=old_day, training_schedule=old_schedule,
+            training_schedule_effective_date=month_start,
+        )
+        form = AcademyForm(data={
+            'name': academy.name, 'sport_activity': academy.sport_activity,
+            'company_name': academy.company_name, 'manager_name': academy.manager_name,
+            'manager_phone': academy.manager_phone, 'contract_start_date': month_start.isoformat(),
+            'contract_end_date': month_end.isoformat(), 'subscription_type': 'variable',
+            'variable_rent_type': 'hour', 'variable_rent_value': 50,
+            'eess_share_percentage': 0, 'security_deposit': 0,
+            'training_schedule_data': json.dumps(new_schedule), 'operation_place': [place],
+            'schedule_effective_date': effective_date.isoformat(),
+        }, instance=academy)
+        self.assertTrue(form.is_valid(), form.errors.as_json())
+        academy = form.save()
+
+        self.assertEqual(academy.training_schedule_effective_date, effective_date)
+        self.assertEqual(academy.training_schedule_history, [{
+            'effective_date': month_start.isoformat(), 'schedule': old_schedule,
+        }])
+        self.assertEqual(academy.training_schedule_for_date(date(2026, 10, 15)), old_schedule)
+        self.assertEqual(academy.training_schedule_for_date(effective_date), new_schedule)
+        old_sessions = sum(
+            1 for day_number in range(1, effective_date.day)
+            if date(2026, 10, day_number).weekday() == 0
+        )
+        new_sessions = sum(
+            1 for day_number in range(effective_date.day, 32)
+            if date(2026, 10, day_number).weekday() == 2
+        )
+        expected_rent = (old_sessions * 100) + (new_sessions * 200)
+        self.assertEqual(_calculate_variable_income_by_facility(academy, 2026, 10), expected_rent)
+
+    def test_schedule_effective_date_is_rendered_as_calendar_and_validated(self):
+        place = OPERATION_PLACE_CHOICES[0][0]
+        academy = Academy.objects.create(
+            name='Schedule date academy', sport_activity='Football', company_name='Company',
+            manager_name='Manager', manager_phone='01000000112', operation_place=place,
+            contract_start_date=date(2026, 10, 1), contract_end_date=date(2027, 6, 30),
+            subscription_type='fixed', monthly_subscription=1000,
+            training_schedule=[{'place': place}],
+            training_schedule_effective_date=date(2026, 10, 1),
+        )
+        page = self.client.get(reverse('academy_update', args=[academy.pk]))
+        self.assertContains(page, 'name="schedule_effective_date"')
+        self.assertContains(page, 'type="date"')
+        self.assertContains(page, 'تاريخ التطبيق')
+        form = AcademyForm(data={
+            'name': academy.name, 'sport_activity': academy.sport_activity,
+            'company_name': academy.company_name, 'manager_name': academy.manager_name,
+            'manager_phone': academy.manager_phone, 'contract_start_date': '2026-10-01',
+            'contract_end_date': '2027-06-30', 'subscription_type': 'fixed',
+            'monthly_subscription': 1000, 'eess_share_percentage': 0, 'security_deposit': 0,
+            'training_schedule_data': json.dumps([{'place': place}]), 'operation_place': [place],
+            'schedule_effective_date': '2026-09-30',
+        }, instance=academy)
+        self.assertFalse(form.is_valid())
+        self.assertIn('schedule_effective_date', form.errors)
+
     def test_revenue_share_academy_saves_schedule_without_hourly_rent(self):
         place = OPERATION_PLACE_CHOICES[0][0]
         selected_date = date.today()

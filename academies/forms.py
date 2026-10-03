@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from io import BytesIO
 from pathlib import Path
 from decimal import Decimal
@@ -187,6 +188,9 @@ def _academy_schedule_conflict_messages(cleaned_data, instance=None):
     days = cleaned_data.get('training_days') or []
     hours = cleaned_data.get('training_hours') or []
     start_date = cleaned_data.get('contract_start_date')
+    application_date = cleaned_data.get('schedule_effective_date')
+    if application_date and start_date and application_date > start_date:
+        start_date = application_date
     end_date = cleaned_data.get('contract_end_date')
     if not start_date or not end_date:
         return []
@@ -212,12 +216,18 @@ def _academy_schedule_conflict_messages(cleaned_data, instance=None):
     if instance and instance.pk:
         existing_academies = existing_academies.exclude(pk=instance.pk)
     for academy in existing_academies:
-        existing_entries = _entries_from_detailed_schedule(
-            academy.training_schedule,
-            academy.name,
-            academy.subscription_type,
-            academy.operation_places_list,
-        )
+        existing_entries = []
+        for existing_schedule in academy.training_schedules_between(start_date, end_date):
+            schedule_places = list(dict.fromkeys(
+                row.get('place') for row in existing_schedule
+                if isinstance(row, dict) and row.get('place')
+            )) or academy.operation_places_list
+            existing_entries.extend(_entries_from_detailed_schedule(
+                existing_schedule,
+                academy.name,
+                academy.subscription_type,
+                schedule_places,
+            ))
         if not existing_entries:
             existing_entries = _schedule_entries(
                 academy.name,
@@ -273,12 +283,30 @@ def _academy_slot_conflicts(academy, booking_date, venue, wanted_start, wanted_e
         return ''
 
     source_occurrences = []
+    schedule = academy.training_schedule_for_date(booking_date)
     if academy.subscription_type == 'fixed':
-        for place in academy.operation_places_list:
+        detailed_rows = [
+            row for row in schedule
+            if row.get('place') and row.get('day') and _range_indexes(
+                row.get('start_time'), row.get('end_time')
+            )
+        ]
+        detailed_places = {row.get('place') for row in detailed_rows}
+        for row in detailed_rows:
+            if row.get('day') != selected_day_ar:
+                continue
+            place = row.get('place')
+            for idx in _range_indexes(row.get('start_time'), row.get('end_time')):
+                source_occurrences.append((place, idx, 'base'))
+        schedule_places = {
+            row.get('place') for row in schedule
+            if isinstance(row, dict) and row.get('place')
+        } or set(academy.operation_places_list)
+        for place in schedule_places - detailed_places:
             for idx in range(len(TIME_CHOICES) - 1):
                 source_occurrences.append((place, idx, 'base'))
-    elif academy.training_schedule:
-        for row in academy.training_schedule:
+    elif schedule:
+        for row in schedule:
             if row.get('day') != selected_day_ar:
                 continue
             place = row.get('place')
@@ -364,6 +392,10 @@ class AcademyForm(forms.ModelForm):
         widget=forms.CheckboxInput(attrs={'class': 'btn-check', 'autocomplete': 'off'}),
     )
     training_schedule_data = forms.CharField(required=False, widget=forms.HiddenInput(attrs={'id': 'id_training_schedule_data'}))
+    schedule_effective_date = forms.DateField(
+        label='تاريخ التطبيق', required=False,
+        widget=forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date', 'class': 'form-control'}),
+    )
     sport_activity = forms.ChoiceField(
         label='النشاط الرياضي',
         choices=[('', 'اختر النشاط الرياضي')] + SPORT_ACTIVITY_CHOICES,
@@ -453,6 +485,15 @@ class AcademyForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._original_training_schedule = json.loads(json.dumps(self.instance.training_schedule or []))
+        self._original_schedule_history = json.loads(json.dumps(self.instance.training_schedule_history or []))
+        self._original_schedule_effective_date = self.instance.training_schedule_effective_date
+        self._original_contract_start_date = self.instance.contract_start_date
+        self.fields['schedule_effective_date'].initial = (
+            self.instance.training_schedule_effective_date
+            or self.instance.contract_start_date
+            or date.today()
+        )
         saved_fixed_rents = self.instance.fixed_monthly_rents if self.instance and self.instance.pk else {}
         legacy_fixed_rent = int(self.instance.monthly_subscription or 0) if self.instance and self.instance.pk else None
         for month_number, month_label in FIXED_RENT_MONTHS:
@@ -560,6 +601,18 @@ class AcademyForm(forms.ModelForm):
         subscription_type = cleaned_data.get('subscription_type')
         variable_rent_type = cleaned_data.get('variable_rent_type')
         variable_rent_value = cleaned_data.get('variable_rent_value')
+        schedule_effective_date = cleaned_data.get('schedule_effective_date')
+        contract_start_date = cleaned_data.get('contract_start_date')
+        contract_end_date = cleaned_data.get('contract_end_date')
+        if not schedule_effective_date:
+            schedule_effective_date = (
+                self._original_schedule_effective_date or contract_start_date or date.today()
+            )
+            cleaned_data['schedule_effective_date'] = schedule_effective_date
+        if schedule_effective_date and contract_start_date and schedule_effective_date < contract_start_date:
+            self.add_error('schedule_effective_date', 'تاريخ التطبيق لا يمكن أن يسبق بداية التعاقد.')
+        if schedule_effective_date and contract_end_date and schedule_effective_date > contract_end_date:
+            self.add_error('schedule_effective_date', 'تاريخ التطبيق لا يمكن أن يتجاوز نهاية التعاقد.')
         raw_schedule = cleaned_data.get('training_schedule_data') or '[]'
         try:
             parsed_rows = json.loads(raw_schedule)
@@ -691,7 +744,33 @@ class AcademyForm(forms.ModelForm):
         academy.operation_place = ', '.join(self.cleaned_data.get('operation_place', []))
         academy.training_days = ', '.join(self.cleaned_data.get('training_days', []))
         academy.training_hours = ', '.join(self.cleaned_data.get('training_hours', []))
-        academy.training_schedule = self.cleaned_data.get('parsed_training_schedule', [])
+        new_schedule = self.cleaned_data.get('parsed_training_schedule', [])
+        effective_date = self.cleaned_data.get('schedule_effective_date') or academy.contract_start_date
+        schedule_changed = (
+            new_schedule != self._original_training_schedule
+            or effective_date != self._original_schedule_effective_date
+        )
+        if academy.pk and schedule_changed:
+            cutoff = effective_date.isoformat()
+            history = [
+                item for item in self._original_schedule_history
+                if isinstance(item, dict) and str(item.get('effective_date') or '') < cutoff
+            ]
+            old_effective = self._original_schedule_effective_date or self._original_contract_start_date
+            if self._original_training_schedule and old_effective and old_effective < effective_date:
+                old_key = old_effective.isoformat()
+                history = [item for item in history if item.get('effective_date') != old_key]
+                history.append({
+                    'effective_date': old_key,
+                    'schedule': self._original_training_schedule,
+                })
+            academy.training_schedule_history = sorted(
+                history, key=lambda item: str(item.get('effective_date') or '')
+            )
+        elif not academy.pk:
+            academy.training_schedule_history = []
+        academy.training_schedule = new_schedule
+        academy.training_schedule_effective_date = effective_date
         academy.has_extra_hours = bool(self.cleaned_data.get('has_extra_hours'))
         if academy.has_extra_hours:
             academy.extra_training_days = ', '.join(self.cleaned_data.get('extra_training_days', []))

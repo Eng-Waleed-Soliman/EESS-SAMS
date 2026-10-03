@@ -60,6 +60,14 @@
       <div class="col-12 mb-3" id="trainingScheduleSection">
         {{ form.training_schedule_data }}
         <label class="form-label fw-bold">جدول أماكن وأيام وساعات التدريب</label>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold" for="{{ form.schedule_effective_date.id_for_label }}">{{ form.schedule_effective_date.label }}</label>
+            {{ form.schedule_effective_date }}
+            <div class="form-text">تبدأ المواعيد المعدلة من هذا التاريخ، وتظل المواعيد السابقة مستخدمة تلقائيًا قبلَه.</div>
+            <div class="text-danger small">{{ form.schedule_effective_date.errors }}</div>
+          </div>
+        </div>
         <div class="alert alert-light border mb-3">
           اختر المكان ثم اليوم وتوقيت البداية والنهاية. تظهر قيمة إيجار الساعة للقيمة المتغيرة فقط، أما القيمة الثابتة فتظل محسوبة من القيم الشهرية المسجلة ولا تتأثر بالمواعيد.
         </div>
