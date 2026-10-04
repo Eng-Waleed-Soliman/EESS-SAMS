@@ -3104,6 +3104,13 @@ def _bonus_for_employee(employee, bonus_daily_income_total, cafe_sales_total):
     return total_bonus
 
 
+def _income_statement_totals(academy_income, daily_booking_income, cafeteria_income, monthly_expenses, daily_expenses, cafeteria_stock_purchases, cafeteria_operating_expenses):
+    """Return the canonical totals used by the monthly income report."""
+    gross_income = int(academy_income or 0) + int(daily_booking_income or 0) + int(cafeteria_income or 0)
+    total_expenses = int(monthly_expenses or 0) + int(daily_expenses or 0) + int(cafeteria_stock_purchases or 0) + int(cafeteria_operating_expenses or 0)
+    return {'gross_income': gross_income, 'total_expenses': total_expenses, 'net_profit': gross_income - total_expenses}
+
+
 def _month_financial_summary(year, month, start, end, branch=None):
     rent_rows = _academy_rent_rows(year, month, start, end, branch)
     academy_income = sum(row['supplied'] for row in rent_rows)
@@ -3160,11 +3167,17 @@ def _month_financial_summary(year, month, start, end, branch=None):
     # Academy income is already included in full here, so gross income must add
     # only daily bookings rather than the bonus daily-income total (which also
     # contains the paid football/basketball academy income).
-    gross_income = int(academy_income or 0) + int(daily_booking_income or 0) + int(cafe_sales_total or 0)
     # An advance reduces the final amount received, not the cost of wages.
     payroll_expense_total = payroll_total + payroll_advances
-    total_expenses = int(monthly_expenses or 0) + int(daily_expenses or 0) + int(operating_expenses or 0) + int(cafe_purchase_total or 0) + payroll_expense_total
-    net_profit = gross_income - total_expenses
+    accounts_total_expenses = (
+        int(monthly_expenses or 0) + int(daily_expenses or 0)
+        + int(operating_expenses or 0) + int(cafe_purchase_total or 0)
+        + payroll_expense_total
+    )
+    income_statement = _income_statement_totals(
+        academy_income, daily_booking_income, cafe_sales_total,
+        monthly_expenses, daily_expenses, cafe_stock_purchase_total, cafe_operating_expenses,
+    )
     return {
         'rent_rows': rent_rows,
         'academy_income': academy_income,
@@ -3182,9 +3195,9 @@ def _month_financial_summary(year, month, start, end, branch=None):
         'payroll_total': payroll_total,
         'payroll_advances': payroll_advances,
         'payroll_expense_total': payroll_expense_total,
-        'gross_income': gross_income,
-        'total_expenses': total_expenses,
-        'net_profit': net_profit,
+        **income_statement,
+        'total_expenses': accounts_total_expenses,
+        'income_statement_expenses': income_statement['total_expenses'],
     }
 
 
@@ -4098,12 +4111,11 @@ def reports_home_v2(request):
         academy_income_total = sum(row['supplied'] for row in rows)
         daily_booking_total = sum(row['total_amount'] or 0 for row in daily_booking_rows)
         cafeteria_income_total = sum(row['amount'] or 0 for row in cafeteria_income_rows)
-        expenses_total = (
-            sum(row['amount'] or 0 for row in expense_rows)
-            + cafeteria_stock_purchase_total
-            + cafeteria_operating_expense_total
+        income_statement = _income_statement_totals(
+            academy_income_total, daily_booking_total, cafeteria_income_total,
+            sum(row['amount'] or 0 for row in expense_rows), 0,
+            cafeteria_stock_purchase_total, cafeteria_operating_expense_total,
         )
-        total_income = academy_income_total + daily_booking_total + cafeteria_income_total
         context.update({
             'income_rows': rows,
             'income_expected_total': sum(row['expected'] for row in rows),
@@ -4120,10 +4132,10 @@ def reports_home_v2(request):
             'income_cafeteria_operating_expense_details': cafeteria_operating_expense_details,
             'income_cafeteria_stock_purchase_total': cafeteria_stock_purchase_total,
             'income_cafeteria_operating_expense_total': cafeteria_operating_expense_total,
-            'income_expenses_total': expenses_total,
+            'income_expenses_total': income_statement['total_expenses'],
             'income_academy_total': academy_income_total,
-            'income_total': total_income,
-            'income_net_total': total_income - expenses_total,
+            'income_total': income_statement['gross_income'],
+            'income_net_total': income_statement['net_profit'],
         })
 
     elif report_type == 'expenses':

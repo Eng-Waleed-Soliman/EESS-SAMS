@@ -2745,6 +2745,40 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'شهر 2026-07')
         self.assertContains(response, f'<strong>{response.context["summary"]["net_profit"]}</strong>', html=True)
 
+    def test_accounts_distributable_profit_matches_monthly_income_net_total(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_accounts = True
+        profile.can_reports = True
+        profile.save()
+        Employee.objects.create(name='Net income test employee', job_title='Admin', salary=62500)
+        MonthlyExpense.objects.create(
+            title='Recorded payroll expense',
+            expense_month=date(2026, 8, 1),
+            amount=1000,
+        )
+        OperatingExpense.objects.create(
+            title='Excluded operating expense',
+            expense_date=date(2026, 8, 15),
+            amount=500,
+        )
+
+        accounts_response = self.client.get(reverse('accounts_home'), {
+            'month': '2026-08', 'branch_id': 'all',
+        })
+        report_response = self.client.get(reverse('reports_home'), {
+            'report_type': 'monthly_income', 'range_mode': 'month',
+            'month': '2026-08', 'branch_id': 'all',
+        })
+
+        self.assertEqual(accounts_response.status_code, 200)
+        self.assertEqual(report_response.status_code, 200)
+        self.assertEqual(
+            accounts_response.context['summary']['net_profit'],
+            report_response.context['income_net_total'],
+        )
+        self.assertEqual(accounts_response.context['summary']['net_profit'], -1000)
+        self.assertEqual(accounts_response.context['summary']['payroll_total'], 62500)
+
     def test_sports_manager_signature_is_used_across_reports_and_new_vouchers(self):
         self.user.username = 'المدير الرياضي'
         self.user.first_name = 'حسين البيسوني'
