@@ -2103,7 +2103,7 @@ class EESSUserUpdateForm(forms.ModelForm):
     new_password = forms.CharField(
         label='تعيين كلمة مرور جديدة',
         required=False,
-        widget=forms.PasswordInput(attrs={'class':'form-control', 'placeholder':'اتركها فارغة للاحتفاظ بكلمة المرور الحالية'}),
+        widget=forms.PasswordInput(attrs={'class':'form-control', 'placeholder':'اتركها فارغة للاحتفاظ بكلمة المرور الحالية', 'autocomplete': 'new-password'}),
         help_text='كلمة المرور الحالية مشفّرة ولا يمكن استرجاعها. اكتب كلمة جديدة هنا عند نسيانها، أو اترك الخانة فارغة دون تغيير.'
     )
     confirm_new_password = forms.CharField(

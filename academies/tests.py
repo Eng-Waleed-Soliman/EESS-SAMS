@@ -1046,6 +1046,11 @@ class ApplicationFlowsTests(TestCase):
 
         self.user.is_superuser = True
         self.user.save(update_fields=['is_superuser'])
+        password_page = self.client.get(reverse('user_update', args=[target.pk]))
+        self.assertContains(password_page, 'id="generateUserPassword"')
+        self.assertContains(password_page, 'id="copyUserPassword"')
+        self.assertContains(password_page, 'generateStrongPassword')
+        self.assertNotContains(password_page, original_hash)
         response = self.client.post(reverse('user_update', args=[target.pk]), {
             'username': target.username,
             'first_name': target.first_name,
