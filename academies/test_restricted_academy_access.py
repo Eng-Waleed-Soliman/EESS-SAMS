@@ -5,7 +5,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .forms import EESSPermissionForm
-from .models import Academy, AcademyMember, UserPermission, AcademyTrainingGroup, AcademyTrainingGroupPlayer, AcademyTrainingAttendance, AcademyPlayerMonthlySubscription
+from .models import Academy, AcademyMember, UserPermission, AcademyTrainingGroup, AcademyTrainingGroupPlayer, AcademyTrainingAttendance, AcademyPlayerMonthlySubscription, AcademyMonthlyRentPayment
 from .constants import OPERATION_PLACE_CHOICES
 
 
@@ -132,17 +132,55 @@ class RestrictedAcademyAccessTests(TestCase):
         self.assertTemplateUsed(page, 'academies/restricted_academy_portal.html')
         self.assertNotContains(page, 'مجموعة أخرى محجوبة')
 
-    def test_subscription_view_does_not_grant_writes_or_other_sections(self):
+    def test_subscription_permission_allows_scoped_management_without_company_accounts(self):
         self.grant('subscriptions')
-        AcademyPlayerMonthlySubscription.objects.create(player=self.player, month=date(2026, 9, 1), expected_amount=1500, paid_amount=500)
-        AcademyPlayerMonthlySubscription.objects.create(player=self.other.members.get(role='player'), month=date(2026, 9, 1), expected_amount=9000)
-        url = reverse('restricted_academy_portal') + '?section=subscriptions'
-        page = self.client.get(reverse('restricted_academy_portal'), {'section': 'subscriptions', 'month': '2026-09'})
+        group = AcademyTrainingGroup.objects.create(
+            academy=self.academy, name='مجموعة الاشتراكات', training_days=[2],
+        )
+        AcademyTrainingGroupPlayer.objects.create(group=group, player=self.player)
+        unassigned = AcademyMember.objects.create(
+            academy=self.academy, role='player', name='لاعب خارج المجموعة',
+        )
+        company_rent = AcademyMonthlyRentPayment.objects.create(
+            academy=self.academy, month=date(2026, 9, 1),
+            expected_amount=2000, paid_amount=900, supplied_amount=700,
+        )
+        url = reverse('restricted_academy_portal')
+        page = self.client.get(url, {
+            'section': 'subscriptions', 'group': group.pk, 'year': 2026, 'month': 9,
+        })
+        self.assertTemplateUsed(page, 'academies/academy_player_subscriptions.html')
         self.assertContains(page, self.player.name)
+        self.assertNotContains(page, unassigned.name)
         self.assertNotContains(page, 'لاعب محجوب')
-        self.assertContains(page, '1000')
-        self.assertEqual(self.client.post(url, {'paid_amount': 1500}).status_code, 403)
-        self.assertEqual(self.client.get(reverse('restricted_academy_portal'), {'section': 'attendance'}).status_code, 403)
+        self.assertContains(page, 'لا تدخل في حسابات الشركة')
+        self.assertContains(page, 'حفظ الاشتراكات')
+
+        response = self.client.post(url + '?section=subscriptions', {
+            'section': 'subscriptions', 'group': group.pk, 'year': 2026, 'month': 9,
+            'player_id': [self.player.pk, unassigned.pk],
+            f'expected_{self.player.pk}': 1500,
+            f'paid_{self.player.pk}': 500,
+            f'supplied_{self.player.pk}': 500,
+            f'expected_{unassigned.pk}': 9000,
+            f'paid_{unassigned.pk}': 9000,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('section=subscriptions', response.url)
+        subscription = AcademyPlayerMonthlySubscription.objects.get(
+            player=self.player, month=date(2026, 9, 1),
+        )
+        self.assertEqual(
+            (subscription.expected_amount, subscription.paid_amount, subscription.supplied_amount),
+            (1500, 500, 0),
+        )
+        self.assertFalse(AcademyPlayerMonthlySubscription.objects.filter(player=unassigned).exists())
+        company_rent.refresh_from_db()
+        self.assertEqual(
+            (company_rent.expected_amount, company_rent.paid_amount, company_rent.supplied_amount),
+            (2000, 900, 700),
+        )
+        self.assertEqual(self.client.get(url, {'section': 'attendance'}).status_code, 403)
 
     def test_portal_only_shows_selected_academy_and_section(self):
         page = self.client.get(reverse('restricted_academy_portal'))
@@ -155,7 +193,7 @@ class RestrictedAcademyAccessTests(TestCase):
         self.assertEqual(self.client.get(reverse('restricted_academy_portal'), {'section': 'subscriptions'}).status_code, 403)
 
     def test_welcome_cards_member_crud_and_group_schedule_are_scoped(self):
-        self.grant('players', 'players_add', 'coaches', 'administrators', 'groups', 'placement', 'attendance_record')
+        self.grant('players', 'players_add', 'coaches', 'administrators', 'groups', 'placement', 'attendance_record', 'subscriptions')
         portal = reverse('restricted_academy_portal')
         home = self.client.get(portal)
         self.assertContains(home, 'اللاعبين')
@@ -186,7 +224,9 @@ class RestrictedAcademyAccessTests(TestCase):
         group = self.academy.training_groups.get(name='مجموعة المساء')
         self.assertEqual(group.training_times['5'], {'start': '16:00', 'end': '18:00'})
         detail = self.client.get(portal, {'section': 'group_detail', 'group': group.pk})
-        self.assertContains(detail, 'الاشتراكات الشهرية — تحت التطوير')
+        self.assertContains(detail, '?section=subscriptions&amp;group=')
+        self.assertContains(detail, 'الاشتراكات الشهرية')
+        self.assertNotContains(detail, 'تحت التطوير')
         self.assertContains(detail, 'تسكين اللاعبين')
         self.assertContains(detail, 'حضور اللاعبين')
 

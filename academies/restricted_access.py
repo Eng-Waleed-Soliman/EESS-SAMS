@@ -303,15 +303,9 @@ def restricted_academy_portal(request):
     elif section == 'subscriptions':
         if not can_subscriptions:
             return HttpResponseForbidden('الاشتراكات الشهرية غير متاحة لهذا الحساب.')
-        if request.method == 'POST':
-            return HttpResponseForbidden('ليس لديك صلاحية تعديل الاشتراكات.')
-        _year, _month, start, _end, month_value = portal_month(request.GET.get('month'))
-        context.update({
-            'month_value': month_value,
-            'subscriptions': AcademyPlayerMonthlySubscription.objects.filter(
-                player__academy=academy, player__role=AcademyMember.ROLE_PLAYER, month=start,
-            ).select_related('player').order_by('player__name'),
-        })
+        from .views import academy_player_subscriptions
+        return academy_player_subscriptions(request, academy.pk, restricted_portal=True)
+
     else:
         raise Http404('القسم غير متاح.')
 

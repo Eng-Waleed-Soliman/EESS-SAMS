@@ -2,13 +2,15 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <div>
-    <h3 class="mb-1">الاشتراكات الشهرية - {{ academy.name }}</h3>
+    <h3 class="mb-1">الاشتراكات الشهرية - {{ academy.name }}{% if subscription_group %} — {{ subscription_group.name }}{% endif %}</h3>
     <div class="text-muted">{% if is_revenue_share %}إدارة المبلغ المستحق والمسدد والمورد لكل لاعب حسب الشهر. التقارير تحتسب المبلغ المورد فقط.{% else %}اشتراكات اللاعبين لإدارة الأكاديمية فقط، ولا تدخل في حسابات الشركة. إيجار التعاقد مستقل عن اشتراكات اللاعبين.{% endif %}</div>
   </div>
-  <a class="btn btn-secondary" href="{% url 'academy_member_list' academy.id %}?role=player">رجوع للاعبين</a>
+  {% if restricted_subscription_portal %}<a class="btn btn-secondary" href="?section={% if subscription_group %}group_detail&amp;group={{ subscription_group.pk }}{% else %}players{% endif %}">رجوع</a>{% else %}<a class="btn btn-secondary" href="{% url 'academy_member_list' academy.id %}?role=player">رجوع للاعبين</a>{% endif %}
 </div>
 
 <form method="get" class="card p-3 mb-3">
+  {% if restricted_subscription_portal %}<input type="hidden" name="section" value="subscriptions">{% endif %}
+  {% if subscription_group %}<input type="hidden" name="group" value="{{ subscription_group.pk }}">{% endif %}
   <div class="row g-3 align-items-end">
     <div class="col-md-2">
       <label class="form-label fw-bold">السنة</label>
@@ -60,6 +62,8 @@
   {% csrf_token %}
   <input type="hidden" name="year" value="{{ selected_year }}">
   <input type="hidden" name="month" value="{{ selected_month }}">
+  {% if restricted_subscription_portal %}<input type="hidden" name="section" value="subscriptions">{% endif %}
+  {% if subscription_group %}<input type="hidden" name="group" value="{{ subscription_group.pk }}">{% endif %}
   <div class="row g-3 align-items-end mb-4">
     <div class="col-md-5">
       <label class="form-label fw-bold" for="defaultSubscriptionAmount">الاشتراك الشهري الافتراضي</label>
@@ -112,7 +116,7 @@
 
 <section id="subscriptionPdfReport" class="subscription-pdf-report" dir="rtl" aria-hidden="true">
   <header class="subscription-pdf-header">
-    <h1>اشتراكات أكاديمية {{ academy.name }}</h1>
+    <h1>اشتراكات أكاديمية {{ academy.name }}{% if subscription_group %} — {{ subscription_group.name }}{% endif %}</h1>
     <h2>شهر {{ selected_month_label }} {{ selected_year }}</h2>
   </header>
   <table class="subscription-pdf-table">

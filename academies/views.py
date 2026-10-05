@@ -4878,7 +4878,7 @@ def academy_training_group_attendance(request, academy_id, pk):
 
 
 @login_required
-def academy_player_subscriptions(request, academy_id):
+def academy_player_subscriptions(request, academy_id, restricted_portal=False):
     academy = get_object_or_404(Academy, pk=academy_id)
     today = date.today()
 
@@ -4901,11 +4901,26 @@ def academy_player_subscriptions(request, academy_id):
     if selected_month < 1 or selected_month > 12:
         selected_month = today.month
     month_date = date(selected_year, selected_month, 1)
+    source = request.POST if request.method == 'POST' else request.GET
+    group_id = positive_int(source.get('group'), 0)
+    subscription_group = get_object_or_404(academy.training_groups, pk=group_id) if group_id else None
 
-    all_players = list(
-        academy.members.filter(role=AcademyMember.ROLE_PLAYER)
-        .order_by('-is_active', 'name', 'id')
-    )
+    players_queryset = academy.members.filter(role=AcademyMember.ROLE_PLAYER)
+    if subscription_group:
+        players_queryset = players_queryset.filter(group_assignments__group=subscription_group).distinct()
+    all_players = list(players_queryset.order_by('-is_active', 'name', 'id'))
+
+    def subscription_redirect_url():
+        group_query = f'&group={subscription_group.pk}' if subscription_group else ''
+        if restricted_portal:
+            return (
+                f"{reverse('restricted_academy_portal')}?section=subscriptions"
+                f"{group_query}&year={selected_year}&month={selected_month}"
+            )
+        return (
+            f"{reverse('academy_player_subscriptions', args=[academy.pk])}"
+            f'?year={selected_year}&month={selected_month}{group_query}'
+        )
     players_by_id = {player.pk: player for player in all_players}
 
     if request.method == 'POST':
@@ -4947,10 +4962,7 @@ def academy_player_subscriptions(request, academy_id):
                         request,
                         f'المبلغ المورد للاعب {player.name} لا يمكن أن يزيد عن المبلغ المسدد.',
                     )
-                    return redirect(
-                        f"{reverse('academy_player_subscriptions', args=[academy.pk])}"
-                        f'?year={selected_year}&month={selected_month}'
-                    )
+                    return redirect(subscription_redirect_url())
                 AcademyPlayerMonthlySubscription.objects.update_or_create(
                     player=player,
                     month=month_date,
@@ -4993,10 +5005,7 @@ def academy_player_subscriptions(request, academy_id):
                     payment_fields.extend(['supplied_amount', 'supplied_date'])
                 payment.save(update_fields=payment_fields)
         messages.success(request, f'تم حفظ اشتراكات {saved_count} لاعب لشهر {selected_month:02d}/{selected_year}.')
-        return redirect(
-            f"{reverse('academy_player_subscriptions', args=[academy.pk])}"
-            f'?year={selected_year}&month={selected_month}'
-        )
+        return redirect(subscription_redirect_url())
 
     subscriptions = {
         subscription.player_id: subscription
@@ -5076,6 +5085,8 @@ def academy_player_subscriptions(request, academy_id):
     displayed_paid_total = sum(row['paid_amount'] for row in rows)
     return render(request, 'academies/academy_player_subscriptions.html', {
         'academy': academy,
+        'subscription_group': subscription_group,
+        'restricted_subscription_portal': restricted_portal,
         'rows': rows,
         'totals': totals,
         'selected_year': selected_year,
