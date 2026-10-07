@@ -161,9 +161,9 @@ class CafeteriaCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(CafeteriaItem)
 class CafeteriaItemAdmin(admin.ModelAdmin):
-    list_display = ('code', 'name', 'category', 'purchase_price', 'sale_price', 'staff_sale_price', 'stock_quantity', 'is_low_stock')
+    list_display = ('code', 'name', 'category', 'is_barista_item', 'purchase_price', 'sale_price', 'staff_sale_price', 'stock_quantity', 'is_low_stock')
     search_fields = ('name', 'category__name')
-    list_filter = ('category',)
+    list_filter = ('category', 'is_barista_item')
     ordering = ('category__code', 'code', 'name')
 
 

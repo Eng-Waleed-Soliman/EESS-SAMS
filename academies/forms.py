@@ -1834,7 +1834,7 @@ class CafeteriaCategoryForm(forms.ModelForm):
 class CafeteriaItemForm(forms.ModelForm):
     class Meta:
         model = CafeteriaItem
-        fields = ['category', 'code', 'name', 'item_type', 'opening_quantity', 'purchase_price', 'sale_price', 'notes']
+        fields = ['category', 'code', 'name', 'item_type', 'opening_quantity', 'purchase_price', 'sale_price', 'is_barista_item', 'notes']
         widgets = {
             'category': forms.Select(attrs={'class': 'form-select'}),
             'item_type': forms.Select(attrs={'class': 'form-select'}),
@@ -1842,13 +1842,16 @@ class CafeteriaItemForm(forms.ModelForm):
             'opening_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'sale_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
+            'is_barista_item': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['category'].required = True
         self.fields['item_type'].required = False
-        for field in self.fields.values():
+        for name, field in self.fields.items():
+            if name == 'is_barista_item':
+                continue
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()

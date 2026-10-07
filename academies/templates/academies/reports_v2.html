@@ -219,7 +219,45 @@
 </div>
 {% endif %}
 {% if section == 'inventory' %}<div class="card p-3"><h4>جرد كميات الأصناف خلال الشهر</h4><table class="table table-striped text-center"><thead><tr><th>كود الصنف</th><th>الفئة</th><th>الصنف</th><th>كمية الشراء</th><th>كمية البيع</th><th>الكمية الحالية بالمخزون</th></tr></thead><tbody>{% for row in cafeteria_rows %}<tr><td>{{ row.item.code }}</td><td>{{ row.item.category.name|default:'-' }}</td><td>{{ row.item.name }}</td><td>{{ row.purchased }}</td><td>{{ row.sold }}</td><td>{{ row.remaining }}</td></tr>{% empty %}<tr><td colspan="6">لا توجد أصناف</td></tr>{% endfor %}</tbody></table></div>{% endif %}
-{% if section == 'statistics' %}<div class="card p-3"><h4>إحصائيات الأصناف مرتبة حسب الأكثر مبيعًا</h4><table class="table table-striped text-center"><thead><tr><th>الترتيب</th><th>الصنف</th><th>الكمية المباعة</th><th>إيراد المبيعات</th><th>ربح الصنف</th><th>نسبة الربح</th></tr></thead><tbody>{% for row in cafeteria_statistics %}<tr><td>{{ forloop.counter }}</td><td>{{ row.item.name }}</td><td>{{ row.sold }}</td><td>{{ row.revenue }}</td><td>{{ row.profit }}</td><td>{{ row.profit_percentage }}%</td></tr>{% empty %}<tr><td colspan="6">لا توجد أصناف</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if section == 'statistics' %}
+<div class="card p-3">
+  <div class="d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-3 mb-3">
+    <h4 class="mb-0">{{ cafeteria_statistics_title }}</h4>
+    <div class="cafeteria-sort-control no-print">
+      <label class="form-label fw-bold mb-1" for="cafeteriaStatisticsSort">ترتيب الأصناف</label>
+      <select class="form-select" id="cafeteriaStatisticsSort" aria-label="ترتيب أصناف الكافيتريا">
+        {% for value, label in cafeteria_sort_choices %}
+        <option value="{{ value }}" {% if cafeteria_sort == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-striped text-center align-middle mb-0">
+      <thead><tr><th>الترتيب</th><th>الفئة</th><th>الصنف</th><th>الكمية المباعة</th><th>إيراد المبيعات</th><th>ربح الصنف</th><th>نسبة الربح</th></tr></thead>
+      <tbody>
+        {% for row in cafeteria_statistics %}
+        <tr><td>{{ forloop.counter }}</td><td>{{ row.item.category.name|default:'بدون فئة' }}</td><td>{{ row.item.name }}</td><td>{{ row.sold }}</td><td>{{ row.revenue }}</td><td>{{ row.profit }}</td><td>{{ row.profit_percentage }}%</td></tr>
+        {% empty %}
+        <tr><td colspan="7">لا توجد أصناف مطابقة للاختيار</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+(function () {
+  const sortSelect = document.getElementById('cafeteriaStatisticsSort');
+  if (!sortSelect) return;
+  sortSelect.addEventListener('change', function () {
+    const url = new URL(window.location.href);
+    url.searchParams.set('cafeteria_sort', this.value);
+    url.searchParams.set('section', 'statistics');
+    window.location.assign(url.toString());
+  });
+})();
+</script>
+{% endif %}
 {% endif %}
 
 {% if report_type == 'cafeteria' and section == 'hospitality' %}

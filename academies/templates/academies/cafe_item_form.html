@@ -7,8 +7,15 @@
   <div class="row g-3">
     {% for field in form %}
     <div class="col-md-6 field-{{ field.name }}">
+      {% if field.name == 'is_barista_item' %}
+      <div class="form-check border rounded p-3 h-100 d-flex align-items-center gap-2">
+        {{ field }}
+        <label class="form-check-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      </div>
+      {% else %}
       <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
       {{ field }}
+      {% endif %}
       <div class="text-danger small">{{ field.errors }}</div>
       {% if field.name == 'purchase_price' %}<div class="form-text" id="purchaseHelp"></div>{% endif %}
     </div>

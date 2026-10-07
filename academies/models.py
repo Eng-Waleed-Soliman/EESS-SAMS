@@ -1421,6 +1421,7 @@ class CafeteriaItem(models.Model):
     purchase_price = models.PositiveIntegerField(default=0, verbose_name='سعر الشراء')
     sale_price = models.PositiveIntegerField(default=0, verbose_name='سعر البيع')
     staff_sale_price = models.PositiveIntegerField(default=0, verbose_name='سعر البيع Staff')
+    is_barista_item = models.BooleanField(default=False, verbose_name='صنف باريستا')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
 

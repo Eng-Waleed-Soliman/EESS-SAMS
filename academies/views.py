@@ -4222,6 +4222,36 @@ def reports_home_v2(request):
             group['total'] += movement_total
             hospitality_total += movement_total
 
+        cafeteria_sort_choices = [
+            ('category', 'حسب الفئة'),
+            ('best_selling', 'الأكثر مبيعًا'),
+            ('barista', 'أصناف الباريستا'),
+        ]
+        cafeteria_sort = request.GET.get('cafeteria_sort', 'best_selling')
+        valid_cafeteria_sorts = {value for value, _label in cafeteria_sort_choices}
+        if cafeteria_sort not in valid_cafeteria_sorts:
+            cafeteria_sort = 'best_selling'
+        if cafeteria_sort == 'category':
+            cafeteria_statistics = sorted(cafeteria_rows, key=lambda row: (
+                row['item'].category.code if row['item'].category else 10 ** 9,
+                row['item'].category.name if row['item'].category else '',
+                row['item'].code,
+                row['item'].name,
+            ))
+            cafeteria_statistics_title = 'إحصائيات الأصناف مرتبة حسب الفئة'
+        elif cafeteria_sort == 'barista':
+            cafeteria_statistics = sorted(
+                (row for row in cafeteria_rows if row['item'].is_barista_item),
+                key=lambda row: (-row['sold'], row['item'].name),
+            )
+            cafeteria_statistics_title = 'إحصائيات أصناف الباريستا مرتبة حسب الأكثر مبيعًا'
+        else:
+            cafeteria_statistics = sorted(
+                cafeteria_rows,
+                key=lambda row: (-row['sold'], row['item'].name),
+            )
+            cafeteria_statistics_title = 'إحصائيات الأصناف مرتبة حسب الأكثر مبيعًا'
+
         context.update({
             'cafeteria_purchase_total': purchase_total,
             'cafeteria_stock_purchase_total': stock_purchase_total,
@@ -4232,7 +4262,10 @@ def reports_home_v2(request):
             'cafeteria_net_profit': sales_total - purchase_total,
             'cafeteria_supplied_total': supplied_total,
             'cafeteria_rows': cafeteria_rows,
-            'cafeteria_statistics': sorted(cafeteria_rows, key=lambda row: (-row['sold'], row['item'].name)),
+            'cafeteria_statistics': cafeteria_statistics,
+            'cafeteria_sort': cafeteria_sort,
+            'cafeteria_sort_choices': cafeteria_sort_choices,
+            'cafeteria_statistics_title': cafeteria_statistics_title,
             'cafeteria_hospitality_groups': list(hospitality_groups.values()),
             'cafeteria_hospitality_total': hospitality_total,
         })
