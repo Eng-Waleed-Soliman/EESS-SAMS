@@ -43,7 +43,10 @@
           <div class="text-danger small">{{ form.item.errors }}</div>
         </div>
         <div class="col-md-4">
-          <div class="stock-capacity-hint" id="stockCapacityHint" aria-live="polite"></div>
+          <div class="stock-capacity-hint" id="stockCapacityHint" aria-live="polite" hidden>
+            <button type="button" class="stock-capacity-hint__close" id="closeStockCapacityHint" aria-label="إغلاق التنبيه">×</button>
+            <span id="stockCapacityHintText"></span>
+          </div>
           <label class="form-label fw-bold">المخزون المتاح</label>
           <input class="form-control fw-bold text-center" id="stock_quantity_display" value="0" readonly>
         </div>
@@ -203,7 +206,12 @@
 .category-code{font-size:20px;font-weight:900}
 .cafe-category-card small{font-size:13px;color:#64748b}
 .cafe-category-card:hover small,.cafe-category-card.active small{color:#dbeafe}
-.stock-capacity-hint{min-height:24px;margin-bottom:4px;color:#b45309;font-size:13px;font-weight:900;line-height:1.35}
+.stock-capacity-hint{position:relative;margin-bottom:12px;padding:11px 42px 11px 16px;border:1px solid #f59e0b;border-radius:16px;background:#fff7ed;color:#9a3412;font-size:13px;font-weight:900;line-height:1.5;box-shadow:0 8px 20px rgba(180,83,9,.14)}
+.stock-capacity-hint[hidden]{display:none!important}
+.stock-capacity-hint::after{content:"";position:absolute;bottom:-9px;right:42px;width:16px;height:16px;border-right:1px solid #f59e0b;border-bottom:1px solid #f59e0b;background:#fff7ed;transform:rotate(45deg)}
+.stock-capacity-hint__close{position:absolute;top:6px;right:9px;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:rgba(154,52,18,.1);color:#9a3412;font:900 20px/26px Arial,sans-serif;cursor:pointer;transition:background .2s ease,transform .2s ease}
+.stock-capacity-hint__close:hover{background:rgba(154,52,18,.18);transform:scale(1.05)}
+.stock-capacity-hint__close:focus-visible{outline:2px solid #f59e0b;outline-offset:2px}
 .stock-status--available{background:#dcfce7!important;border-color:#22c55e!important;color:#166534!important}
 .stock-status--unavailable{background:#fee2e2!important;border-color:#ef4444!important;color:#991b1b!important}
 .order-panel{border-top:1px solid #e5e7eb;padding-top:14px}
@@ -234,6 +242,16 @@ const totalInput = document.getElementById('sale_total');
 const stockInfo = document.getElementById('stockInfo');
 const stockQuantityDisplay = document.getElementById('stock_quantity_display');
 const stockCapacityHint = document.getElementById('stockCapacityHint');
+const stockCapacityHintText = document.getElementById('stockCapacityHintText');
+const closeStockCapacityHint = document.getElementById('closeStockCapacityHint');
+let currentCapacityHintSignature = '';
+let dismissedCapacityHintSignature = '';
+if(closeStockCapacityHint){
+  closeStockCapacityHint.addEventListener('click', function(){
+    dismissedCapacityHintSignature = currentCapacityHintSignature;
+    stockCapacityHint.hidden = true;
+  });
+}
 const saleDate = document.getElementById('id_sale_date');
 const orderItemsInput = document.getElementById('order_items');
 const orderRows = document.getElementById('orderRows');
@@ -378,15 +396,16 @@ function refreshSale(){
         stockQuantityDisplay.value = availability.remaining + ' ' + item.unit_label;
       }
     }
-    if(stockCapacityHint){
+    if(stockCapacityHint && stockCapacityHintText){
       if(item.item_type === 'mixed' && !availability.available){
-        const limiting = availability.limitingComponents.length
-          ? ' — المكوّن المقيّد: ' + availability.limitingComponents.join('، ')
-          : '';
-        stockCapacityHint.textContent =
-          'أقصى عدد يمكن إعداده حاليًا: ' + availability.maxPossible + ' حصة' + limiting;
+        const signature = [item.id, qty, availability.maxPossible].join(':');
+        currentCapacityHintSignature = signature;
+        stockCapacityHintText.textContent = 'أقصى عدد يمكن إعداده حاليًا: ' + availability.maxPossible;
+        stockCapacityHint.hidden = dismissedCapacityHintSignature === signature;
       }else{
-        stockCapacityHint.textContent = '';
+        currentCapacityHintSignature = '';
+        stockCapacityHintText.textContent = '';
+        stockCapacityHint.hidden = true;
       }
     }
     if(item.item_type === 'weight' || item.item_type === 'mixed'){
@@ -402,7 +421,11 @@ function refreshSale(){
       stockQuantityDisplay.value = 0;
       stockQuantityDisplay.classList.remove('stock-status--available', 'stock-status--unavailable');
     }
-    if(stockCapacityHint){ stockCapacityHint.textContent = ''; }
+    if(stockCapacityHint && stockCapacityHintText){
+      currentCapacityHintSignature = '';
+      stockCapacityHintText.textContent = '';
+      stockCapacityHint.hidden = true;
+    }
     stockInfo.textContent = 'اختر الصنف لعرض المخزون المتاح.';
   }
 }

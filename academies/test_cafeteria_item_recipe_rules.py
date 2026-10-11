@@ -72,8 +72,11 @@ class CafeteriaItemRecipeRulesTests(TestCase):
         self.assertEqual(component['required_quantity'], 40)
         self.assertEqual(component['stock_quantity'], 1000)
         self.assertContains(page, 'id="stockCapacityHint"')
+        self.assertContains(page, 'id="closeStockCapacityHint"')
+        self.assertContains(page, 'aria-label="إغلاق التنبيه"')
         self.assertContains(page, 'function availabilityFor(item, requestedQuantity)')
         self.assertContains(page, 'أقصى عدد يمكن إعداده حاليًا:')
+        self.assertContains(page, 'dismissedCapacityHintSignature = currentCapacityHintSignature')
         self.assertContains(page, "availability.available ? 'متاح' : 'غير متاح'")
     def test_recipe_component_choices_only_include_raw_material_category(self):
         page = self.client.get(reverse('cafe_item_create'))
