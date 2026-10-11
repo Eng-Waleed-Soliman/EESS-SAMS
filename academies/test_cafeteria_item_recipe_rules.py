@@ -6,7 +6,9 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .forms import CafeteriaRecipeComponentFormSet
-from .models import CafeteriaCategory, CafeteriaItem, CafeteriaSale
+from .models import (
+    CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaSale,
+)
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -32,6 +34,13 @@ class CafeteriaItemRecipeRulesTests(TestCase):
             category=self.other_category, code=101, name='مياه معدنية',
             opening_quantity=10, purchase_price=5, sale_price=10,
         )
+        self.mixed_item = CafeteriaItem.objects.create(
+            category=self.other_category, code=102, name='مشروب مختلط',
+            item_type=CafeteriaItem.TYPE_MIXED, sale_price=30,
+        )
+        CafeteriaRecipeComponent.objects.create(
+            product=self.mixed_item, component=self.raw_item, quantity=40,
+        )
 
     def test_raw_material_category_never_appears_or_sells_directly(self):
         page = self.client.get(reverse('cafe_sale_list'))
@@ -51,6 +60,21 @@ class CafeteriaItemRecipeRulesTests(TestCase):
         self.assertRedirects(response, reverse('cafe_sale_list'))
         self.assertFalse(CafeteriaSale.objects.filter(item=self.raw_item).exists())
 
+    def test_sales_payload_includes_mixed_component_capacity(self):
+        page = self.client.get(reverse('cafe_sale_list'))
+        mixed_payload = next(
+            row for row in page.context['items'] if row['id'] == self.mixed_item.pk
+        )
+        self.assertEqual(mixed_payload['stock_quantity'], 25)
+        self.assertEqual(len(mixed_payload['recipe_components']), 1)
+        component = mixed_payload['recipe_components'][0]
+        self.assertEqual(component['item_id'], self.raw_item.pk)
+        self.assertEqual(component['required_quantity'], 40)
+        self.assertEqual(component['stock_quantity'], 1000)
+        self.assertContains(page, 'id="stockCapacityHint"')
+        self.assertContains(page, 'function availabilityFor(item, requestedQuantity)')
+        self.assertContains(page, 'أقصى عدد يمكن إعداده حاليًا:')
+        self.assertContains(page, "availability.available ? 'متاح' : 'غير متاح'")
     def test_recipe_component_choices_only_include_raw_material_category(self):
         page = self.client.get(reverse('cafe_item_create'))
         component_queryset = page.context['recipe_formset'].forms[0].fields['component'].queryset

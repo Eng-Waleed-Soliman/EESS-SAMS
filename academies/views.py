@@ -2548,13 +2548,26 @@ def cafe_sale_list(request):
         category_id = ''
     item_queryset = (
         CafeteriaItem.objects.select_related('category')
+        .prefetch_related('recipe_components__component')
         .filter(Q(category__show_in_sales=True) | Q(category__isnull=True))
         .exclude(category__name__iexact='الخامات')
         .order_by('category__code', 'code', 'name')
     )
     low_stock_items = [item for item in item_queryset if item.is_low_stock]
-    items = [
-        {
+    items = []
+    for item in item_queryset:
+        recipe_components = []
+        if item.item_type == CafeteriaItem.TYPE_MIXED:
+            for recipe in item.recipe_components.all():
+                component = recipe.component
+                recipe_components.append({
+                    'item_id': component.pk,
+                    'name': component.name,
+                    'required_quantity': recipe.quantity,
+                    'stock_quantity': component.stock_quantity,
+                    'unit_label': component.unit_label,
+                })
+        items.append({
             'id': item.id,
             'code': item.code,
             'name': item.name,
@@ -2565,9 +2578,8 @@ def cafe_sale_list(request):
             'stock_quantity': item.stock_quantity,
             'item_type': item.item_type,
             'unit_label': item.unit_label,
-        }
-        for item in item_queryset
-    ]
+            'recipe_components': recipe_components,
+        })
     return render(request, 'academies/cafe_sale_list.html', {
         'form': form,
         'sales': sales,

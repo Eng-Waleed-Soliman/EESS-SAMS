@@ -43,6 +43,7 @@
           <div class="text-danger small">{{ form.item.errors }}</div>
         </div>
         <div class="col-md-4">
+          <div class="stock-capacity-hint" id="stockCapacityHint" aria-live="polite"></div>
           <label class="form-label fw-bold">المخزون المتاح</label>
           <input class="form-control fw-bold text-center" id="stock_quantity_display" value="0" readonly>
         </div>
@@ -202,6 +203,9 @@
 .category-code{font-size:20px;font-weight:900}
 .cafe-category-card small{font-size:13px;color:#64748b}
 .cafe-category-card:hover small,.cafe-category-card.active small{color:#dbeafe}
+.stock-capacity-hint{min-height:24px;margin-bottom:4px;color:#b45309;font-size:13px;font-weight:900;line-height:1.35}
+.stock-status--available{background:#dcfce7!important;border-color:#22c55e!important;color:#166534!important}
+.stock-status--unavailable{background:#fee2e2!important;border-color:#ef4444!important;color:#991b1b!important}
 .order-panel{border-top:1px solid #e5e7eb;padding-top:14px}
 .hospitality-dialog{width:min(520px,calc(100vw - 32px));border:0;border-radius:18px;padding:0;box-shadow:0 24px 70px rgba(15,23,42,.3);direction:rtl}
 .hospitality-dialog::backdrop{background:rgba(15,23,42,.55)}
@@ -229,6 +233,7 @@ const displayAddonPriceInput = document.getElementById('display_addon_price');
 const totalInput = document.getElementById('sale_total');
 const stockInfo = document.getElementById('stockInfo');
 const stockQuantityDisplay = document.getElementById('stock_quantity_display');
+const stockCapacityHint = document.getElementById('stockCapacityHint');
 const saleDate = document.getElementById('id_sale_date');
 const orderItemsInput = document.getElementById('order_items');
 const orderRows = document.getElementById('orderRows');
@@ -276,12 +281,81 @@ function rowTotal(row){
   return itemAmount + ((row.addon_quantity || 0) * (row.addon_unit_price || 0));
 }
 
+function itemRequirements(item, quantity){
+  const requirements = {};
+  if(!item) return requirements;
+  const requested = Math.max(0, parseInt(quantity || '0', 10));
+  if(item.item_type === 'mixed'){
+    (item.recipe_components || []).forEach(function(component){
+      const componentId = String(component.item_id);
+      requirements[componentId] = (requirements[componentId] || 0) +
+        (parseInt(component.required_quantity || '0', 10) * requested);
+    });
+  }else{
+    requirements[String(item.id)] = requested;
+  }
+  return requirements;
+}
+
+function reservedComponentQuantity(componentId){
+  const key = String(componentId);
+  return orderItems.reduce(function(total, row){
+    const rowItem = itemMap[row.item_id];
+    const requirements = itemRequirements(rowItem, row.quantity);
+    return total + (requirements[key] || 0);
+  }, 0);
+}
+
+function availabilityFor(item, requestedQuantity){
+  const requested = Math.max(1, parseInt(requestedQuantity || '1', 10));
+  if(!item){
+    return {available:false, maxPossible:0, remaining:0, limitingComponents:[]};
+  }
+  if(item.item_type === 'mixed'){
+    const components = item.recipe_components || [];
+    if(components.length === 0){
+      return {available:false, maxPossible:0, remaining:0, limitingComponents:[]};
+    }
+    let maxPossible = Number.POSITIVE_INFINITY;
+    let limitingComponents = [];
+    components.forEach(function(component){
+      const requiredPerItem = Math.max(1, parseInt(component.required_quantity || '1', 10));
+      const componentStock = Math.max(0, parseInt(component.stock_quantity || '0', 10));
+      const remaining = Math.max(0, componentStock - reservedComponentQuantity(component.item_id));
+      const possibleFromComponent = Math.floor(remaining / requiredPerItem);
+      if(possibleFromComponent < maxPossible){
+        maxPossible = possibleFromComponent;
+        limitingComponents = [component.name];
+      }else if(possibleFromComponent === maxPossible){
+        limitingComponents.push(component.name);
+      }
+    });
+    if(!Number.isFinite(maxPossible)){ maxPossible = 0; }
+    return {
+      available: requested <= maxPossible,
+      maxPossible: maxPossible,
+      remaining: maxPossible,
+      limitingComponents: limitingComponents
+    };
+  }
+  const remaining = Math.max(
+    0,
+    parseInt(item.stock_quantity || '0', 10) - reservedComponentQuantity(item.id)
+  );
+  return {
+    available: requested <= remaining,
+    maxPossible: remaining,
+    remaining: remaining,
+    limitingComponents: []
+  };
+}
+
 function refreshSale(){
   const item = selectedItem();
   if(item && (!priceInput.value || priceInput.value === '0')){
     priceInput.value = itemSalePrice(item);
   }
-  const qty = parseInt(quantityInput.value || '0', 10);
+  const qty = Math.max(1, parseInt(quantityInput.value || '1', 10));
   const price = parseInt(priceInput.value || '0', 10);
   const addon = selectedAddon();
   const addonQty = addon ? Math.max(1, parseInt(addonQuantityInput.value || '1', 10)) : 0;
@@ -292,14 +366,46 @@ function refreshSale(){
   if(displayAddonPriceInput){ displayAddonPriceInput.value = addonPrice; }
   if(addonQuantityInput){ addonQuantityInput.disabled = !addon; }
   if(item){
-    if(stockQuantityDisplay){ stockQuantityDisplay.value = item.stock_quantity + ' ' + item.unit_label; }
-    stockInfo.textContent = 'المخزون المتاح: ' + item.stock_quantity + ' ' + item.unit_label;
+    const availability = availabilityFor(item, qty);
+    if(stockQuantityDisplay){
+      stockQuantityDisplay.classList.remove('stock-status--available', 'stock-status--unavailable');
+      if(item.item_type === 'weight' || item.item_type === 'mixed'){
+        stockQuantityDisplay.value = availability.available ? 'متاح' : 'غير متاح';
+        stockQuantityDisplay.classList.add(
+          availability.available ? 'stock-status--available' : 'stock-status--unavailable'
+        );
+      }else{
+        stockQuantityDisplay.value = availability.remaining + ' ' + item.unit_label;
+      }
+    }
+    if(stockCapacityHint){
+      if(item.item_type === 'mixed' && !availability.available){
+        const limiting = availability.limitingComponents.length
+          ? ' — المكوّن المقيّد: ' + availability.limitingComponents.join('، ')
+          : '';
+        stockCapacityHint.textContent =
+          'أقصى عدد يمكن إعداده حاليًا: ' + availability.maxPossible + ' حصة' + limiting;
+      }else{
+        stockCapacityHint.textContent = '';
+      }
+    }
+    if(item.item_type === 'weight' || item.item_type === 'mixed'){
+      stockInfo.textContent = availability.available
+        ? 'الكمية المطلوبة متاحة.'
+        : 'الكمية المطلوبة غير متاحة بالمخزون الحالي.';
+    }else{
+      stockInfo.textContent = 'المخزون المتبقي بعد الأوردر الحالي: ' +
+        availability.remaining + ' ' + item.unit_label;
+    }
   }else{
-    if(stockQuantityDisplay){ stockQuantityDisplay.value = 0; }
+    if(stockQuantityDisplay){
+      stockQuantityDisplay.value = 0;
+      stockQuantityDisplay.classList.remove('stock-status--available', 'stock-status--unavailable');
+    }
+    if(stockCapacityHint){ stockCapacityHint.textContent = ''; }
     stockInfo.textContent = 'اختر الصنف لعرض المخزون المتاح.';
   }
 }
-
 function escapeHtml(value){
   return String(value || '').replace(/[&<>"']/g, function(char){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char];
@@ -346,11 +452,9 @@ function addCurrentItemToOrder(){
       row.unit_price === price &&
       (row.addon_unit_price || 0) === addonPrice;
   });
-  const currentOrderQty = orderItems
-    .filter(function(row){ return String(row.item_id) === String(item.id); })
-    .reduce(function(sum, row){ return sum + row.quantity; }, 0);
-  if(currentOrderQty + qty > item.stock_quantity){
-    stockInfo.textContent = 'الكمية المطلوبة أكبر من المخزون المتاح للصنف.';
+  const availability = availabilityFor(item, qty);
+  if(!availability.available){
+    refreshSale();
     return;
   }
   if(existing){
@@ -421,7 +525,7 @@ if(addonSelect){
 }
 if(addonQuantityInput){ addonQuantityInput.addEventListener('input', refreshSale); }
 if(addOrderItemBtn){ addOrderItemBtn.addEventListener('click', addCurrentItemToOrder); }
-if(clearOrderBtn){ clearOrderBtn.addEventListener('click', function(){ orderItems = []; renderOrder(); }); }
+if(clearOrderBtn){ clearOrderBtn.addEventListener('click', function(){ orderItems = []; renderOrder(); refreshSale(); }); }
 if(staffPricing){
   staffPricing.addEventListener('change', function(){
     orderItems.forEach(function(row){
@@ -469,6 +573,7 @@ if(orderRows){
     if(!button) return;
     orderItems.splice(parseInt(button.dataset.index || '0', 10), 1);
     renderOrder();
+    refreshSale();
   });
 }
 if(quickSaleForm){
