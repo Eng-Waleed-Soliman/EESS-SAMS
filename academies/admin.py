@@ -154,16 +154,17 @@ class DailyExpenseAdmin(admin.ModelAdmin):
 
 @admin.register(CafeteriaCategory)
 class CafeteriaCategoryAdmin(admin.ModelAdmin):
-    list_display = ('code', 'name')
+    list_display = ('code', 'name', 'show_in_sales')
     search_fields = ('name',)
+    list_filter = ('show_in_sales',)
     ordering = ('code', 'name')
 
 
 @admin.register(CafeteriaItem)
 class CafeteriaItemAdmin(admin.ModelAdmin):
-    list_display = ('code', 'name', 'category', 'is_barista_item', 'purchase_price', 'sale_price', 'staff_sale_price', 'stock_quantity', 'is_low_stock')
+    list_display = ('code', 'name', 'category', 'purchase_price', 'sale_price', 'staff_sale_price', 'stock_quantity', 'is_low_stock')
     search_fields = ('name', 'category__name')
-    list_filter = ('category', 'is_barista_item')
+    list_filter = ('category',)
     ordering = ('category__code', 'code', 'name')
 
 

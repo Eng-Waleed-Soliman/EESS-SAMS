@@ -2238,8 +2238,15 @@ def cafe_menu(request):
         groups.append({'category': None, 'label': 'بدون فئة', 'rows': orphan_rows})
     return render(request, 'academies/cafe_menu.html', {'groups': groups})
 
-def _prepare_recipe_formset(formset, product=None):
-    queryset = CafeteriaItem.objects.exclude(item_type=CafeteriaItem.TYPE_MIXED).order_by('category__code', 'code', 'name')
+def _prepare_recipe_formset(formset, product=None, branch=None):
+    queryset = (
+        CafeteriaItem.objects.filter(category__name__iexact='الخامات')
+        .exclude(item_type=CafeteriaItem.TYPE_MIXED)
+        .select_related('category')
+        .order_by('category__code', 'code', 'name')
+    )
+    if branch is not None:
+        queryset = queryset.filter(branch=branch)
     if product and product.pk:
         queryset = queryset.exclude(pk=product.pk)
     for recipe_form in formset.forms:
@@ -2249,9 +2256,11 @@ def _prepare_recipe_formset(formset, product=None):
 
 def _cafeteria_item_form(request, instance=None):
     item = instance or CafeteriaItem()
+    active_branch, all_branches = selected_branch(request)
     form = CafeteriaItemForm(request.POST or None, instance=item)
     recipe_formset = CafeteriaRecipeComponentFormSet(request.POST or None, instance=item, prefix='recipe')
-    _prepare_recipe_formset(recipe_formset, item)
+    recipe_branch = None if all_branches else active_branch
+    _prepare_recipe_formset(recipe_formset, item, recipe_branch)
     if request.method == 'POST' and form.is_valid():
         item = form.save(commit=False)
         recipe_formset.instance = item
@@ -2266,7 +2275,6 @@ def _cafeteria_item_form(request, instance=None):
                 recipes_valid = False
         if recipes_valid:
             with transaction.atomic():
-                active_branch, all_branches = selected_branch(request)
                 if not all_branches:
                     item.branch = active_branch
                 item.save()
@@ -2407,7 +2415,11 @@ def cafe_sale_list(request):
             prepared_rows = []
             try:
                 for row in order_items:
-                    item = get_object_or_404(CafeteriaItem, pk=row.get('item_id'))
+                    item = CafeteriaItem.objects.filter(pk=row.get('item_id')).filter(
+                        Q(category__show_in_sales=True) | Q(category__isnull=True)
+                    ).first()
+                    if not item:
+                        raise ValueError('Hidden cafeteria item')
                     quantity = max(1, int(row.get('quantity') or 1))
                     unit_price = item.sale_price_for(is_staff_order and checkout_action != 'hospitality')
                     addon = None
@@ -2522,9 +2534,17 @@ def cafe_sale_list(request):
     today_total = sum(sale.total_amount for sale in today_sales)
     today_profit = sum(sale.estimated_profit for sale in today_sales)
     category_id = request.GET.get('category', '').strip()
-    categories = list(CafeteriaCategory.objects.all().order_by('code', 'name'))
-    item_queryset = CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name')
-    low_stock_items = [item for item in CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name') if item.is_low_stock]
+    visible_categories = CafeteriaCategory.objects.filter(show_in_sales=True).order_by('code', 'name')
+    categories = list(visible_categories)
+    visible_category_ids = {str(category.pk) for category in categories}
+    if category_id not in visible_category_ids:
+        category_id = ''
+    item_queryset = (
+        CafeteriaItem.objects.select_related('category')
+        .filter(Q(category__show_in_sales=True) | Q(category__isnull=True))
+        .order_by('category__code', 'code', 'name')
+    )
+    low_stock_items = [item for item in item_queryset if item.is_low_stock]
     items = [
         {
             'id': item.id,
@@ -4241,7 +4261,11 @@ def reports_home_v2(request):
             cafeteria_statistics_title = 'إحصائيات الأصناف مرتبة حسب الفئة'
         elif cafeteria_sort == 'barista':
             cafeteria_statistics = sorted(
-                (row for row in cafeteria_rows if row['item'].is_barista_item),
+                (
+                    row for row in cafeteria_rows
+                    if row['item'].category
+                    and row['item'].category.name.strip() == 'باريستا'
+                ),
                 key=lambda row: (-row['sold'], row['item'].name),
             )
             cafeteria_statistics_title = 'إحصائيات أصناف الباريستا مرتبة حسب الأكثر مبيعًا'

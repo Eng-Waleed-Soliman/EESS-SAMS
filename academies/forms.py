@@ -1817,15 +1817,18 @@ class OperatingExpenseForm(forms.ModelForm):
 class CafeteriaCategoryForm(forms.ModelForm):
     class Meta:
         model = CafeteriaCategory
-        fields = ['code', 'name', 'notes']
+        fields = ['code', 'name', 'show_in_sales', 'notes']
         widgets = {
             'code': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '1'}),
+            'show_in_sales': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field in self.fields.values():
+        for name, field in self.fields.items():
+            if name == 'show_in_sales':
+                continue
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
@@ -1834,7 +1837,7 @@ class CafeteriaCategoryForm(forms.ModelForm):
 class CafeteriaItemForm(forms.ModelForm):
     class Meta:
         model = CafeteriaItem
-        fields = ['category', 'code', 'name', 'item_type', 'opening_quantity', 'purchase_price', 'sale_price', 'is_barista_item', 'notes']
+        fields = ['category', 'code', 'name', 'item_type', 'opening_quantity', 'purchase_price', 'sale_price', 'notes']
         widgets = {
             'category': forms.Select(attrs={'class': 'form-select'}),
             'item_type': forms.Select(attrs={'class': 'form-select'}),
@@ -1842,16 +1845,13 @@ class CafeteriaItemForm(forms.ModelForm):
             'opening_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'sale_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
-            'is_barista_item': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['category'].required = True
         self.fields['item_type'].required = False
-        for name, field in self.fields.items():
-            if name == 'is_barista_item':
-                continue
+        for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
@@ -1879,6 +1879,8 @@ class BaseCafeteriaRecipeComponentFormSet(BaseInlineFormSet):
             if component:
                 if component.item_type == CafeteriaItem.TYPE_MIXED:
                     raise forms.ValidationError('لا يمكن استخدام صنف مختلط كمكوّن داخل وصفة أخرى.')
+                if not component.category or component.category.name.strip() != 'الخامات':
+                    raise forms.ValidationError('مكونات الصنف المختلط يجب أن تكون من أصناف فئة الخامات فقط.')
                 if component.pk == self.instance.pk:
                     raise forms.ValidationError('لا يمكن أن يحتوي الصنف على نفسه كمكوّن.')
                 if component.pk in components:
@@ -1958,7 +1960,16 @@ class CafeteriaSaleForm(forms.ModelForm):
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['item'].queryset = CafeteriaItem.objects.select_related('category').order_by('category__code', 'code', 'name')
+        visible_items = CafeteriaItem.objects.filter(
+            Q(category__show_in_sales=True) | Q(category__isnull=True)
+        )
+        if self.instance and self.instance.pk and self.instance.item_id:
+            visible_items = CafeteriaItem.objects.filter(
+                Q(category__show_in_sales=True)
+                | Q(category__isnull=True)
+                | Q(pk=self.instance.item_id)
+            )
+        self.fields['item'].queryset = visible_items.select_related('category').order_by('category__code', 'code', 'name')
         self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name}"
         self.fields['addon'].queryset = CafeteriaAddon.objects.order_by('name')
         self.fields['addon'].required = False

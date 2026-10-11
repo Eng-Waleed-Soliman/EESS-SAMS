@@ -1384,6 +1384,7 @@ class OperatingExpense(models.Model):
 class CafeteriaCategory(models.Model):
     code = models.PositiveIntegerField(unique=True, verbose_name='كود الفئة')
     name = models.CharField(max_length=200, unique=True, verbose_name='اسم الفئة')
+    show_in_sales = models.BooleanField(default=True, verbose_name='الظهور في حركات البيع')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -1421,7 +1422,6 @@ class CafeteriaItem(models.Model):
     purchase_price = models.PositiveIntegerField(default=0, verbose_name='سعر الشراء')
     sale_price = models.PositiveIntegerField(default=0, verbose_name='سعر البيع')
     staff_sale_price = models.PositiveIntegerField(default=0, verbose_name='سعر البيع Staff')
-    is_barista_item = models.BooleanField(default=False, verbose_name='صنف باريستا')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
 

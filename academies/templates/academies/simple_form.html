@@ -14,8 +14,15 @@
     <div class="row">
       {% for field in form %}
       <div class="col-md-6 mb-3">
-        <label class="form-label fw-bold">{{ field.label }}</label>
+        {% if field.name == 'show_in_sales' %}
+        <div class="form-check border rounded p-3 d-flex align-items-center gap-2">
+          {{ field }}
+          <label class="form-check-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        </div>
+        {% else %}
+        <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
+        {% endif %}
         {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
         <div class="text-danger small">{{ field.errors }}</div>
       </div>

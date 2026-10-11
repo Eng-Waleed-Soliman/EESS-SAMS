@@ -4,12 +4,11 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .forms import CafeteriaItemForm
 from .models import Branch, CafeteriaCategory, CafeteriaItem, CafeteriaSale
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
-class CafeteriaBaristaItemTests(TestCase):
+class CafeteriaBaristaCategoryReportTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser(
             username='barista-report-admin',
@@ -21,15 +20,15 @@ class CafeteriaBaristaItemTests(TestCase):
         session = self.client.session
         session['active_branch_id'] = self.branch.pk
         session.save()
-        self.drinks = CafeteriaCategory.objects.create(code=100, name='مشروبات')
+        self.barista_category = CafeteriaCategory.objects.create(code=100, name='باريستا')
         self.snacks = CafeteriaCategory.objects.create(code=200, name='مأكولات')
         self.barista_best = CafeteriaItem.objects.create(
-            branch=self.branch, category=self.drinks, code=2, name='قهوة باريستا',
-            opening_quantity=20, purchase_price=10, sale_price=25, is_barista_item=True,
+            branch=self.branch, category=self.barista_category, code=2, name='قهوة باريستا',
+            opening_quantity=20, purchase_price=10, sale_price=25,
         )
         self.barista_unsold = CafeteriaItem.objects.create(
-            branch=self.branch, category=self.drinks, code=3, name='لاتيه باريستا',
-            opening_quantity=20, purchase_price=10, sale_price=30, is_barista_item=True,
+            branch=self.branch, category=self.barista_category, code=3, name='لاتيه باريستا',
+            opening_quantity=20, purchase_price=10, sale_price=30,
         )
         self.regular_item = CafeteriaItem.objects.create(
             branch=self.branch, category=self.snacks, code=1, name='ساندويتش',
@@ -52,31 +51,12 @@ class CafeteriaBaristaItemTests(TestCase):
             params['cafeteria_sort'] = cafeteria_sort
         return self.client.get(reverse('reports_home'), params)
 
-    def test_item_form_saves_and_displays_barista_checkbox(self):
+    def test_item_screen_no_longer_contains_barista_checkbox(self):
         create_page = self.client.get(reverse('cafe_item_create'))
-        self.assertContains(create_page, 'name="is_barista_item"')
-        self.assertContains(create_page, 'صنف باريستا')
+        self.assertNotContains(create_page, 'name="is_barista_item"')
+        self.assertNotContains(create_page, 'صنف باريستا')
 
-        form = CafeteriaItemForm(data={
-            'category': self.drinks.pk,
-            'code': 4,
-            'name': 'كابتشينو',
-            'item_type': CafeteriaItem.TYPE_COUNT,
-            'opening_quantity': 10,
-            'purchase_price': 10,
-            'sale_price': 30,
-            'is_barista_item': 'on',
-            'notes': '',
-        })
-        self.assertTrue(form.is_valid(), form.errors.as_json())
-        item = form.save()
-        self.assertTrue(item.is_barista_item)
-
-        update_page = self.client.get(reverse('cafe_item_update', args=[self.barista_best.pk]))
-        self.assertContains(update_page, 'name="is_barista_item"')
-        self.assertContains(update_page, 'checked')
-
-    def test_statistics_support_all_requested_sort_choices(self):
+    def test_statistics_support_category_best_selling_and_barista_category(self):
         best_selling = self.get_statistics()
         self.assertEqual(best_selling.status_code, 200)
         self.assertEqual(best_selling.context['cafeteria_sort'], 'best_selling')
@@ -97,14 +77,12 @@ class CafeteriaBaristaItemTests(TestCase):
             [row['item'].pk for row in by_category.context['cafeteria_statistics']],
             [self.barista_best.pk, self.barista_unsold.pk, self.regular_item.pk],
         )
-        self.assertContains(by_category, 'إحصائيات الأصناف مرتبة حسب الفئة')
 
         barista_only = self.get_statistics('barista')
         self.assertEqual(
             [row['item'].pk for row in barista_only.context['cafeteria_statistics']],
             [self.barista_best.pk, self.barista_unsold.pk],
         )
-        self.assertContains(barista_only, 'إحصائيات أصناف الباريستا')
         self.assertNotContains(barista_only, self.regular_item.name)
 
     def test_invalid_sort_value_falls_back_to_best_selling(self):

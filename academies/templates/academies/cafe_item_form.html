@@ -7,15 +7,8 @@
   <div class="row g-3">
     {% for field in form %}
     <div class="col-md-6 field-{{ field.name }}">
-      {% if field.name == 'is_barista_item' %}
-      <div class="form-check border rounded p-3 h-100 d-flex align-items-center gap-2">
-        {{ field }}
-        <label class="form-check-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
-      </div>
-      {% else %}
       <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
       {{ field }}
-      {% endif %}
       <div class="text-danger small">{{ field.errors }}</div>
       {% if field.name == 'purchase_price' %}<div class="form-text" id="purchaseHelp"></div>{% endif %}
     </div>
@@ -24,7 +17,7 @@
 
   <div id="recipeSection" class="mt-4 border rounded p-3 bg-light">
     <h5 class="fw-bold">مكونات الوصفة للحصة الواحدة</h5>
-    <p class="text-muted">اختر المواد الخام وحدد كمية كل مكوّن. الصنف الوزني تكون كميته بالجرام، والعددي بالقطعة.</p>
+    <p class="text-muted">تظهر هنا أصناف فئة الخامات فقط. حدد كمية كل مكوّن؛ الصنف الوزني بالجرام والعددي بالقطعة.</p>
     {{ recipe_formset.management_form }}
     {% if recipe_formset.non_form_errors %}<div class="alert alert-danger">{{ recipe_formset.non_form_errors }}</div>{% endif %}
     <div class="row g-2">
@@ -48,6 +41,7 @@ const typeSelect = document.getElementById('id_item_type');
 const recipeSection = document.getElementById('recipeSection');
 const openingWrap = document.querySelector('.field-opening_quantity');
 const purchaseWrap = document.querySelector('.field-purchase_price');
+const saleWrap = document.querySelector('.field-sale_price');
 const openingLabel = openingWrap ? openingWrap.querySelector('label') : null;
 const purchaseLabel = purchaseWrap ? purchaseWrap.querySelector('label') : null;
 const saleLabel = document.querySelector('.field-sale_price label');
@@ -57,13 +51,12 @@ function updateTypeFields(){
   const type = typeSelect.value;
   recipeSection.style.display = type === 'mixed' ? '' : 'none';
   openingWrap.style.display = type === 'mixed' ? 'none' : '';
-  purchaseWrap.style.display = type === 'mixed' ? 'none' : '';
+  purchaseWrap.style.display = type === 'count' ? '' : 'none';
+  saleWrap.style.display = type === 'weight' ? 'none' : '';
   costInfo.style.display = type === 'mixed' ? '' : 'none';
   if(type === 'weight'){
     openingLabel.textContent = 'الوزن الافتتاحي بالجرام';
-    purchaseLabel.textContent = 'سعر الشراء للكيلوجرام';
-    saleLabel.textContent = 'سعر البيع للكيلوجرام';
-    purchaseHelp.textContent = 'النظام يحسب تكلفة الجرام تلقائياً بقسمة سعر الكيلو على 1000.';
+    purchaseHelp.textContent = '';
   }else if(type === 'mixed'){
     saleLabel.textContent = 'سعر بيع الحصة';
     costInfo.textContent = 'تكلفة الحصة تُحسب تلقائياً من كميات المكونات × تكلفة الوحدة أو الجرام لكل مكوّن.';

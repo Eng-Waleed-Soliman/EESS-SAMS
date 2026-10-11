@@ -10,12 +10,13 @@
 <form class="mb-3"><input name="q" value="{{ q }}" class="form-control search-box w-half" placeholder="بحث"></form>
 <div class="card p-3">
   <table class="table table-striped align-middle text-center">
-    <thead><tr><th>كود الفئة</th><th>اسم الفئة</th><th>ملاحظات</th><th></th></tr></thead>
+    <thead><tr><th>كود الفئة</th><th>اسم الفئة</th><th>الظهور في حركات البيع</th><th>ملاحظات</th><th></th></tr></thead>
     <tbody>
       {% for category in categories %}
       <tr>
         <td>{{ category.code }}</td>
         <td>{{ category.name }}</td>
+        <td>{% if category.show_in_sales %}<span class="badge text-bg-success">ظاهر</span>{% else %}<span class="badge text-bg-secondary">مخفي</span>{% endif %}</td>
         <td>{{ category.notes|default:'-' }}</td>
         <td>
           <a class="btn btn-sm" href="{% url 'cafe_category_update' category.pk %}">تعديل</a>
@@ -23,7 +24,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="4">لا توجد فئات مسجلة</td></tr>
+      <tr><td colspan="5">لا توجد فئات مسجلة</td></tr>
       {% endfor %}
     </tbody>
   </table>
