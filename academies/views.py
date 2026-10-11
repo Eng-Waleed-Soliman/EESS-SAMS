@@ -2415,9 +2415,12 @@ def cafe_sale_list(request):
             prepared_rows = []
             try:
                 for row in order_items:
-                    item = CafeteriaItem.objects.filter(pk=row.get('item_id')).filter(
-                        Q(category__show_in_sales=True) | Q(category__isnull=True)
-                    ).first()
+                    item = (
+                        CafeteriaItem.objects.filter(pk=row.get('item_id'))
+                        .filter(Q(category__show_in_sales=True) | Q(category__isnull=True))
+                        .exclude(category__name__iexact='الخامات')
+                        .first()
+                    )
                     if not item:
                         raise ValueError('Hidden cafeteria item')
                     quantity = max(1, int(row.get('quantity') or 1))
@@ -2534,7 +2537,11 @@ def cafe_sale_list(request):
     today_total = sum(sale.total_amount for sale in today_sales)
     today_profit = sum(sale.estimated_profit for sale in today_sales)
     category_id = request.GET.get('category', '').strip()
-    visible_categories = CafeteriaCategory.objects.filter(show_in_sales=True).order_by('code', 'name')
+    visible_categories = (
+        CafeteriaCategory.objects.filter(show_in_sales=True)
+        .exclude(name__iexact='الخامات')
+        .order_by('code', 'name')
+    )
     categories = list(visible_categories)
     visible_category_ids = {str(category.pk) for category in categories}
     if category_id not in visible_category_ids:
@@ -2542,6 +2549,7 @@ def cafe_sale_list(request):
     item_queryset = (
         CafeteriaItem.objects.select_related('category')
         .filter(Q(category__show_in_sales=True) | Q(category__isnull=True))
+        .exclude(category__name__iexact='الخامات')
         .order_by('category__code', 'code', 'name')
     )
     low_stock_items = [item for item in item_queryset if item.is_low_stock]

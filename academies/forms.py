@@ -1960,14 +1960,14 @@ class CafeteriaSaleForm(forms.ModelForm):
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        visible_items = CafeteriaItem.objects.filter(
-            Q(category__show_in_sales=True) | Q(category__isnull=True)
+        sales_visible_filter = (
+            (Q(category__show_in_sales=True) | Q(category__isnull=True))
+            & ~Q(category__name__iexact='الخامات')
         )
+        visible_items = CafeteriaItem.objects.filter(sales_visible_filter)
         if self.instance and self.instance.pk and self.instance.item_id:
             visible_items = CafeteriaItem.objects.filter(
-                Q(category__show_in_sales=True)
-                | Q(category__isnull=True)
-                | Q(pk=self.instance.item_id)
+                sales_visible_filter | Q(pk=self.instance.item_id)
             )
         self.fields['item'].queryset = visible_items.select_related('category').order_by('category__code', 'code', 'name')
         self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name}"
