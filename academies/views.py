@@ -2128,11 +2128,25 @@ def cafe_inventory(request):
 @login_required
 def cafe_daily_sales(request):
     today = date.today()
+
+    try:
+        date_from = date.fromisoformat(request.GET.get('date_from', ''))
+    except (TypeError, ValueError):
+        date_from = today
+    try:
+        date_to = date.fromisoformat(request.GET.get('date_to', ''))
+    except (TypeError, ValueError):
+        date_to = today
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+
     active_branch, all_branches = selected_branch(request)
-    sales = CafeteriaSale.objects.filter(sale_date=today).select_related(
-        'item__category',
+    sales = CafeteriaSale.objects.filter(
+        sale_date__range=(date_from, date_to),
+    ).select_related('item__category')
+    categories = CafeteriaCategory.objects.filter(
+        items__sales__sale_date__range=(date_from, date_to),
     )
-    categories = CafeteriaCategory.objects.filter(items__sales__sale_date=today)
     if not all_branches:
         sales = sales.filter(item__branch=active_branch)
         categories = categories.filter(items__branch=active_branch)
@@ -2160,8 +2174,14 @@ def cafe_daily_sales(request):
             'category_name': category.name if category else 'بدون فئة',
             'category_code': category.code if category else None,
             'item_type': type_labels.get(item.item_type, item.get_item_type_display()),
+            'quantity': 0,
+            'quantity_unit': 'جرام' if item.item_type == CafeteriaItem.TYPE_WEIGHT else 'وحدة',
+            'sale_prices': set(),
+            'sale_price_unit': 'جنيه/كجم' if item.item_type == CafeteriaItem.TYPE_WEIGHT else 'جنيه',
             'sale_amount': 0,
         })
+        row['quantity'] += int(sale.quantity or 0)
+        row['sale_prices'].add(int(sale.unit_price or 0))
         row['sale_amount'] += sale.total_amount
 
     rows = sorted(
@@ -2174,10 +2194,14 @@ def cafe_daily_sales(request):
             row['item_name'],
         ),
     )
+    for row in rows:
+        row['sale_price'] = '، '.join(str(price) for price in sorted(row.pop('sale_prices')))
     total_amount = sum(row['sale_amount'] for row in rows)
 
     return render(request, 'academies/cafe_daily_sales.html', {
         'today': today,
+        'date_from': date_from,
+        'date_to': date_to,
         'rows': rows,
         'total_amount': total_amount,
         'categories': categories.distinct().order_by('code', 'name'),

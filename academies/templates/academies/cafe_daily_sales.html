@@ -3,28 +3,40 @@
 <div class="daily-sales-page" dir="rtl">
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
-      <h3 class="mb-1">مبيعات اليوم</h3>
-      <div class="text-muted">{{ today|date:'d/m/Y' }}</div>
+      <h3 class="mb-1">تقرير المبيعات</h3>
+      <div class="text-muted">
+        {% if date_from == date_to %}{{ date_from|date:'d/m/Y' }}{% else %}من {{ date_from|date:'d/m/Y' }} إلى {{ date_to|date:'d/m/Y' }}{% endif %}
+      </div>
     </div>
     <a class="btn btn-secondary daily-sales-back" href="{% url 'cafe_inventory' %}">رجوع إلى الجرد</a>
   </div>
 
-  <form method="get" class="card daily-sales-filter p-3 mb-3">
+  <form method="get" class="card daily-sales-filter p-3 mb-3" id="salesReportFilters">
     <div class="row g-3 align-items-end">
-      <div class="col-md-8">
+      <div class="col-lg-4 col-md-6">
         <label class="form-label fw-bold" for="categoryFilter">الفئة</label>
-        <select class="form-select" id="categoryFilter" name="category">
+        <select class="form-select" id="categoryFilter" name="category" data-auto-submit>
           <option value="">كل الفئات</option>
           {% for category in categories %}
           <option value="{{ category.pk }}" {% if selected_category == category.pk %}selected{% endif %}>{{ category.code }} - {{ category.name }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-4 d-flex gap-2">
-        <button class="btn btn-primary flex-fill" type="submit">عرض</button>
-        {% if selected_category %}<a class="btn btn-outline-secondary flex-fill" href="{% url 'cafe_daily_sales' %}">إلغاء الفلتر</a>{% endif %}
+      <div class="col-lg-3 col-md-6">
+        <label class="form-label fw-bold" for="dateFrom">من تاريخ</label>
+        <input class="form-control" id="dateFrom" type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}" data-auto-submit>
       </div>
+      <div class="col-lg-3 col-md-6">
+        <label class="form-label fw-bold" for="dateTo">إلى تاريخ</label>
+        <input class="form-control" id="dateTo" type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}" data-auto-submit>
+      </div>
+      {% if selected_category %}
+      <div class="col-lg-2 col-md-6">
+        <a class="btn btn-outline-secondary w-100" href="{% url 'cafe_daily_sales' %}?date_from={{ date_from|date:'Y-m-d' }}&amp;date_to={{ date_to|date:'Y-m-d' }}">إلغاء فلتر الفئة</a>
+      </div>
+      {% endif %}
     </div>
+    <div class="daily-sales-filter-note">يتم تحديث التقرير تلقائيًا عند تغيير الفئة أو الفترة.</div>
   </form>
 
   <div class="row g-3 mb-3">
@@ -36,7 +48,7 @@
     </div>
     <div class="col-md-6">
       <div class="card daily-sales-summary daily-sales-summary--total h-100">
-        <span>إجمالي مبيعات اليوم</span>
+        <span>إجمالي المبيعات خلال الفترة</span>
         <strong>{{ total_amount }} جنيه</strong>
       </div>
     </div>
@@ -48,10 +60,11 @@
         <thead>
           <tr>
             <th>م</th>
-            <th>الفئة</th>
-            <th>كود الصنف</th>
+            {% if not selected_category %}<th>الفئة</th>{% endif %}
             <th>اسم الصنف</th>
             <th>نوع الصنف</th>
+            <th>الكمية المباعة</th>
+            <th>سعر البيع</th>
             <th>مبلغ البيع</th>
           </tr>
         </thead>
@@ -59,19 +72,20 @@
           {% for row in rows %}
           <tr>
             <td data-label="م">{{ forloop.counter }}</td>
-            <td data-label="الفئة">{% if row.category_code %}{{ row.category_code }} - {% endif %}{{ row.category_name }}</td>
-            <td data-label="كود الصنف">{{ row.item_code }}</td>
+            {% if not selected_category %}<td data-label="الفئة">{% if row.category_code %}{{ row.category_code }} - {% endif %}{{ row.category_name }}</td>{% endif %}
             <td data-label="اسم الصنف" class="fw-bold">{{ row.item_name }}</td>
             <td data-label="نوع الصنف"><span class="daily-sales-type">{{ row.item_type }}</span></td>
+            <td data-label="الكمية المباعة" class="fw-bold">{{ row.quantity }} {{ row.quantity_unit }}</td>
+            <td data-label="سعر البيع">{{ row.sale_price }} {{ row.sale_price_unit }}</td>
             <td data-label="مبلغ البيع" class="fw-bold daily-sales-amount">{{ row.sale_amount }} جنيه</td>
           </tr>
           {% empty %}
-          <tr class="daily-sales-empty"><td colspan="6">لا توجد مبيعات مسجلة اليوم ضمن الفئة المختارة.</td></tr>
+          <tr class="daily-sales-empty"><td colspan="{% if selected_category %}6{% else %}7{% endif %}">لا توجد مبيعات مسجلة خلال الفترة المحددة.</td></tr>
           {% endfor %}
         </tbody>
         <tfoot>
           <tr>
-            <th colspan="5">إجمالي المبيعات</th>
+            <th colspan="{% if selected_category %}5{% else %}6{% endif %}">إجمالي المبيعات</th>
             <th class="daily-sales-grand-total">{{ total_amount }} جنيه</th>
           </tr>
         </tfoot>
@@ -83,6 +97,7 @@
 <style>
 .daily-sales-back{min-width:170px;min-height:42px;display:inline-flex;align-items:center;justify-content:center}
 .daily-sales-filter,.daily-sales-table-card,.daily-sales-summary{border:0;border-radius:18px;box-shadow:0 12px 28px rgba(15,23,42,.08)}
+.daily-sales-filter-note{margin-top:12px;color:#64748b;font-size:14px;font-weight:700}
 .daily-sales-summary{padding:20px;border-right:5px solid #38bdf8;gap:8px}
 .daily-sales-summary span{color:#64748b;font-weight:800}
 .daily-sales-summary strong{color:#0f172a;font-size:clamp(24px,3vw,34px)}
@@ -94,7 +109,6 @@
 .daily-sales-table tfoot th{background:#dbeafe;border-top:2px solid #60a5fa;font-size:18px}
 @media(max-width:767.98px){
   .daily-sales-back{width:100%}
-  .daily-sales-filter .col-md-4{width:100%}
   .daily-sales-table-card{padding:10px!important;background:transparent;box-shadow:none}
   .daily-sales-table-card .table-responsive{overflow:visible}
   .daily-sales-table{min-width:0!important}
@@ -112,4 +126,13 @@
   .daily-sales-grand-total{justify-content:flex-end!important;text-align:left!important}
 }
 </style>
+<script>
+(function(){
+  const form = document.getElementById('salesReportFilters');
+  if(!form){ return; }
+  form.querySelectorAll('[data-auto-submit]').forEach(function(control){
+    control.addEventListener('change', function(){ form.submit(); });
+  });
+})();
+</script>
 {% endblock %}

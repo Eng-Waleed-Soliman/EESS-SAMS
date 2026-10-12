@@ -64,36 +64,66 @@ class CafeteriaDailySalesTests(TestCase):
         CafeteriaSale.objects.create(item=self.count_item, sale_date=today - timedelta(days=1), quantity=8, unit_price=10)
         CafeteriaSale.objects.create(item=other_item, sale_date=today, quantity=1, unit_price=999)
 
-    def test_inventory_has_same_size_daily_sales_button(self):
+    def test_inventory_has_same_size_sales_report_button(self):
         response = self.client.get(reverse('cafe_inventory'))
         self.assertContains(response, reverse('cafe_daily_sales'))
-        self.assertContains(response, 'مبيعات اليوم')
+        self.assertContains(response, 'تقرير المبيعات')
+        self.assertNotContains(response, '>مبيعات اليوم</a>')
         self.assertContains(response, 'class="btn btn-warning cafe-inventory-action"', count=1)
         self.assertContains(response, 'class="btn btn-info cafe-inventory-action"', count=1)
         self.assertContains(response, 'width:210px!important')
 
-    def test_daily_sales_are_grouped_sorted_scoped_and_totalled(self):
+    def test_default_report_is_today_grouped_sorted_scoped_and_totalled(self):
         response = self.client.get(reverse('cafe_daily_sales'))
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['date_from'], date.today())
+        self.assertEqual(response.context['date_to'], date.today())
         self.assertEqual([row['item_name'] for row in response.context['rows']], [
             'صنف كمي', 'صنف مختلط', 'صنف عددي',
         ])
         self.assertEqual([row['item_type'] for row in response.context['rows']], [
             'كمي', 'مختلط', 'عددي',
         ])
+        self.assertEqual([row['quantity'] for row in response.context['rows']], [500, 2, 2])
+        self.assertEqual([row['sale_price'] for row in response.context['rows']], ['100', '40', '10'])
         self.assertEqual([row['sale_amount'] for row in response.context['rows']], [50, 80, 20])
         self.assertEqual(response.context['total_amount'], 150)
         self.assertNotContains(response, 'صنف فرع آخر')
-        self.assertContains(response, 'إجمالي المبيعات')
+        self.assertContains(response, 'تقرير المبيعات')
+        self.assertContains(response, 'الكمية المباعة')
+        self.assertContains(response, 'سعر البيع')
+        self.assertNotContains(response, '<th>كود الصنف</th>')
+        self.assertNotContains(response, '>عرض</button>')
+        self.assertContains(response, 'name="category" data-auto-submit')
+        self.assertContains(response, 'name="date_from" value=')
+        self.assertContains(response, 'name="date_to" value=')
         self.assertContains(response, '150 جنيه')
 
-    def test_category_filter_updates_rows_and_total(self):
+    def test_category_filter_hides_category_column_automatically(self):
         response = self.client.get(reverse('cafe_daily_sales'), {
             'category': self.second_category.pk,
         })
         self.assertEqual([row['item_name'] for row in response.context['rows']], ['صنف عددي'])
         self.assertEqual(response.context['total_amount'], 20)
         self.assertEqual(response.context['selected_category'], self.second_category.pk)
+        self.assertNotContains(response, '<th>الفئة</th>')
+        self.assertNotContains(response, 'data-label="الفئة"')
         self.assertContains(response, '20 جنيه')
         self.assertNotContains(response, 'صنف كمي')
         self.assertNotContains(response, 'صنف مختلط')
+
+    def test_date_range_includes_sales_from_every_selected_day(self):
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        response = self.client.get(reverse('cafe_daily_sales'), {
+            'category': self.second_category.pk,
+            'date_from': yesterday.isoformat(),
+            'date_to': today.isoformat(),
+        })
+        self.assertEqual(response.context['date_from'], yesterday)
+        self.assertEqual(response.context['date_to'], today)
+        self.assertEqual(len(response.context['rows']), 1)
+        self.assertEqual(response.context['rows'][0]['quantity'], 10)
+        self.assertEqual(response.context['rows'][0]['sale_price'], '10')
+        self.assertEqual(response.context['total_amount'], 100)
+        self.assertContains(response, '100 جنيه')
