@@ -2126,6 +2126,65 @@ def cafe_inventory(request):
 
 
 @login_required
+def cafe_daily_sales(request):
+    today = date.today()
+    active_branch, all_branches = selected_branch(request)
+    sales = CafeteriaSale.objects.filter(sale_date=today).select_related(
+        'item__category',
+    )
+    categories = CafeteriaCategory.objects.filter(items__sales__sale_date=today)
+    if not all_branches:
+        sales = sales.filter(item__branch=active_branch)
+        categories = categories.filter(items__branch=active_branch)
+
+    selected_category = request.GET.get('category', '').strip()
+    try:
+        selected_category_id = int(selected_category)
+    except (TypeError, ValueError):
+        selected_category_id = None
+    if selected_category_id:
+        sales = sales.filter(item__category_id=selected_category_id)
+
+    rows_by_item = {}
+    type_labels = {
+        CafeteriaItem.TYPE_COUNT: 'عددي',
+        CafeteriaItem.TYPE_WEIGHT: 'كمي',
+        CafeteriaItem.TYPE_MIXED: 'مختلط',
+    }
+    for sale in sales:
+        item = sale.item
+        category = item.category
+        row = rows_by_item.setdefault(item.pk, {
+            'item_name': item.name,
+            'item_code': item.code,
+            'category_name': category.name if category else 'بدون فئة',
+            'category_code': category.code if category else None,
+            'item_type': type_labels.get(item.item_type, item.get_item_type_display()),
+            'sale_amount': 0,
+        })
+        row['sale_amount'] += sale.total_amount
+
+    rows = sorted(
+        rows_by_item.values(),
+        key=lambda row: (
+            row['category_code'] is None,
+            row['category_code'] or 0,
+            row['category_name'],
+            row['item_code'],
+            row['item_name'],
+        ),
+    )
+    total_amount = sum(row['sale_amount'] for row in rows)
+
+    return render(request, 'academies/cafe_daily_sales.html', {
+        'today': today,
+        'rows': rows,
+        'total_amount': total_amount,
+        'categories': categories.distinct().order_by('code', 'name'),
+        'selected_category': selected_category_id,
+    })
+
+@login_required
 def cafe_cash_supply_create(request):
     active_branch, all_branches = selected_branch(request)
     return_to_sales = request.GET.get('next') == 'sales' or request.POST.get('next') == 'sales'

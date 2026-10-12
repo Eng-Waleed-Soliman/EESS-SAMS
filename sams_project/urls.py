@@ -92,6 +92,7 @@ urlpatterns = [
     path('cafeteria/stock-adjust/', views.cafe_stock_adjust, name='cafe_stock_adjust'),
     path('cafeteria/sale-prices/', views.cafe_sale_prices, name='cafe_sale_prices'),
     path('cafeteria/inventory/', views.cafe_inventory, name='cafe_inventory'),
+    path('cafeteria/daily-sales/', views.cafe_daily_sales, name='cafe_daily_sales'),
     path('cafeteria/cash-supplies/add/', views.cafe_cash_supply_create, name='cafe_cash_supply_create'),
     path('cafeteria/operating-expenses/', views.cafe_operating_expense_list, name='cafe_operating_expense_list'),
     path('cafeteria/operating-expenses/add/', views.cafe_operating_expense_create, name='cafe_operating_expense_create'),

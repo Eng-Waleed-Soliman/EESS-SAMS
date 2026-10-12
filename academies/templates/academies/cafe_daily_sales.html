@@ -1,0 +1,115 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="daily-sales-page" dir="rtl">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h3 class="mb-1">مبيعات اليوم</h3>
+      <div class="text-muted">{{ today|date:'d/m/Y' }}</div>
+    </div>
+    <a class="btn btn-secondary daily-sales-back" href="{% url 'cafe_inventory' %}">رجوع إلى الجرد</a>
+  </div>
+
+  <form method="get" class="card daily-sales-filter p-3 mb-3">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-8">
+        <label class="form-label fw-bold" for="categoryFilter">الفئة</label>
+        <select class="form-select" id="categoryFilter" name="category">
+          <option value="">كل الفئات</option>
+          {% for category in categories %}
+          <option value="{{ category.pk }}" {% if selected_category == category.pk %}selected{% endif %}>{{ category.code }} - {{ category.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4 d-flex gap-2">
+        <button class="btn btn-primary flex-fill" type="submit">عرض</button>
+        {% if selected_category %}<a class="btn btn-outline-secondary flex-fill" href="{% url 'cafe_daily_sales' %}">إلغاء الفلتر</a>{% endif %}
+      </div>
+    </div>
+  </form>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      <div class="card daily-sales-summary h-100">
+        <span>عدد الأصناف المباعة</span>
+        <strong>{{ rows|length }}</strong>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card daily-sales-summary daily-sales-summary--total h-100">
+        <span>إجمالي مبيعات اليوم</span>
+        <strong>{{ total_amount }} جنيه</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="card daily-sales-table-card p-3">
+    <div class="table-responsive">
+      <table class="table table-striped align-middle text-center daily-sales-table mb-0">
+        <thead>
+          <tr>
+            <th>م</th>
+            <th>الفئة</th>
+            <th>كود الصنف</th>
+            <th>اسم الصنف</th>
+            <th>نوع الصنف</th>
+            <th>مبلغ البيع</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td data-label="م">{{ forloop.counter }}</td>
+            <td data-label="الفئة">{% if row.category_code %}{{ row.category_code }} - {% endif %}{{ row.category_name }}</td>
+            <td data-label="كود الصنف">{{ row.item_code }}</td>
+            <td data-label="اسم الصنف" class="fw-bold">{{ row.item_name }}</td>
+            <td data-label="نوع الصنف"><span class="daily-sales-type">{{ row.item_type }}</span></td>
+            <td data-label="مبلغ البيع" class="fw-bold daily-sales-amount">{{ row.sale_amount }} جنيه</td>
+          </tr>
+          {% empty %}
+          <tr class="daily-sales-empty"><td colspan="6">لا توجد مبيعات مسجلة اليوم ضمن الفئة المختارة.</td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="5">إجمالي المبيعات</th>
+            <th class="daily-sales-grand-total">{{ total_amount }} جنيه</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.daily-sales-back{min-width:170px;min-height:42px;display:inline-flex;align-items:center;justify-content:center}
+.daily-sales-filter,.daily-sales-table-card,.daily-sales-summary{border:0;border-radius:18px;box-shadow:0 12px 28px rgba(15,23,42,.08)}
+.daily-sales-summary{padding:20px;border-right:5px solid #38bdf8;gap:8px}
+.daily-sales-summary span{color:#64748b;font-weight:800}
+.daily-sales-summary strong{color:#0f172a;font-size:clamp(24px,3vw,34px)}
+.daily-sales-summary--total{border-right-color:#2563eb;background:linear-gradient(135deg,#eff6ff,#fff)}
+.daily-sales-table thead th{background:#e0f2fe;color:#0f172a;border-bottom:2px solid #7dd3fc;white-space:nowrap}
+.daily-sales-table td,.daily-sales-table th{padding:14px 12px;vertical-align:middle}
+.daily-sales-type{display:inline-flex;min-width:86px;justify-content:center;padding:5px 12px;border-radius:999px;background:#e0f2fe;color:#075985;font-weight:800}
+.daily-sales-amount,.daily-sales-grand-total{color:#075985;font-size:17px}
+.daily-sales-table tfoot th{background:#dbeafe;border-top:2px solid #60a5fa;font-size:18px}
+@media(max-width:767.98px){
+  .daily-sales-back{width:100%}
+  .daily-sales-filter .col-md-4{width:100%}
+  .daily-sales-table-card{padding:10px!important;background:transparent;box-shadow:none}
+  .daily-sales-table-card .table-responsive{overflow:visible}
+  .daily-sales-table{min-width:0!important}
+  .daily-sales-table,.daily-sales-table tbody,.daily-sales-table tfoot,.daily-sales-table tr,.daily-sales-table td,.daily-sales-table th{display:block;width:100%}
+  .daily-sales-table thead{display:none}
+  .daily-sales-table tbody tr{margin-bottom:14px;border:1px solid #bae6fd;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,.07)}
+  .daily-sales-table tbody td{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 14px;text-align:left;border-bottom:1px solid #e5e7eb}
+  .daily-sales-table tbody td:last-child{border-bottom:0}
+  .daily-sales-table tbody td::before{content:attr(data-label);font-weight:900;color:#334155;text-align:right}
+  .daily-sales-table tbody .daily-sales-empty td{display:block;text-align:center;padding:24px}
+  .daily-sales-table tbody .daily-sales-empty td::before{display:none}
+  .daily-sales-table tfoot tr{border-radius:16px;overflow:hidden;box-shadow:0 8px 20px rgba(37,99,235,.15)}
+  .daily-sales-table tfoot th{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;text-align:right}
+  .daily-sales-table tfoot th:first-child{border-bottom:1px solid #93c5fd}
+  .daily-sales-grand-total{justify-content:flex-end!important;text-align:left!important}
+}
+</style>
+{% endblock %}

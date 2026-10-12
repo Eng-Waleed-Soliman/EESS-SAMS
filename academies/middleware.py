@@ -70,6 +70,7 @@ class CafeteriaSpecialistAccessMiddleware:
         '/cafeteria/sales/',
         '/cafeteria/menu/',
         '/cafeteria/inventory/',
+        '/cafeteria/daily-sales/',
         '/cafeteria/cash-supplies/',
         '/cafeteria/operating-expenses/',
         '/logout/',
