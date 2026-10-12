@@ -3982,6 +3982,9 @@ def reports_home_v2(request):
             analysis_month_start.month,
             monthrange(analysis_month_start.year, analysis_month_start.month)[1],
         )
+        analysis_month_label = (
+            f'{ARABIC_MONTH_NAMES[analysis_month_start.month]} {analysis_month_start.year}'
+        )
         month_starts = []
         cursor = analysis_start
         for _ in range(12):
@@ -4133,6 +4136,47 @@ def reports_home_v2(request):
             daily_average_has_values = bool(
                 sum(cafeteria_by_date.values()) or sum(booking_by_date.values())
             )
+        cafeteria_items_requested = (
+            analysis_metric == 'cafeteria'
+            and request.GET.get('cafeteria_items') == '1'
+        )
+        cafeteria_items_has_values = False
+        if cafeteria_items_requested:
+            item_income = {}
+            item_sales = CafeteriaSale.objects.filter(
+                sale_date__range=(analysis_month_start, analysis_month_end),
+                item__in=cafeteria_item_qs,
+            ).select_related('item', 'item__category')
+            for sale in item_sales:
+                item = sale.item
+                row = item_income.setdefault(item.pk, {
+                    'name': item.name,
+                    'category_code': item.category.code,
+                    'item_code': item.code,
+                    'income': 0,
+                })
+                row['income'] += int(sale.total_amount or 0)
+            sold_items = sorted(
+                item_income.values(),
+                key=lambda row: (
+                    -row['income'], row['category_code'], row['item_code'], row['name']
+                ),
+            )
+            cafeteria_items_has_values = bool(sold_items)
+            analysis_charts.append({
+                'key': 'cafeteria_items_income',
+                'title': f'دخل الأصناف المباعة خلال {analysis_month_label}',
+                'values': [row['income'] for row in sold_items],
+                'labels': [row['name'] for row in sold_items],
+                'labels_script_id': 'analysis-cafeteria-items-labels',
+                'color': '#6d28d9',
+                'background': 'rgba(124,58,237,.72)',
+                'total_label': 'إجمالي الشهر',
+                'kicker': analysis_month_label,
+                'wide': True,
+                'item_chart': True,
+                'min_width': max(900, len(sold_items) * 90),
+            })
         for chart in analysis_charts:
             chart['total'] = sum(chart['values'])
             chart['script_id'] = f"analysis-{chart['key']}-values"
@@ -4145,11 +4189,13 @@ def reports_home_v2(request):
             'analysis_month': analysis_month_start.strftime('%Y-%m'),
             'analysis_month_min': analysis_start.strftime('%Y-%m'),
             'analysis_month_max': analysis_end.strftime('%Y-%m'),
-            'analysis_month_label': f'{ARABIC_MONTH_NAMES[analysis_month_start.month]} {analysis_month_start.year}',
+            'analysis_month_label': analysis_month_label,
             'cafeteria_daily_average': cafeteria_daily_average,
             'booking_daily_average': booking_daily_average,
             'daily_average_rows': daily_average_rows,
             'daily_average_has_values': daily_average_has_values,
+            'cafeteria_items_requested': cafeteria_items_requested,
+            'cafeteria_items_has_values': cafeteria_items_has_values,
             'analysis_labels': [
                 f'{ARABIC_MONTH_NAMES[month.month]} {month.year}' for month in month_starts
             ],

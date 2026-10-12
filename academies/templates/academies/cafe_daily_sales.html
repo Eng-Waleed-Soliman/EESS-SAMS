@@ -16,15 +16,12 @@
     <div class="row g-3 align-items-end">
       <div class="col-lg-3 col-md-6">
         <label class="form-label fw-bold" for="categoryFilter">الفئة</label>
-        <select class="form-select" id="categoryFilter" name="category" data-auto-submit>
+        <select class="form-select{% if selected_category %} category-filter-active{% endif %}" id="categoryFilter" name="category" data-auto-submit>
           <option value="">كل الفئات</option>
           {% for category in categories %}
           <option value="{{ category.pk }}" {% if selected_category == category.pk %}selected{% endif %}>{{ category.code }} - {{ category.name }}</option>
           {% endfor %}
         </select>
-        {% if selected_category %}
-        <a class="daily-sales-clear-filter" href="{% url 'cafe_daily_sales' %}?date_from={{ date_from|date:'Y-m-d' }}&amp;date_to={{ date_to|date:'Y-m-d' }}{% if selected_sort %}&amp;sort={{ selected_sort }}{% endif %}">إلغاء فلتر الفئة</a>
-        {% endif %}
       </div>
       <div class="col-lg-3 col-md-6">
         <label class="form-label fw-bold" for="dateFrom">من تاريخ</label>
@@ -47,7 +44,6 @@
         </div>
       </div>
     </div>
-    <div class="daily-sales-filter-note">يتم تحديث التقرير تلقائيًا عند تغيير الفئة أو الفترة أو الترتيب.</div>
   </form>
 
   <div class="row g-3 mb-3">
@@ -108,9 +104,11 @@
 <style>
 .daily-sales-back{min-width:170px;min-height:42px;display:inline-flex;align-items:center;justify-content:center}
 .daily-sales-filter,.daily-sales-table-card,.daily-sales-summary{border:0;border-radius:18px;box-shadow:0 12px 28px rgba(15,23,42,.08)}
-.daily-sales-filter-note{margin-top:12px;color:#64748b;font-size:14px;font-weight:700}
-.daily-sales-clear-filter{display:inline-block;margin-top:7px;color:#2563eb;font-size:14px;font-weight:800;text-decoration:none}
-.daily-sales-clear-filter:hover{text-decoration:underline}
+
+
+
+.category-filter-active{background-color:#dcfce7!important;border-color:#86efac!important;color:#166534!important;font-weight:900}
+.category-filter-active:focus{border-color:#4ade80!important;box-shadow:0 0 0 .2rem rgba(34,197,94,.16)!important}
 .daily-sales-sort-btn{width:100%!important}
 .daily-sales-sort-menu{width:100%;text-align:right;border:0;border-radius:12px;box-shadow:0 12px 28px rgba(15,23,42,.16);padding:7px}
 .daily-sales-sort-menu .dropdown-item{border-radius:8px;padding:10px 12px;font-weight:800}

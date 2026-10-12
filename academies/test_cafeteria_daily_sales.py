@@ -98,6 +98,9 @@ class CafeteriaDailySalesTests(TestCase):
         self.assertContains(response, 'name="date_from" value=')
         self.assertContains(response, 'name="date_to" value=')
         self.assertContains(response, '150 جنيه')
+        self.assertContains(response, '<select class="form-select" id="categoryFilter"', html=False)
+        self.assertNotContains(response, 'إلغاء فلتر الفئة')
+        self.assertNotContains(response, 'يتم تحديث التقرير تلقائيًا')
 
     def test_category_filter_hides_category_column_automatically(self):
         response = self.client.get(reverse('cafe_daily_sales'), {
@@ -111,6 +114,9 @@ class CafeteriaDailySalesTests(TestCase):
         self.assertContains(response, '20 جنيه')
         self.assertNotContains(response, 'صنف كمي')
         self.assertNotContains(response, 'صنف مختلط')
+        self.assertContains(response, '<select class="form-select category-filter-active" id="categoryFilter"', html=False)
+        self.assertNotContains(response, 'إلغاء فلتر الفئة')
+        self.assertNotContains(response, 'يتم تحديث التقرير تلقائيًا')
 
     def test_income_sort_dropdown_orders_rows_in_both_directions(self):
         default_response = self.client.get(reverse('cafe_daily_sales'))
@@ -131,6 +137,53 @@ class CafeteriaDailySalesTests(TestCase):
         ])
         self.assertEqual(ascending.context['selected_sort'], 'income_asc')
         self.assertContains(ascending, 'name="sort" value="income_asc"')
+
+    def test_cafeteria_analysis_can_chart_monthly_sold_items_by_income(self):
+        today = date.today()
+        training_year = (
+            f'{today.year}-{today.year + 1}'
+            if today.month >= 7
+            else f'{today.year - 1}-{today.year}'
+        )
+        base_params = {
+            'report_type': 'statistical_analysis',
+            'analysis_metric': 'cafeteria',
+            'training_year': training_year,
+            'analysis_month': today.strftime('%Y-%m'),
+        }
+        default_response = self.client.get(reverse('reports_home'), base_params)
+        self.assertEqual(default_response.status_code, 200)
+        self.assertContains(default_response, 'الأصناف المباعة')
+        self.assertContains(default_response, 'name="analysis_month"')
+        self.assertNotContains(default_response, 'analysis-cafeteria-items-labels')
+
+        response = self.client.get(reverse('reports_home'), {
+            **base_params,
+            'cafeteria_items': '1',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['cafeteria_items_requested'])
+        self.assertTrue(response.context['cafeteria_items_has_values'])
+        item_chart = next(
+            chart for chart in response.context['analysis_charts']
+            if chart['key'] == 'cafeteria_items_income'
+        )
+        expected_count_income = 20
+        if (today - timedelta(days=1)).month == today.month:
+            expected_count_income += 80
+        expected_rows = sorted([
+            ('صنف عددي', expected_count_income),
+            ('صنف كمي', 50),
+            ('صنف مختلط', 80),
+        ], key=lambda row: -row[1])
+        self.assertEqual(item_chart['labels'], [row[0] for row in expected_rows])
+        self.assertEqual(item_chart['values'], [row[1] for row in expected_rows])
+        self.assertEqual(item_chart['total'], sum(row[1] for row in expected_rows))
+        self.assertNotIn('صنف فرع آخر', item_chart['labels'])
+        self.assertContains(response, 'data-labels-source="analysis-cafeteria-items-labels"')
+        self.assertContains(response, 'id="analysis-cafeteria-items-labels"')
+        self.assertContains(response, 'reverse: false')
+
     def test_date_range_includes_sales_from_every_selected_day(self):
         today = date.today()
         yesterday = today - timedelta(days=1)
