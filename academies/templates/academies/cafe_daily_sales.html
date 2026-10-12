@@ -12,8 +12,9 @@
   </div>
 
   <form method="get" class="card daily-sales-filter p-3 mb-3" id="salesReportFilters">
+    {% if selected_sort %}<input type="hidden" name="sort" value="{{ selected_sort }}">{% endif %}
     <div class="row g-3 align-items-end">
-      <div class="col-lg-4 col-md-6">
+      <div class="col-lg-3 col-md-6">
         <label class="form-label fw-bold" for="categoryFilter">الفئة</label>
         <select class="form-select" id="categoryFilter" name="category" data-auto-submit>
           <option value="">كل الفئات</option>
@@ -21,6 +22,9 @@
           <option value="{{ category.pk }}" {% if selected_category == category.pk %}selected{% endif %}>{{ category.code }} - {{ category.name }}</option>
           {% endfor %}
         </select>
+        {% if selected_category %}
+        <a class="daily-sales-clear-filter" href="{% url 'cafe_daily_sales' %}?date_from={{ date_from|date:'Y-m-d' }}&amp;date_to={{ date_to|date:'Y-m-d' }}{% if selected_sort %}&amp;sort={{ selected_sort }}{% endif %}">إلغاء فلتر الفئة</a>
+        {% endif %}
       </div>
       <div class="col-lg-3 col-md-6">
         <label class="form-label fw-bold" for="dateFrom">من تاريخ</label>
@@ -30,13 +34,20 @@
         <label class="form-label fw-bold" for="dateTo">إلى تاريخ</label>
         <input class="form-control" id="dateTo" type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}" data-auto-submit>
       </div>
-      {% if selected_category %}
-      <div class="col-lg-2 col-md-6">
-        <a class="btn btn-outline-secondary w-100" href="{% url 'cafe_daily_sales' %}?date_from={{ date_from|date:'Y-m-d' }}&amp;date_to={{ date_to|date:'Y-m-d' }}">إلغاء فلتر الفئة</a>
+      <div class="col-lg-3 col-md-6">
+        <label class="form-label fw-bold">ترتيب الأصناف</label>
+        <div class="dropdown daily-sales-sort">
+          <button class="btn btn-outline-primary dropdown-toggle daily-sales-sort-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            ترتيب الأصناف
+          </button>
+          <ul class="dropdown-menu daily-sales-sort-menu">
+            <li><a class="dropdown-item {% if selected_sort == 'income_desc' %}active{% endif %}" href="?category={{ selected_category|default:'' }}&amp;date_from={{ date_from|date:'Y-m-d' }}&amp;date_to={{ date_to|date:'Y-m-d' }}&amp;sort=income_desc">أعلى دخل</a></li>
+            <li><a class="dropdown-item {% if selected_sort == 'income_asc' %}active{% endif %}" href="?category={{ selected_category|default:'' }}&amp;date_from={{ date_from|date:'Y-m-d' }}&amp;date_to={{ date_to|date:'Y-m-d' }}&amp;sort=income_asc">أقل دخل</a></li>
+          </ul>
+        </div>
       </div>
-      {% endif %}
     </div>
-    <div class="daily-sales-filter-note">يتم تحديث التقرير تلقائيًا عند تغيير الفئة أو الفترة.</div>
+    <div class="daily-sales-filter-note">يتم تحديث التقرير تلقائيًا عند تغيير الفئة أو الفترة أو الترتيب.</div>
   </form>
 
   <div class="row g-3 mb-3">
@@ -98,6 +109,12 @@
 .daily-sales-back{min-width:170px;min-height:42px;display:inline-flex;align-items:center;justify-content:center}
 .daily-sales-filter,.daily-sales-table-card,.daily-sales-summary{border:0;border-radius:18px;box-shadow:0 12px 28px rgba(15,23,42,.08)}
 .daily-sales-filter-note{margin-top:12px;color:#64748b;font-size:14px;font-weight:700}
+.daily-sales-clear-filter{display:inline-block;margin-top:7px;color:#2563eb;font-size:14px;font-weight:800;text-decoration:none}
+.daily-sales-clear-filter:hover{text-decoration:underline}
+.daily-sales-sort-btn{width:100%!important}
+.daily-sales-sort-menu{width:100%;text-align:right;border:0;border-radius:12px;box-shadow:0 12px 28px rgba(15,23,42,.16);padding:7px}
+.daily-sales-sort-menu .dropdown-item{border-radius:8px;padding:10px 12px;font-weight:800}
+.daily-sales-sort-menu .dropdown-item.active{background:#2563eb;color:#fff}
 .daily-sales-summary{padding:20px;border-right:5px solid #38bdf8;gap:8px}
 .daily-sales-summary span{color:#64748b;font-weight:800}
 .daily-sales-summary strong{color:#0f172a;font-size:clamp(24px,3vw,34px)}

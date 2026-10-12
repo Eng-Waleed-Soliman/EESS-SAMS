@@ -112,6 +112,25 @@ class CafeteriaDailySalesTests(TestCase):
         self.assertNotContains(response, 'صنف كمي')
         self.assertNotContains(response, 'صنف مختلط')
 
+    def test_income_sort_dropdown_orders_rows_in_both_directions(self):
+        default_response = self.client.get(reverse('cafe_daily_sales'))
+        self.assertContains(default_response, 'ترتيب الأصناف')
+        self.assertContains(default_response, 'أعلى دخل')
+        self.assertContains(default_response, 'أقل دخل')
+
+        descending = self.client.get(reverse('cafe_daily_sales'), {'sort': 'income_desc'})
+        self.assertEqual([row['item_name'] for row in descending.context['rows']], [
+            'صنف مختلط', 'صنف كمي', 'صنف عددي',
+        ])
+        self.assertEqual(descending.context['selected_sort'], 'income_desc')
+        self.assertContains(descending, 'name="sort" value="income_desc"')
+
+        ascending = self.client.get(reverse('cafe_daily_sales'), {'sort': 'income_asc'})
+        self.assertEqual([row['item_name'] for row in ascending.context['rows']], [
+            'صنف عددي', 'صنف كمي', 'صنف مختلط',
+        ])
+        self.assertEqual(ascending.context['selected_sort'], 'income_asc')
+        self.assertContains(ascending, 'name="sort" value="income_asc"')
     def test_date_range_includes_sales_from_every_selected_day(self):
         today = date.today()
         yesterday = today - timedelta(days=1)

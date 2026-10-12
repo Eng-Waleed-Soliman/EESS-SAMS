@@ -2184,16 +2184,29 @@ def cafe_daily_sales(request):
         row['sale_prices'].add(int(sale.unit_price or 0))
         row['sale_amount'] += sale.total_amount
 
-    rows = sorted(
-        rows_by_item.values(),
-        key=lambda row: (
-            row['category_code'] is None,
-            row['category_code'] or 0,
-            row['category_name'],
-            row['item_code'],
-            row['item_name'],
-        ),
+    selected_sort = request.GET.get('sort', '').strip()
+    if selected_sort not in {'income_desc', 'income_asc'}:
+        selected_sort = ''
+
+    category_sort_key = lambda row: (
+        row['category_code'] is None,
+        row['category_code'] or 0,
+        row['category_name'],
+        row['item_code'],
+        row['item_name'],
     )
+    if selected_sort == 'income_desc':
+        rows = sorted(
+            rows_by_item.values(),
+            key=lambda row: (-row['sale_amount'], category_sort_key(row)),
+        )
+    elif selected_sort == 'income_asc':
+        rows = sorted(
+            rows_by_item.values(),
+            key=lambda row: (row['sale_amount'], category_sort_key(row)),
+        )
+    else:
+        rows = sorted(rows_by_item.values(), key=category_sort_key)
     for row in rows:
         row['sale_price'] = '، '.join(str(price) for price in sorted(row.pop('sale_prices')))
     total_amount = sum(row['sale_amount'] for row in rows)
@@ -2206,6 +2219,7 @@ def cafe_daily_sales(request):
         'total_amount': total_amount,
         'categories': categories.distinct().order_by('code', 'name'),
         'selected_category': selected_category_id,
+        'selected_sort': selected_sort,
     })
 
 @login_required
