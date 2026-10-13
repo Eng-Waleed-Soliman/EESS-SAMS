@@ -2399,7 +2399,57 @@ def cafe_item_update(request, pk):
 
 @login_required
 def cafe_item_delete(request, pk):
-    return _generic_delete(request, get_object_or_404(CafeteriaItem, pk=pk), 'حذف صنف كافيتريا', 'cafe_item_list')
+    active_branch, all_branches = selected_branch(request)
+    items = CafeteriaItem.objects.all()
+    if not all_branches:
+        items = items.filter(branch=active_branch)
+    item = get_object_or_404(items, pk=pk)
+
+    delete_blockers = []
+    related_counts = [
+        ('حركات البيع', item.sales.count()),
+        ('حركات الشراء', item.purchases.count()),
+        ('حركات الضيافة', item.hospitality_items.count()),
+        ('سجلات استهلاك المكونات', item.ingredient_usages.count()),
+    ]
+    delete_blockers.extend(
+        f'{label}: {count}' for label, count in related_counts if count
+    )
+    recipe_products = list(
+        item.used_in_recipes.select_related('product')
+        .values_list('product__name', flat=True)
+        .distinct()[:5]
+    )
+    if recipe_products:
+        delete_blockers.append(
+            f"مستخدم كمكوّن في وصفات: {', '.join(recipe_products)}"
+        )
+
+    if request.method == 'POST':
+        if delete_blockers:
+            messages.error(
+                request,
+                'لا يمكن حذف الصنف لأنه مرتبط بحركات أو وصفات محفوظة. '
+                'يمكن تعديل الصنف بدلًا من حذفه للحفاظ على صحة التقارير والمخزون.',
+            )
+        else:
+            try:
+                item.delete()
+            except ProtectedError:
+                messages.error(
+                    request,
+                    'تعذر حذف الصنف لوجود بيانات مرتبطة به. حدّث الصفحة وراجع الارتباطات الظاهرة.',
+                )
+            else:
+                messages.success(request, 'تم حذف صنف الكافيتريا بنجاح.')
+        return redirect('cafe_item_list')
+
+    return render(request, 'academies/simple_confirm_delete.html', {
+        'object': item,
+        'title': 'حذف صنف كافيتريا',
+        'back_url': 'cafe_item_list',
+        'delete_blockers': delete_blockers,
+    })
 
 
 @login_required
