@@ -1919,7 +1919,14 @@ class CafeteriaPurchaseForm(forms.ModelForm):
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['item'].queryset = CafeteriaItem.objects.exclude(item_type=CafeteriaItem.TYPE_MIXED).select_related('category').order_by('category__code', 'code', 'name')
+        available_items = CafeteriaItem.objects.filter(is_active=True)
+        if self.instance and self.instance.pk and self.instance.item_id:
+            available_items = CafeteriaItem.objects.filter(
+                Q(is_active=True) | Q(pk=self.instance.item_id)
+            )
+        self.fields['item'].queryset = available_items.exclude(
+            item_type=CafeteriaItem.TYPE_MIXED
+        ).select_related('category').order_by('category__code', 'code', 'name')
         self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name} ({obj.get_item_type_display()})"
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
@@ -1964,10 +1971,13 @@ class CafeteriaSaleForm(forms.ModelForm):
             (Q(category__show_in_sales=True) | Q(category__isnull=True))
             & ~Q(category__name__iexact='الخامات')
         )
-        visible_items = CafeteriaItem.objects.filter(sales_visible_filter)
+        visible_items = CafeteriaItem.objects.filter(
+            Q(is_active=True) & sales_visible_filter
+        )
         if self.instance and self.instance.pk and self.instance.item_id:
             visible_items = CafeteriaItem.objects.filter(
-                sales_visible_filter | Q(pk=self.instance.item_id)
+                (Q(is_active=True) & sales_visible_filter)
+                | Q(pk=self.instance.item_id)
             )
         self.fields['item'].queryset = visible_items.select_related('category').order_by('category__code', 'code', 'name')
         self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name}"

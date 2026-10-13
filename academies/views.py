@@ -1885,7 +1885,7 @@ def operating_expense_delete(request, pk):
 @login_required
 def cafe_item_list(request):
     q = request.GET.get('q', '').strip()
-    items = CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name')
+    items = CafeteriaItem.objects.filter(is_active=True).select_related('category').order_by('category__code', 'code', 'name')
     active_branch, all_branches = selected_branch(request)
     if not all_branches:
         items = items.filter(branch=active_branch)
@@ -1917,7 +1917,7 @@ def cafe_category_delete(request, pk):
 def cafe_settings(request):
     return render(request, 'academies/cafe_settings.html', {
         'category_count': CafeteriaCategory.objects.count(),
-        'item_count': CafeteriaItem.objects.count(),
+        'item_count': CafeteriaItem.objects.filter(is_active=True).count(),
         'addon_count': CafeteriaAddon.objects.count(),
     })
 
@@ -1958,7 +1958,7 @@ def cafe_addon_delete(request, pk):
 
 @login_required
 def cafe_stock_adjust(request):
-    items = CafeteriaItem.objects.exclude(item_type=CafeteriaItem.TYPE_MIXED).select_related('category').order_by('category__code', 'code', 'name')
+    items = CafeteriaItem.objects.filter(is_active=True).exclude(item_type=CafeteriaItem.TYPE_MIXED).select_related('category').order_by('category__code', 'code', 'name')
     if request.method == 'POST':
         for item in items:
             value = request.POST.get(f'quantity_{item.id}', '').strip()
@@ -1980,7 +1980,7 @@ def cafe_stock_adjust(request):
 
 @login_required
 def cafe_sale_prices(request):
-    items = CafeteriaItem.objects.select_related('category').all().order_by('category__code', 'code', 'name')
+    items = CafeteriaItem.objects.filter(is_active=True).select_related('category').order_by('category__code', 'code', 'name')
     if request.method == 'POST':
         for item in items:
             value = request.POST.get(f'price_{item.id}', '').strip()
@@ -2049,7 +2049,7 @@ def cafe_inventory(request):
         date_from, date_to = date_to, date_from
 
     active_branch, all_branches = selected_branch(request)
-    items = CafeteriaItem.objects.select_related('category').order_by('category__code', 'code', 'name')
+    items = CafeteriaItem.objects.filter(is_active=True).select_related('category').order_by('category__code', 'code', 'name')
     supplies = CafeteriaCashSupply.objects.all()
     if not all_branches:
         items = items.filter(branch=active_branch)
@@ -2323,13 +2323,13 @@ def cafe_menu(request):
     for category in CafeteriaCategory.objects.prefetch_related('items').order_by('code', 'name'):
         rows = [
             {'item': item, 'available_quantity': item.stock_quantity, 'low_stock': item.stock_quantity < 5}
-            for item in category.items.all().order_by('code', 'name')
+            for item in category.items.filter(is_active=True).order_by('code', 'name')
         ]
         if rows:
             groups.append({'category': category, 'label': f'{category.code} - {category.name}', 'rows': rows})
     orphan_rows = [
         {'item': item, 'available_quantity': item.stock_quantity, 'low_stock': item.stock_quantity < 5}
-        for item in CafeteriaItem.objects.filter(category__isnull=True).order_by('code', 'name')
+        for item in CafeteriaItem.objects.filter(is_active=True, category__isnull=True).order_by('code', 'name')
     ]
     if orphan_rows:
         groups.append({'category': None, 'label': 'بدون فئة', 'rows': orphan_rows})
@@ -2337,7 +2337,7 @@ def cafe_menu(request):
 
 def _prepare_recipe_formset(formset, product=None, branch=None):
     queryset = (
-        CafeteriaItem.objects.filter(category__name__iexact='الخامات')
+        CafeteriaItem.objects.filter(is_active=True, category__name__iexact='الخامات')
         .exclude(item_type=CafeteriaItem.TYPE_MIXED)
         .select_related('category')
         .order_by('category__code', 'code', 'name')
@@ -2347,7 +2347,17 @@ def _prepare_recipe_formset(formset, product=None, branch=None):
     if product and product.pk:
         queryset = queryset.exclude(pk=product.pk)
     for recipe_form in formset.forms:
-        recipe_form.fields['component'].queryset = queryset
+        component_queryset = queryset
+        existing_component_id = getattr(recipe_form.instance, 'component_id', None)
+        if existing_component_id:
+            component_queryset = (
+                CafeteriaItem.objects.filter(
+                    Q(pk__in=queryset.values('pk')) | Q(pk=existing_component_id)
+                )
+                .select_related('category')
+                .order_by('category__code', 'code', 'name')
+            )
+        recipe_form.fields['component'].queryset = component_queryset
         recipe_form.fields['component'].label_from_instance = lambda obj: f'{obj.name} ({obj.unit_label})'
 
 
@@ -2395,62 +2405,50 @@ def cafe_item_create(request):
 
 @login_required
 def cafe_item_update(request, pk):
-    return _cafeteria_item_form(request, get_object_or_404(CafeteriaItem, pk=pk))
+    return _cafeteria_item_form(request, get_object_or_404(CafeteriaItem, pk=pk, is_active=True))
 
 @login_required
 def cafe_item_delete(request, pk):
     active_branch, all_branches = selected_branch(request)
-    items = CafeteriaItem.objects.all()
+    items = CafeteriaItem.objects.filter(is_active=True)
     if not all_branches:
         items = items.filter(branch=active_branch)
     item = get_object_or_404(items, pk=pk)
 
-    delete_blockers = []
+    archive_details = []
     related_counts = [
-        ('حركات البيع', item.sales.count()),
-        ('حركات الشراء', item.purchases.count()),
-        ('حركات الضيافة', item.hospitality_items.count()),
+        ('حركات البيع المحفوظة', item.sales.count()),
+        ('حركات الشراء المحفوظة', item.purchases.count()),
+        ('حركات الضيافة المحفوظة', item.hospitality_items.count()),
         ('سجلات استهلاك المكونات', item.ingredient_usages.count()),
     ]
-    delete_blockers.extend(
+    archive_details.extend(
         f'{label}: {count}' for label, count in related_counts if count
     )
-    recipe_products = list(
-        item.used_in_recipes.select_related('product')
-        .values_list('product__name', flat=True)
-        .distinct()[:5]
-    )
-    if recipe_products:
-        delete_blockers.append(
-            f"مستخدم كمكوّن في وصفات: {', '.join(recipe_products)}"
-        )
+    recipe_count = item.used_in_recipes.count()
+    if recipe_count:
+        archive_details.append(f'وصفات تستخدم الصنف كمكوّن: {recipe_count}')
 
     if request.method == 'POST':
-        if delete_blockers:
-            messages.error(
-                request,
-                'لا يمكن حذف الصنف لأنه مرتبط بحركات أو وصفات محفوظة. '
-                'يمكن تعديل الصنف بدلًا من حذفه للحفاظ على صحة التقارير والمخزون.',
-            )
-        else:
-            try:
-                item.delete()
-            except ProtectedError:
-                messages.error(
-                    request,
-                    'تعذر حذف الصنف لوجود بيانات مرتبطة به. حدّث الصفحة وراجع الارتباطات الظاهرة.',
-                )
-            else:
-                messages.success(request, 'تم حذف صنف الكافيتريا بنجاح.')
+        item.is_active = False
+        item.save(update_fields=['is_active'])
+        messages.success(
+            request,
+            'تم حذف الصنف من القوائم والحركات الجديدة، مع الاحتفاظ بجميع '
+            'المبيعات والمشتريات والحسابات السابقة دون تغيير.',
+        )
         return redirect('cafe_item_list')
 
     return render(request, 'academies/simple_confirm_delete.html', {
         'object': item,
         'title': 'حذف صنف كافيتريا',
         'back_url': 'cafe_item_list',
-        'delete_blockers': delete_blockers,
+        'safe_delete_notice': (
+            'سيختفي الصنف من القوائم والحركات الجديدة، لكن جميع المعاملات '
+            'السابقة ستظل محفوظة داخل الحسابات والتقارير.'
+        ),
+        'archive_details': archive_details,
     })
-
 
 @login_required
 def cafe_purchase_list(request):
@@ -2489,8 +2487,13 @@ def _cafeteria_purchase_form(request, instance=None):
             purchase.item.save(update_fields=['purchase_price'])
         messages.success(request, 'تم حفظ حركة شراء الكافيتريا بنجاح.')
         return redirect('cafe_purchase_list')
+    item_units_queryset = CafeteriaItem.objects.filter(is_active=True)
+    if instance and instance.pk and instance.item_id:
+        item_units_queryset = CafeteriaItem.objects.filter(
+            Q(is_active=True) | Q(pk=instance.item_id)
+        )
     item_units = list(
-        CafeteriaItem.objects.exclude(item_type=CafeteriaItem.TYPE_MIXED)
+        item_units_queryset.exclude(item_type=CafeteriaItem.TYPE_MIXED)
         .values('id', 'item_type')
     )
     return render(request, 'academies/cafe_purchase_form.html', {
@@ -2563,7 +2566,7 @@ def cafe_sale_list(request):
             try:
                 for row in order_items:
                     item = (
-                        CafeteriaItem.objects.filter(pk=row.get('item_id'))
+                        CafeteriaItem.objects.filter(pk=row.get('item_id'), is_active=True)
                         .filter(Q(category__show_in_sales=True) | Q(category__isnull=True))
                         .exclude(category__name__iexact='الخامات')
                         .first()
@@ -2694,7 +2697,7 @@ def cafe_sale_list(request):
     if category_id not in visible_category_ids:
         category_id = ''
     item_queryset = (
-        CafeteriaItem.objects.select_related('category')
+        CafeteriaItem.objects.filter(is_active=True).select_related('category')
         .prefetch_related('recipe_components__component')
         .filter(Q(category__show_in_sales=True) | Q(category__isnull=True))
         .exclude(category__name__iexact='الخامات')
@@ -2753,7 +2756,7 @@ def cafe_sale_create(request):
         _sync_cafeteria_ingredient_usage(sale)
         messages.success(request, 'تم حفظ حركة البيع بنجاح.')
         return redirect('cafe_sale_list')
-    return render(request, 'academies/cafe_sale_form.html', {'form': form, 'title': 'إضافة حركة بيع كافيتريا', 'back_url': 'cafe_sale_list', 'items': list(CafeteriaItem.objects.values('id', 'sale_price'))})
+    return render(request, 'academies/cafe_sale_form.html', {'form': form, 'title': 'إضافة حركة بيع كافيتريا', 'back_url': 'cafe_sale_list', 'items': list(CafeteriaItem.objects.filter(is_active=True).values('id', 'sale_price'))})
 
 @login_required
 def cafe_sale_update(request, pk):
@@ -2766,7 +2769,7 @@ def cafe_sale_update(request, pk):
         _sync_cafeteria_ingredient_usage(sale)
         messages.success(request, 'تم تعديل حركة البيع بنجاح.')
         return redirect('cafe_sale_list')
-    return render(request, 'academies/cafe_sale_form.html', {'form': form, 'title': 'تعديل حركة بيع كافيتريا', 'back_url': 'cafe_sale_list', 'items': list(CafeteriaItem.objects.values('id', 'sale_price'))})
+    return render(request, 'academies/cafe_sale_form.html', {'form': form, 'title': 'تعديل حركة بيع كافيتريا', 'back_url': 'cafe_sale_list', 'items': list(CafeteriaItem.objects.filter(Q(is_active=True) | Q(pk=sale_obj.item_id)).values('id', 'sale_price'))})
 
 @login_required
 def cafe_sale_delete(request, pk):
@@ -3631,14 +3634,14 @@ def reports_home(request):
             'cafe_operating_expenses': cafe_operating_expenses,
             'cafe_sales_total': cafe_sales_total,
             'cafe_profit': cafe_sales_total - cafe_purchase_total,
-            'low_stock_items': [item for item in CafeteriaItem.objects.all() if item.is_low_stock],
+            'low_stock_items': [item for item in CafeteriaItem.objects.filter(is_active=True) if item.is_low_stock],
         })
 
     elif report_type in {'cafeteria_inventory', 'cafeteria_sales', 'cafeteria_purchases'}:
         context.update({
             'cafe_purchases': CafeteriaPurchase.objects.filter(purchase_date__range=(start, end)),
             'cafe_sales': CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item'),
-            'low_stock_items': [item for item in CafeteriaItem.objects.all() if item.is_low_stock],
+            'low_stock_items': [item for item in CafeteriaItem.objects.filter(is_active=True) if item.is_low_stock],
         })
 
     elif report_type == 'deposits':

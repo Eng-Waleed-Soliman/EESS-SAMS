@@ -2,21 +2,21 @@
 {% block content %}
 <h3>{{ title }}</h3>
 <div class="card p-4">
-  {% if delete_blockers %}
-  <div class="alert alert-warning mb-3">
-    <h5 class="fw-bold">لا يمكن حذف: {{ object }}</h5>
-    <p class="mb-2">الصنف مرتبط بالبيانات التالية، ولذلك تم منع الحذف لحماية التقارير والمخزون:</p>
-    <ul class="mb-0">{% for blocker in delete_blockers %}<li>{{ blocker }}</li>{% endfor %}</ul>
+  {% if safe_delete_notice %}
+  <div class="alert alert-info mb-3">
+    <p class="fw-bold mb-2">{{ safe_delete_notice }}</p>
+    {% if archive_details %}<ul class="mb-0">{% for detail in archive_details %}<li>{{ detail }}</li>{% endfor %}</ul>{% endif %}
   </div>
-  {% else %}
-  <p>هل تريد حذف: <b>{{ object }}</b>؟</p>
   {% endif %}
-  {% if not delete_blockers %}<form method="post">{% csrf_token %}<button class="btn btn-danger">حذف</button>{% endif %}
+  <p>هل تريد حذف: <b>{{ object }}</b>؟</p>
+  <form method="post">
+    {% csrf_token %}
+    <button class="btn btn-danger">حذف</button>
     {% if back_url_path %}
     <a class="btn btn-secondary" href="{{ back_url_path }}">رجوع</a>
     {% else %}
     <a class="btn btn-secondary" href="{% url back_url %}">رجوع</a>
     {% endif %}
-  {% if not delete_blockers %}</form>{% endif %}
+  </form>
 </div>
 {% endblock %}

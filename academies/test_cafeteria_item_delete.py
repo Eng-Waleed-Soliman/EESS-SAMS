@@ -10,6 +10,7 @@ from .models import (
     CafeteriaItem,
     CafeteriaPurchase,
     CafeteriaRecipeComponent,
+    CafeteriaSale,
 )
 
 
@@ -38,10 +39,13 @@ class CafeteriaItemDeleteTests(TestCase):
             sale_price=10,
         )
 
-    def test_item_used_in_recipe_shows_reason_instead_of_server_error(self):
+    def archive_item(self, item):
+        return self.client.post(reverse('cafe_item_delete', args=[item.pk]))
+
+    def test_item_used_in_recipe_is_archived_without_deleting_recipe(self):
         component = self.create_item(9802, 'مكوّن مستخدم', CafeteriaItem.TYPE_WEIGHT)
         product = self.create_item(9803, 'صنف مختلط', CafeteriaItem.TYPE_MIXED)
-        CafeteriaRecipeComponent.objects.create(
+        recipe = CafeteriaRecipeComponent.objects.create(
             product=product,
             component=component,
             quantity=25,
@@ -50,17 +54,22 @@ class CafeteriaItemDeleteTests(TestCase):
         response = self.client.get(reverse('cafe_item_delete', args=[component.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'لا يمكن حذف')
-        self.assertContains(response, 'مستخدم كمكوّن في وصفات: صنف مختلط')
-        self.assertNotContains(response, '<button class="btn btn-danger">حذف</button>', html=False)
+        self.assertContains(response, 'جميع المعاملات السابقة ستظل محفوظة')
+        self.assertContains(response, 'وصفات تستخدم الصنف كمكوّن: 1')
+        self.assertContains(response, '<button class="btn btn-danger">حذف</button>', html=False)
 
-        post_response = self.client.post(reverse('cafe_item_delete', args=[component.pk]))
+        post_response = self.archive_item(component)
         self.assertRedirects(post_response, reverse('cafe_item_list'))
-        self.assertTrue(CafeteriaItem.objects.filter(pk=component.pk).exists())
+        component.refresh_from_db()
+        self.assertFalse(component.is_active)
+        self.assertTrue(CafeteriaRecipeComponent.objects.filter(pk=recipe.pk).exists())
 
-    def test_item_with_purchase_is_preserved_to_protect_history(self):
+        edit_response = self.client.get(reverse('cafe_item_update', args=[product.pk]))
+        self.assertContains(edit_response, component.name)
+
+    def test_item_with_purchase_is_archived_and_history_preserved(self):
         item = self.create_item(9804, 'صنف له شراء')
-        CafeteriaPurchase.objects.create(
+        purchase = CafeteriaPurchase.objects.create(
             item=item,
             purchase_date=date.today(),
             quantity=3,
@@ -69,16 +78,38 @@ class CafeteriaItemDeleteTests(TestCase):
 
         response = self.client.get(reverse('cafe_item_delete', args=[item.pk]))
 
-        self.assertContains(response, 'حركات الشراء: 1')
-        post_response = self.client.post(reverse('cafe_item_delete', args=[item.pk]))
+        self.assertContains(response, 'حركات الشراء المحفوظة: 1')
+        post_response = self.archive_item(item)
         self.assertRedirects(post_response, reverse('cafe_item_list'))
-        self.assertTrue(CafeteriaItem.objects.filter(pk=item.pk).exists())
-        self.assertTrue(CafeteriaPurchase.objects.filter(item=item).exists())
+        item.refresh_from_db()
+        self.assertFalse(item.is_active)
+        self.assertTrue(CafeteriaPurchase.objects.filter(pk=purchase.pk).exists())
 
-    def test_unused_item_can_still_be_deleted(self):
-        item = self.create_item(9805, 'صنف غير مستخدم')
+    def test_archived_item_is_hidden_from_new_actions_but_sale_report_is_preserved(self):
+        item = self.create_item(9805, 'صنف له مبيعات محفوظة')
+        sale = CafeteriaSale.objects.create(
+            item=item,
+            sale_date=date.today(),
+            quantity=2,
+            unit_price=10,
+        )
 
-        response = self.client.post(reverse('cafe_item_delete', args=[item.pk]))
+        response = self.archive_item(item)
 
         self.assertRedirects(response, reverse('cafe_item_list'))
-        self.assertFalse(CafeteriaItem.objects.filter(pk=item.pk).exists())
+        item.refresh_from_db()
+        self.assertFalse(item.is_active)
+        self.assertTrue(CafeteriaSale.objects.filter(pk=sale.pk).exists())
+
+        item_list_response = self.client.get(reverse('cafe_item_list'))
+        self.assertNotContains(item_list_response, item.name)
+
+        sale_create_response = self.client.get(reverse('cafe_sale_create'))
+        self.assertNotContains(sale_create_response, item.name)
+
+        report_response = self.client.get(
+            reverse('cafe_daily_sales'),
+            {'date_from': date.today().isoformat(), 'date_to': date.today().isoformat()},
+        )
+        self.assertContains(report_response, item.name)
+        self.assertEqual(report_response.context['total_amount'], 20)
