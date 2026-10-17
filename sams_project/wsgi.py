@@ -8,7 +8,7 @@ application = get_wsgi_application()
 
 def _apply_pending_migrations():
     """Keep Render's database schema in sync even when its dashboard start command is plain gunicorn."""
-    if os.getenv('AUTO_MIGRATE_ON_START', 'True').strip().lower() not in {'1', 'true', 'yes', 'on'}:
+    if os.getenv('AUTO_MIGRATE_ON_START', 'False').strip().lower() not in {'1', 'true', 'yes', 'on'}:
         return
     from django.core.management import call_command
     from django.db import connection

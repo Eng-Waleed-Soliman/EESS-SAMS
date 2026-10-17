@@ -17,7 +17,7 @@
     <tbody>
       {% for item in items %}
       <tr class="{% if item.is_low_stock %}table-warning{% endif %}">
-        <td>{% if item.image_data_uri %}<img src="{{ item.image_data_uri }}" alt="{{ item.name }}" style="width:56px;height:56px;object-fit:cover;border-radius:10px">{% else %}—{% endif %}</td>
+        <td>{% if item.image_name %}<img src="{% url 'persistent_media' 'cafeteria_item' item.pk 'image' %}" loading="lazy" alt="{{ item.name }}" style="width:56px;height:56px;object-fit:cover;border-radius:10px">{% else %}—{% endif %}</td>
         <td>{{ item.category.name|default:'بدون فئة' }}</td><td>{{ item.code }}</td><td>{{ item.name }}</td><td dir="ltr">{{ item.name_en|default:'—' }}</td><td>{{ item.get_item_type_display }} ({{ item.unit_label }})</td>
         <td>{% if item.item_type == 'mixed' %}حسب الوصفة{% else %}{{ item.purchase_price }} {{ item.price_unit_label }}{% endif %}</td><td>{{ item.sale_price }} {{ item.price_unit_label }}</td><td>{{ item.base_unit_cost|floatformat:2 }}</td><td>{{ item.stock_quantity }}</td>
         <td><a class="btn btn-sm btn-primary" href="{% url 'cafe_item_update' item.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'cafe_item_delete' item.pk %}">حذف</a></td>

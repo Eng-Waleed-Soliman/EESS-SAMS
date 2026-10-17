@@ -1853,7 +1853,7 @@ class CafeteriaCategoryForm(forms.ModelForm):
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
-        if self.instance and self.instance.pk and self.instance.image_data:
+        if self.instance and self.instance.pk and self.instance.image_name:
             self.fields['image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
 
     def clean_image(self):
@@ -1907,7 +1907,7 @@ class CafeteriaItemForm(forms.ModelForm):
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
-        if self.instance and self.instance.pk and self.instance.image_data:
+        if self.instance and self.instance.pk and self.instance.image_name:
             self.fields['image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
 
     def clean_image(self):

@@ -51,6 +51,8 @@ def persistent_media(request, model_name, pk, field_name):
         'academy': (Academy, {'logo', 'website_image', 'manager_photo'}),
         'member': (AcademyMember, {'photo'}),
         'shareholder': (Shareholder, {'photo'}),
+        'cafeteria_category': (CafeteriaCategory, {'image'}),
+        'cafeteria_item': (CafeteriaItem, {'image'}),
     }
     model_config = allowed.get(model_name)
     if not model_config or field_name not in model_config[1]:
@@ -1890,7 +1892,12 @@ def operating_expense_delete(request, pk):
 @login_required
 def cafe_item_list(request):
     q = request.GET.get('q', '').strip()
-    items = CafeteriaItem.objects.filter(is_active=True).select_related('category').order_by('category__code', 'code', 'name')
+    items = (
+        CafeteriaItem.objects.filter(is_active=True)
+        .select_related('category')
+        .defer('image_data', 'category__image_data')
+        .order_by('category__code', 'code', 'name')
+    )
     active_branch, all_branches = selected_branch(request)
     if not all_branches:
         items = items.filter(branch=active_branch)
@@ -1901,7 +1908,7 @@ def cafe_item_list(request):
 @login_required
 def cafe_category_list(request):
     q = request.GET.get('q', '').strip()
-    categories = CafeteriaCategory.objects.all().order_by('code', 'name')
+    categories = CafeteriaCategory.objects.defer('image_data').order_by('code', 'name')
     if q:
         categories = categories.filter(Q(name__icontains=q) | Q(name_en__icontains=q) | Q(notes__icontains=q))
     return render(request, 'academies/cafe_category_list.html', {'categories': categories, 'q': q})
@@ -1985,7 +1992,12 @@ def cafe_stock_adjust(request):
 
 @login_required
 def cafe_sale_prices(request):
-    items = CafeteriaItem.objects.filter(is_active=True).select_related('category').order_by('category__code', 'code', 'name')
+    items = (
+        CafeteriaItem.objects.filter(is_active=True)
+        .select_related('category')
+        .defer('image_data', 'category__image_data')
+        .order_by('category__code', 'code', 'name')
+    )
     if request.method == 'POST':
         for item in items:
             value = request.POST.get(f'price_{item.id}', '').strip()
@@ -2054,7 +2066,12 @@ def cafe_inventory(request):
         date_from, date_to = date_to, date_from
 
     active_branch, all_branches = selected_branch(request)
-    items = CafeteriaItem.objects.filter(is_active=True).select_related('category').order_by('category__code', 'code', 'name')
+    items = (
+        CafeteriaItem.objects.filter(is_active=True)
+        .select_related('category')
+        .defer('image_data', 'category__image_data')
+        .order_by('category__code', 'code', 'name')
+    )
     supplies = CafeteriaCashSupply.objects.all()
     if not all_branches:
         items = items.filter(branch=active_branch)
@@ -2431,7 +2448,12 @@ def cafe_item_create(request):
 
 @login_required
 def cafe_item_update(request, pk):
-    return _cafeteria_item_form(request, get_object_or_404(CafeteriaItem, pk=pk, is_active=True))
+    item = get_object_or_404(
+        CafeteriaItem.objects.defer('image_data'),
+        pk=pk,
+        is_active=True,
+    )
+    return _cafeteria_item_form(request, item)
 
 @login_required
 def cafe_item_delete(request, pk):

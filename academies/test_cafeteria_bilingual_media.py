@@ -81,7 +81,8 @@ class CafeteriaBilingualMediaTests(TestCase):
         self.assertContains(page, 'name="name_en"')
         self.assertContains(page, 'name="image"')
         self.assertContains(page, 'multipart/form-data')
-        self.assertContains(page, 'data:image/png;base64,')
+        self.assertContains(page, reverse('persistent_media', args=['cafeteria_item', item.pk, 'image']))
+        self.assertNotContains(page, 'data:image/png;base64,')
 
     def test_sales_page_has_html_brand_header_and_collapsible_actions_menu(self):
         category = CafeteriaCategory.objects.create(code=9963, name='مخزون منخفض')

@@ -14,7 +14,7 @@
     <tbody>
       {% for category in categories %}
       <tr>
-        <td>{% if category.image_data_uri %}<img src="{{ category.image_data_uri }}" alt="{{ category.name }}" style="width:56px;height:56px;object-fit:cover;border-radius:10px">{% else %}—{% endif %}</td>
+        <td>{% if category.image_name %}<img src="{% url 'persistent_media' 'cafeteria_category' category.pk 'image' %}" loading="lazy" alt="{{ category.name }}" style="width:56px;height:56px;object-fit:cover;border-radius:10px">{% else %}—{% endif %}</td>
         <td>{{ category.code }}</td>
         <td>{{ category.name }}</td>
         <td dir="ltr">{{ category.name_en|default:'—' }}</td>
