@@ -2162,12 +2162,14 @@ def cafe_daily_sales(request):
         date_from, date_to = date_to, date_from
 
     active_branch, all_branches = selected_branch(request)
-    sales = CafeteriaSale.objects.filter(
-        sale_date__range=(date_from, date_to),
-    ).select_related('item__category')
+    sales = (
+        CafeteriaSale.objects.filter(sale_date__range=(date_from, date_to))
+        .select_related('item__category')
+        .defer('item__image_data', 'item__category__image_data')
+    )
     categories = CafeteriaCategory.objects.filter(
         items__sales__sale_date__range=(date_from, date_to),
-    )
+    ).defer('image_data')
     if not all_branches:
         sales = sales.filter(item__branch=active_branch)
         categories = categories.filter(items__branch=active_branch)
@@ -2186,7 +2188,7 @@ def cafe_daily_sales(request):
         CafeteriaItem.TYPE_WEIGHT: 'كمي',
         CafeteriaItem.TYPE_MIXED: 'مختلط',
     }
-    for sale in sales:
+    for sale in sales.iterator(chunk_size=500):
         item = sale.item
         category = item.category
         row = rows_by_item.setdefault(item.pk, {
@@ -2729,6 +2731,7 @@ def cafe_sale_list(request):
         history_date = today
     sales = (
         CafeteriaSale.objects.select_related('item', 'item__category', 'addon')
+        .defer('item__image_data', 'item__category__image_data')
         .filter(sale_date=history_date)
         .order_by('-created_at', '-id')
     )
@@ -4250,7 +4253,9 @@ def reports_home_v2(request):
             item_sales = CafeteriaSale.objects.filter(
                 sale_date__range=(analysis_month_start, analysis_month_end),
                 item__in=cafeteria_item_qs,
-            ).select_related('item', 'item__category')
+            ).select_related('item', 'item__category').defer(
+                'item__image_data', 'item__category__image_data',
+            )
             for sale in item_sales:
                 item = sale.item
                 row = item_income.setdefault(item.pk, {

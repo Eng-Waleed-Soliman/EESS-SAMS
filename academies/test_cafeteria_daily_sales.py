@@ -1,7 +1,9 @@
 from datetime import date, timedelta
 
 from django.contrib.auth.models import User
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from .models import Branch, CafeteriaCategory, CafeteriaItem, CafeteriaSale
@@ -101,6 +103,24 @@ class CafeteriaDailySalesTests(TestCase):
         self.assertContains(response, '<select class="form-select" id="categoryFilter"', html=False)
         self.assertNotContains(response, 'إلغاء فلتر الفئة')
         self.assertNotContains(response, 'يتم تحديث التقرير تلقائيًا')
+
+    def test_report_queries_do_not_load_item_or_category_image_blobs(self):
+        self.first_category.image_data = b'x' * (1024 * 1024)
+        self.first_category.image_content_type = 'image/jpeg'
+        self.first_category.image_name = 'large.jpg'
+        self.first_category.save(update_fields=['image_data', 'image_content_type', 'image_name'])
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(reverse('cafe_daily_sales'))
+
+        self.assertEqual(response.status_code, 200)
+        cafeteria_queries = [
+            query['sql'].lower()
+            for query in queries.captured_queries
+            if 'academies_cafeteria' in query['sql'].lower()
+        ]
+        self.assertTrue(cafeteria_queries)
+        self.assertFalse(any('image_data' in sql for sql in cafeteria_queries))
 
     def test_category_filter_hides_category_column_automatically(self):
         response = self.client.get(reverse('cafe_daily_sales'), {
