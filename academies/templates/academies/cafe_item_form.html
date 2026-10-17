@@ -1,7 +1,7 @@
 {% extends 'academies/base.html' %}
 {% block content %}
 <h3 class="mb-3">{{ title }}</h3>
-<form method="post" class="card p-4" id="itemForm">
+<form method="post" enctype="multipart/form-data" class="card p-4" id="itemForm">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
   <div class="row g-3">
@@ -9,6 +9,10 @@
     <div class="col-md-6 field-{{ field.name }}">
       <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
       {{ field }}
+      {% if field.name == 'image' and form.instance.image_data_uri %}
+      <div class="mt-2"><img src="{{ form.instance.image_data_uri }}" alt="صورة الصنف الحالية" style="width:110px;height:110px;object-fit:cover;border-radius:12px;border:1px solid #cbd5e1"></div>
+      {% endif %}
+      {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
       <div class="text-danger small">{{ field.errors }}</div>
       {% if field.name == 'purchase_price' %}<div class="form-text" id="purchaseHelp"></div>{% endif %}
     </div>

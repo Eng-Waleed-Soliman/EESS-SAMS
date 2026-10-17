@@ -1814,12 +1814,33 @@ class OperatingExpenseForm(forms.ModelForm):
                 field.widget.attrs['class'] = (css + ' form-control').strip()
 
 
+def _validate_cafeteria_image(image):
+    if not image:
+        return image
+    if image.size > 5 * 1024 * 1024:
+        raise forms.ValidationError('حجم الصورة يجب ألا يتجاوز 5 ميجابايت.')
+    content_type = (getattr(image, 'content_type', '') or '').lower()
+    if not content_type.startswith('image/'):
+        raise forms.ValidationError('اختر ملف صورة صالحًا.')
+    return image
+
+
 class CafeteriaCategoryForm(forms.ModelForm):
+    image = forms.FileField(
+        label='صورة الفئة',
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': 'image/jpeg,image/png,image/webp,image/gif',
+        }),
+    )
+
     class Meta:
         model = CafeteriaCategory
-        fields = ['code', 'name', 'show_in_sales', 'notes']
+        fields = ['code', 'name', 'name_en', 'image', 'show_in_sales', 'notes']
         widgets = {
             'code': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '1'}),
+            'name_en': forms.TextInput(attrs={'class': 'form-control', 'dir': 'ltr'}),
             'show_in_sales': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
@@ -1832,29 +1853,65 @@ class CafeteriaCategoryForm(forms.ModelForm):
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
+        if self.instance and self.instance.pk and self.instance.image_data:
+            self.fields['image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
+
+    def clean_image(self):
+        return _validate_cafeteria_image(self.cleaned_data.get('image'))
+
+    def save(self, commit=True):
+        category = super().save(commit=False)
+        image = self.cleaned_data.get('image')
+        if image:
+            category.image_data = image.read()
+            category.image_content_type = getattr(image, 'content_type', '') or 'image/jpeg'
+            category.image_name = image.name
+        if commit:
+            category.save()
+        return category
 
 
 class CafeteriaItemForm(forms.ModelForm):
+    image = forms.FileField(
+        label='صورة الصنف',
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': 'image/jpeg,image/png,image/webp,image/gif',
+        }),
+    )
+
     class Meta:
         model = CafeteriaItem
-        fields = ['category', 'code', 'name', 'item_type', 'opening_quantity', 'purchase_price', 'sale_price', 'notes']
+        fields = [
+            'category', 'code', 'name', 'name_en', 'image', 'item_type',
+            'opening_quantity', 'purchase_price', 'sale_price', 'notes',
+        ]
         widgets = {
             'category': forms.Select(attrs={'class': 'form-select'}),
             'item_type': forms.Select(attrs={'class': 'form-select'}),
             'code': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '1'}),
+            'name_en': forms.TextInput(attrs={'class': 'form-control', 'dir': 'ltr'}),
             'opening_quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
             'sale_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '1', 'min': '0'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
         }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['category'].queryset = CafeteriaCategory.objects.defer('image_data').order_by('code', 'name')
         self.fields['category'].required = True
         self.fields['item_type'].required = False
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
+        if self.instance and self.instance.pk and self.instance.image_data:
+            self.fields['image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
+
+    def clean_image(self):
+        return _validate_cafeteria_image(self.cleaned_data.get('image'))
 
     def clean(self):
         cleaned_data = super().clean()
@@ -1864,6 +1921,16 @@ class CafeteriaItemForm(forms.ModelForm):
             cleaned_data['purchase_price'] = 0
         return cleaned_data
 
+    def save(self, commit=True):
+        item = super().save(commit=False)
+        image = self.cleaned_data.get('image')
+        if image:
+            item.image_data = image.read()
+            item.image_content_type = getattr(image, 'content_type', '') or 'image/jpeg'
+            item.image_name = image.name
+        if commit:
+            item.save()
+        return item
 
 class BaseCafeteriaRecipeComponentFormSet(BaseInlineFormSet):
     def clean(self):
@@ -1926,7 +1993,7 @@ class CafeteriaPurchaseForm(forms.ModelForm):
             )
         self.fields['item'].queryset = available_items.exclude(
             item_type=CafeteriaItem.TYPE_MIXED
-        ).select_related('category').order_by('category__code', 'code', 'name')
+        ).select_related('category').defer('image_data', 'category__image_data').order_by('category__code', 'code', 'name')
         self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name} ({obj.get_item_type_display()})"
         for field in self.fields.values():
             css = field.widget.attrs.get('class', '')
@@ -1979,7 +2046,7 @@ class CafeteriaSaleForm(forms.ModelForm):
                 (Q(is_active=True) & sales_visible_filter)
                 | Q(pk=self.instance.item_id)
             )
-        self.fields['item'].queryset = visible_items.select_related('category').order_by('category__code', 'code', 'name')
+        self.fields['item'].queryset = visible_items.select_related('category').defer('image_data', 'category__image_data').order_by('category__code', 'code', 'name')
         self.fields['item'].label_from_instance = lambda obj: f"{obj.category.code if obj.category_id else '-'} / {obj.code} - {obj.name}"
         self.fields['addon'].queryset = CafeteriaAddon.objects.order_by('name')
         self.fields['addon'].required = False

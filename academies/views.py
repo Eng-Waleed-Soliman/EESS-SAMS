@@ -1890,7 +1890,7 @@ def cafe_item_list(request):
     if not all_branches:
         items = items.filter(branch=active_branch)
     if q:
-        items = items.filter(Q(name__icontains=q) | Q(notes__icontains=q) | Q(category__name__icontains=q))
+        items = items.filter(Q(name__icontains=q) | Q(name_en__icontains=q) | Q(notes__icontains=q) | Q(category__name__icontains=q) | Q(category__name_en__icontains=q))
     return render(request, 'academies/cafe_item_list.html', {'items': items, 'q': q})
 
 @login_required
@@ -1898,7 +1898,7 @@ def cafe_category_list(request):
     q = request.GET.get('q', '').strip()
     categories = CafeteriaCategory.objects.all().order_by('code', 'name')
     if q:
-        categories = categories.filter(Q(name__icontains=q) | Q(notes__icontains=q))
+        categories = categories.filter(Q(name__icontains=q) | Q(name_en__icontains=q) | Q(notes__icontains=q))
     return render(request, 'academies/cafe_category_list.html', {'categories': categories, 'q': q})
 
 @login_required
@@ -2364,7 +2364,7 @@ def _prepare_recipe_formset(formset, product=None, branch=None):
 def _cafeteria_item_form(request, instance=None):
     item = instance or CafeteriaItem()
     active_branch, all_branches = selected_branch(request)
-    form = CafeteriaItemForm(request.POST or None, instance=item)
+    form = CafeteriaItemForm(request.POST or None, request.FILES or None, instance=item)
     recipe_formset = CafeteriaRecipeComponentFormSet(request.POST or None, instance=item, prefix='recipe')
     recipe_branch = None if all_branches else active_branch
     _prepare_recipe_formset(recipe_formset, item, recipe_branch)
@@ -2689,6 +2689,7 @@ def cafe_sale_list(request):
     category_id = request.GET.get('category', '').strip()
     visible_categories = (
         CafeteriaCategory.objects.filter(show_in_sales=True)
+        .defer('image_data')
         .exclude(name__iexact='الخامات')
         .order_by('code', 'name')
     )
@@ -2698,6 +2699,7 @@ def cafe_sale_list(request):
         category_id = ''
     item_queryset = (
         CafeteriaItem.objects.filter(is_active=True).select_related('category')
+        .defer('image_data', 'category__image_data')
         .prefetch_related('recipe_components__component')
         .filter(Q(category__show_in_sales=True) | Q(category__isnull=True))
         .exclude(category__name__iexact='الخامات')

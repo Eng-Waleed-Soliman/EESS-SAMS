@@ -1384,6 +1384,10 @@ class OperatingExpense(models.Model):
 class CafeteriaCategory(models.Model):
     code = models.PositiveIntegerField(unique=True, verbose_name='كود الفئة')
     name = models.CharField(max_length=200, unique=True, verbose_name='اسم الفئة')
+    name_en = models.CharField(max_length=200, blank=True, verbose_name='اسم الفئة باللغة الإنجليزية')
+    image_data = models.BinaryField(null=True, blank=True, editable=False, verbose_name='بيانات صورة الفئة')
+    image_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    image_name = models.CharField(max_length=255, blank=True, editable=False)
     show_in_sales = models.BooleanField(default=True, verbose_name='الظهور في حركات البيع')
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1395,6 +1399,11 @@ class CafeteriaCategory(models.Model):
 
     def __str__(self):
         return f'{self.code} - {self.name}'
+
+
+    @property
+    def image_data_uri(self):
+        return image_data_uri(self.image_data, self.image_content_type)
 
 
 class CafeteriaItem(models.Model):
@@ -1411,6 +1420,10 @@ class CafeteriaItem(models.Model):
     category = models.ForeignKey(CafeteriaCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name='items', verbose_name='فئة الصنف')
     code = models.PositiveIntegerField(default=0, verbose_name='كود الصنف')
     name = models.CharField(max_length=200, verbose_name='اسم الصنف')
+    name_en = models.CharField(max_length=200, blank=True, verbose_name='اسم الصنف باللغة الإنجليزية')
+    image_data = models.BinaryField(null=True, blank=True, editable=False, verbose_name='بيانات صورة الصنف')
+    image_content_type = models.CharField(max_length=100, blank=True, editable=False)
+    image_name = models.CharField(max_length=255, blank=True, editable=False)
     item_type = models.CharField(
         max_length=10,
         choices=ITEM_TYPE_CHOICES,
@@ -1433,6 +1446,10 @@ class CafeteriaItem(models.Model):
 
     def __str__(self):
         return f'{self.code} - {self.name}' if self.code else self.name
+
+    @property
+    def image_data_uri(self):
+        return image_data_uri(self.image_data, self.image_content_type)
 
     def sale_price_for(self, is_staff=False):
         if is_staff and self.staff_sale_price > 0:

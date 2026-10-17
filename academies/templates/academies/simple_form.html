@@ -22,6 +22,9 @@
         {% else %}
         <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
+        {% if field.name == 'image' and form.instance.image_data_uri %}
+        <div class="mt-2"><img src="{{ form.instance.image_data_uri }}" alt="الصورة الحالية" style="width:110px;height:110px;object-fit:cover;border-radius:12px;border:1px solid #cbd5e1"></div>
+        {% endif %}
         {% endif %}
         {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
         <div class="text-danger small">{{ field.errors }}</div>

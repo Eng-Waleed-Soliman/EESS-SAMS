@@ -1,19 +1,25 @@
 {% extends 'academies/base.html' %}
+{% load static %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <h3>الكافيتريا - البيع</h3>
-  <div class="d-flex gap-2 flex-wrap">
-    {% if not is_cafeteria_specialist %}
-    <a class="btn" href="{% url 'cafe_category_list' %}">فئات الأصناف</a>
-    <a class="btn" href="{% url 'cafe_item_list' %}">الأصناف</a>
-    <a class="btn" href="{% url 'cafe_purchase_list' %}">الشراء</a>
-    {% endif %}
-    <a class="btn" href="{% url 'cafe_menu' %}">المنيو</a>
-    <a class="btn" href="{% url 'cafe_inventory' %}">الجرد</a>
-    <a class="btn" href="{% url 'cafe_cash_supply_create' %}?next=sales">توريد مبلغ مالي</a>
-  </div>
+<div class="cafe-page-header mb-4">
+  <img class="cafe-brand-logo" src="{% static 'academies/images/timeout-cafe-logo.png' %}" alt="TIME OUT Café">
+  <details class="cafe-actions-menu">
+    <summary class="cafe-actions-toggle" aria-label="فتح قائمة الكافيتريا" title="قائمة الكافيتريا">
+      <span></span><span></span><span></span>
+    </summary>
+    <div class="cafe-actions-dropdown">
+      {% if not is_cafeteria_specialist %}
+      <a class="btn" href="{% url 'cafe_category_list' %}">فئات الأصناف</a>
+      <a class="btn" href="{% url 'cafe_item_list' %}">الأصناف</a>
+      <a class="btn" href="{% url 'cafe_purchase_list' %}">الشراء</a>
+      {% endif %}
+      <a class="btn" href="{% url 'cafe_menu' %}">المنيو</a>
+      <a class="btn" href="{% url 'cafe_inventory' %}">الجرد</a>
+      <a class="btn" href="{% url 'cafe_cash_supply_create' %}?next=sales">توريد مبلغ مالي</a>
+    </div>
+  </details>
+  <h3 class="mt-3 mb-0">الكافيتريا - البيع</h3>
 </div>
-
 <div class="row g-3 mb-4 text-center">
   <div class="col-md-4"><div class="card p-3 h-100"><b>مبيعات اليوم</b><div class="fs-3">{{ today_total }}</div></div></div>
   <div class="col-md-4"><div class="card p-3 h-100"><b>عدد الحركات</b><div class="fs-3">{{ today_count }}</div></div></div>
@@ -201,6 +207,18 @@
 {{ items|json_script:"items-data" }}
 {{ addons|json_script:"addons-data" }}
 <style>
+.cafe-page-header{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;z-index:20}
+.cafe-brand-logo{display:block;width:min(360px,90vw);height:auto;border-radius:18px;box-shadow:0 14px 35px rgba(15,23,42,.2)}
+.cafe-actions-menu{position:relative;margin-top:12px}
+.cafe-actions-menu summary{list-style:none}
+.cafe-actions-menu summary::-webkit-details-marker{display:none}
+.cafe-actions-toggle{width:56px;height:48px;padding:11px 13px;border:1px solid #7dd3fc;border-radius:12px;background:#e0f7ff;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;cursor:pointer;box-shadow:0 6px 18px rgba(14,116,144,.14)}
+.cafe-actions-toggle span{display:block;height:4px;border-radius:4px;background:#0369a1}
+.cafe-actions-menu[open] .cafe-actions-toggle{background:#2563eb;border-color:#2563eb}
+.cafe-actions-menu[open] .cafe-actions-toggle span{background:#fff}
+.cafe-actions-dropdown{position:absolute;top:58px;left:50%;transform:translateX(-50%);width:240px;padding:12px;border:1px solid #bae6fd;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.22);display:grid;gap:8px;z-index:50}
+.cafe-actions-dropdown .btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center}
+@media(max-width:600px){.cafe-brand-logo{width:min(280px,88vw)}.cafe-actions-dropdown{width:min(240px,82vw)}}
 .cafe-category-card{width:100%;min-height:88px;border:1px solid #bae6fd;border-radius:10px;background:#e0f7ff;display:flex;flex-direction:column;gap:4px;align-items:flex-start;justify-content:center;padding:12px 14px;text-align:right;font-weight:800;color:#0f172a;transition:.15s}
 .cafe-category-card:hover,.cafe-category-card.active{background:#2563eb;color:#fff;border-color:#2563eb}
 .category-code{font-size:20px;font-weight:900}
