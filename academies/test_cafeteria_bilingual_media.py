@@ -53,7 +53,7 @@ class CafeteriaBilingualMediaTests(TestCase):
         self.assertContains(page, 'multipart/form-data')
         self.assertContains(page, 'data:image/png;base64,')
 
-    def test_item_form_saves_english_name_and_image_in_database(self):
+    def test_item_form_keeps_arabic_and_english_names_without_images(self):
         category = CafeteriaCategory.objects.create(code=9961, name='وجبات')
         form = CafeteriaItemForm(
             data={
@@ -67,23 +67,22 @@ class CafeteriaBilingualMediaTests(TestCase):
                 'sale_price': 20,
                 'notes': '',
             },
-            files={'image': self.uploaded_image('item.png')},
         )
 
         self.assertTrue(form.is_valid(), form.errors.as_json())
         item = form.save()
         item.refresh_from_db()
+        self.assertEqual(item.name, 'ساندوتش')
         self.assertEqual(item.name_en, 'Sandwich')
-        self.assertEqual(bytes(item.image_data), PNG_BYTES)
-        self.assertEqual(item.image_content_type, 'image/png')
+        self.assertIsNone(item.image_data)
+        self.assertEqual(item.image_content_type, '')
+        self.assertEqual(item.image_name, '')
 
         page = self.client.get(reverse('cafe_item_update', args=[item.pk]))
+        self.assertContains(page, 'name="name"')
         self.assertContains(page, 'name="name_en"')
-        self.assertContains(page, 'name="image"')
-        self.assertContains(page, 'multipart/form-data')
-        self.assertContains(page, reverse('persistent_media', args=['cafeteria_item', item.pk, 'image']))
-        self.assertNotContains(page, 'data:image/png;base64,')
-
+        self.assertNotContains(page, 'name="image"')
+        self.assertNotContains(page, 'multipart/form-data')
     def test_sales_page_has_html_brand_header_and_collapsible_actions_menu(self):
         category = CafeteriaCategory.objects.create(code=9963, name='مخزون منخفض')
         CafeteriaItem.objects.create(

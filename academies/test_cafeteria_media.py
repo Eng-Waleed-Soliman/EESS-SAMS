@@ -28,22 +28,27 @@ class CafeteriaMediaTests(TestCase):
             image_name='item.jpg',
         )
 
-    def test_cafeteria_binary_images_are_served_separately(self):
+    def test_cafeteria_item_images_are_not_served(self):
         response = self.client.get(
             reverse('persistent_media', args=['cafeteria_item', self.item.pk, 'image'])
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content, b'item-image')
-        self.assertEqual(response['Content-Type'], 'image/jpeg')
+        self.assertEqual(response.status_code, 404)
 
-    def test_item_edit_uses_media_url_instead_of_base64_html(self):
-        response = self.client.get(reverse('cafe_item_update', args=[self.item.pk]))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
+    def test_item_edit_and_list_do_not_show_image_controls_or_images(self):
+        edit_response = self.client.get(reverse('cafe_item_update', args=[self.item.pk]))
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertNotContains(edit_response, 'name="image"')
+        self.assertNotContains(edit_response, 'multipart/form-data')
+        self.assertContains(edit_response, 'name="name"')
+        self.assertContains(edit_response, 'name="name_en"')
+
+        list_response = self.client.get(reverse('cafe_item_list'))
+        self.assertEqual(list_response.status_code, 200)
+        self.assertNotContains(list_response, '<th>الصورة</th>', html=True)
+        self.assertNotContains(
+            list_response,
             reverse('persistent_media', args=['cafeteria_item', self.item.pk, 'image']),
         )
-        self.assertNotContains(response, 'data:image/jpeg;base64')
     def test_item_edit_recipe_choices_do_not_fetch_binary_images(self):
         ingredients = CafeteriaCategory.objects.create(code=700, name='الخامات')
         CafeteriaItem.objects.create(

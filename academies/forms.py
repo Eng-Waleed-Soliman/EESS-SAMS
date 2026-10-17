@@ -1872,19 +1872,10 @@ class CafeteriaCategoryForm(forms.ModelForm):
 
 
 class CafeteriaItemForm(forms.ModelForm):
-    image = forms.FileField(
-        label='صورة الصنف',
-        required=False,
-        widget=forms.FileInput(attrs={
-            'class': 'form-control',
-            'accept': 'image/jpeg,image/png,image/webp,image/gif',
-        }),
-    )
-
     class Meta:
         model = CafeteriaItem
         fields = [
-            'category', 'code', 'name', 'name_en', 'image', 'item_type',
+            'category', 'code', 'name', 'name_en', 'item_type',
             'opening_quantity', 'purchase_price', 'sale_price', 'notes',
         ]
         widgets = {
@@ -1907,11 +1898,7 @@ class CafeteriaItemForm(forms.ModelForm):
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
-        if self.instance and self.instance.pk and self.instance.image_name:
-            self.fields['image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
 
-    def clean_image(self):
-        return _validate_cafeteria_image(self.cleaned_data.get('image'))
 
     def clean(self):
         cleaned_data = super().clean()
@@ -1923,11 +1910,6 @@ class CafeteriaItemForm(forms.ModelForm):
 
     def save(self, commit=True):
         item = super().save(commit=False)
-        image = self.cleaned_data.get('image')
-        if image:
-            item.image_data = image.read()
-            item.image_content_type = getattr(image, 'content_type', '') or 'image/jpeg'
-            item.image_name = image.name
         if commit:
             item.save()
         return item

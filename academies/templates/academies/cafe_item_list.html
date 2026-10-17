@@ -13,16 +13,15 @@
 <form class="mb-3"><input name="q" value="{{ q }}" class="form-control search-box w-half" placeholder="بحث بالعربية أو الإنجليزية"></form>
 <div class="card p-3 table-responsive">
   <table class="table table-striped align-middle text-center">
-    <thead><tr><th>الصورة</th><th>الفئة</th><th>الكود</th><th>الصنف</th><th>الاسم بالإنجليزية</th><th>النوع</th><th>سعر الشراء</th><th>سعر البيع</th><th>تكلفة الوحدة/الحصة</th><th>المخزون المتاح</th><th></th></tr></thead>
+    <thead><tr><th>الفئة</th><th>الكود</th><th>الصنف</th><th>الاسم بالإنجليزية</th><th>النوع</th><th>سعر الشراء</th><th>سعر البيع</th><th>تكلفة الوحدة/الحصة</th><th>المخزون المتاح</th><th></th></tr></thead>
     <tbody>
       {% for item in items %}
       <tr class="{% if item.is_low_stock %}table-warning{% endif %}">
-        <td>{% if item.image_name %}<img src="{% url 'persistent_media' 'cafeteria_item' item.pk 'image' %}" loading="lazy" alt="{{ item.name }}" style="width:56px;height:56px;object-fit:cover;border-radius:10px">{% else %}—{% endif %}</td>
         <td>{{ item.category.name|default:'بدون فئة' }}</td><td>{{ item.code }}</td><td>{{ item.name }}</td><td dir="ltr">{{ item.name_en|default:'—' }}</td><td>{{ item.get_item_type_display }} ({{ item.unit_label }})</td>
         <td>{% if item.item_type == 'mixed' %}حسب الوصفة{% else %}{{ item.purchase_price }} {{ item.price_unit_label }}{% endif %}</td><td>{{ item.sale_price }} {{ item.price_unit_label }}</td><td>{{ item.base_unit_cost|floatformat:2 }}</td><td>{{ item.stock_quantity }}</td>
         <td><a class="btn btn-sm btn-primary" href="{% url 'cafe_item_update' item.pk %}">تعديل</a> <a class="btn btn-sm btn-danger" href="{% url 'cafe_item_delete' item.pk %}">حذف</a></td>
       </tr>
-      {% empty %}<tr><td colspan="11">لا توجد بيانات</td></tr>{% endfor %}
+      {% empty %}<tr><td colspan="10">لا توجد بيانات</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>

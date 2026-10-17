@@ -52,7 +52,6 @@ def persistent_media(request, model_name, pk, field_name):
         'member': (AcademyMember, {'photo'}),
         'shareholder': (Shareholder, {'photo'}),
         'cafeteria_category': (CafeteriaCategory, {'image'}),
-        'cafeteria_item': (CafeteriaItem, {'image'}),
     }
     model_config = allowed.get(model_name)
     if not model_config or field_name not in model_config[1]:
