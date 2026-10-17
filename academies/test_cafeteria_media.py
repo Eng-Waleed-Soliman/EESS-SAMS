@@ -1,5 +1,7 @@
 from django.contrib.auth.models import User
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from .models import CafeteriaCategory, CafeteriaItem
@@ -42,3 +44,25 @@ class CafeteriaMediaTests(TestCase):
             reverse('persistent_media', args=['cafeteria_item', self.item.pk, 'image']),
         )
         self.assertNotContains(response, 'data:image/jpeg;base64')
+    def test_item_edit_recipe_choices_do_not_fetch_binary_images(self):
+        ingredients = CafeteriaCategory.objects.create(code=700, name='الخامات')
+        CafeteriaItem.objects.create(
+            category=ingredients,
+            code=701,
+            name='خام',
+            image_data=b'x' * (1024 * 1024),
+            image_content_type='image/jpeg',
+            image_name='ingredient.jpg',
+        )
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(reverse('cafe_item_update', args=[self.item.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        item_queries = [
+            query['sql'].lower()
+            for query in queries.captured_queries
+            if 'cafeteriaitem' in query['sql'].lower()
+        ]
+        self.assertTrue(item_queries)
+        self.assertFalse(any('image_data' in sql for sql in item_queries))

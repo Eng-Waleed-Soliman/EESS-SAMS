@@ -2383,6 +2383,7 @@ def _prepare_recipe_formset(formset, product=None, branch=None):
         CafeteriaItem.objects.filter(is_active=True, category__name__iexact='الخامات')
         .exclude(item_type=CafeteriaItem.TYPE_MIXED)
         .select_related('category')
+        .defer('image_data', 'category__image_data')
         .order_by('category__code', 'code', 'name')
     )
     if branch is not None:
@@ -2398,6 +2399,7 @@ def _prepare_recipe_formset(formset, product=None, branch=None):
                     Q(pk__in=queryset.values('pk')) | Q(pk=existing_component_id)
                 )
                 .select_related('category')
+                .defer('image_data', 'category__image_data')
                 .order_by('category__code', 'code', 'name')
             )
         recipe_form.fields['component'].queryset = component_queryset
