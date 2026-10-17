@@ -2338,14 +2338,14 @@ def cafe_menu(request):
 @login_required
 def cafe_orders(request):
     card_specs = (
-        ('مشروبات غازية', 'academies/images/cafe-soft-drinks.webp', 100),
+        ('مشروبات ساقعة', 'academies/images/cafe-cold-drinks.webp', 100),
         ('مشروبات ساخنة', 'academies/images/cafe-hot-drinks.webp', 200),
-        ('عصائر', 'academies/images/cafe-juices.webp', 300),
         ('سناكس وآيس كريم', 'academies/images/cafe-snacks-icecream.webp', 400),
+        ('مأكولات', 'academies/images/cafe-food.webp', 500),
     )
     categories_by_code = {
         category.code: category
-        for category in CafeteriaCategory.objects.filter(code__in=[100, 200, 300, 400])
+        for category in CafeteriaCategory.objects.filter(code__in=[100, 200, 400, 500])
     }
     cards = []
     for title, image, code in card_specs:

@@ -16,9 +16,9 @@ class CafeteriaOrdersPageTests(TestCase):
         self.categories = {
             code: CafeteriaCategory.objects.create(code=code, name=name)
             for code, name in (
-                (100, 'مشروبات غازية'),
+                (100, 'مشروبات ساقعة'),
                 (200, 'مشروبات ساخنة'),
-                (300, 'عصائر'),
+                (500, 'مأكولات'),
                 (400, 'سناكس'),
             )
         }
@@ -33,14 +33,17 @@ class CafeteriaOrdersPageTests(TestCase):
         self.assertContains(response, 'class="orders-brand"')
         self.assertContains(response, 'TIME')
         self.assertContains(response, 'OUT')
+        self.assertContains(response, 'grid-template-columns:repeat(4')
+        self.assertContains(response, '@media(max-width:576px)')
         for title, image, code in (
-            ('مشروبات غازية', 'cafe-soft-drinks.webp', 100),
+            ('مشروبات ساقعة', 'cafe-cold-drinks.webp', 100),
             ('مشروبات ساخنة', 'cafe-hot-drinks.webp', 200),
-            ('عصائر', 'cafe-juices.webp', 300),
+            ('مأكولات', 'cafe-food.webp', 500),
             ('سناكس وآيس كريم', 'cafe-snacks-icecream.webp', 400),
         ):
             self.assertContains(response, title)
             self.assertContains(response, image)
+            self.assertNotContains(response, 'cafe-juices.webp')
             self.assertContains(
                 response,
                 f'{reverse("cafe_sale_list")}?category={self.categories[code].pk}',
