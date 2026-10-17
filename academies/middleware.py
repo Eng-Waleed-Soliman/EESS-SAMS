@@ -69,6 +69,7 @@ class CafeteriaSpecialistAccessMiddleware:
     allowed_prefixes = (
         '/cafeteria/sales/',
         '/cafeteria/menu/',
+        '/cafeteria/orders/',
         '/cafeteria/inventory/',
         '/cafeteria/daily-sales/',
         '/cafeteria/cash-supplies/',

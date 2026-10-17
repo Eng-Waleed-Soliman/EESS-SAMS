@@ -2335,6 +2335,27 @@ def cafe_menu(request):
         groups.append({'category': None, 'label': 'بدون فئة', 'rows': orphan_rows})
     return render(request, 'academies/cafe_menu.html', {'groups': groups})
 
+@login_required
+def cafe_orders(request):
+    card_specs = (
+        ('مشروبات غازية', 'academies/images/cafe-soft-drinks.webp', 100),
+        ('مشروبات ساخنة', 'academies/images/cafe-hot-drinks.webp', 200),
+        ('عصائر', 'academies/images/cafe-juices.webp', 300),
+        ('سناكس وآيس كريم', 'academies/images/cafe-snacks-icecream.webp', 400),
+    )
+    categories_by_code = {
+        category.code: category
+        for category in CafeteriaCategory.objects.filter(code__in=[100, 200, 300, 400])
+    }
+    cards = []
+    for title, image, code in card_specs:
+        category = categories_by_code.get(code)
+        category_url = reverse('cafe_sale_list')
+        if category is not None:
+            category_url = f'{category_url}?category={category.pk}'
+        cards.append({'title': title, 'image': image, 'url': category_url})
+    return render(request, 'academies/cafe_orders.html', {'cards': cards})
+
 def _prepare_recipe_formset(formset, product=None, branch=None):
     queryset = (
         CafeteriaItem.objects.filter(is_active=True, category__name__iexact='الخامات')

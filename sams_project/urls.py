@@ -99,6 +99,7 @@ urlpatterns = [
     path('cafeteria/operating-expenses/<int:pk>/edit/', views.cafe_operating_expense_update, name='cafe_operating_expense_update'),
     path('cafeteria/operating-expenses/<int:pk>/delete/', views.cafe_operating_expense_delete, name='cafe_operating_expense_delete'),
     path('cafeteria/menu/', views.cafe_menu, name='cafe_menu'),
+    path('cafeteria/orders/', views.cafe_orders, name='cafe_orders'),
     path('cafeteria/items/', views.cafe_item_list, name='cafe_item_list'),
     path('cafeteria/items/add/', views.cafe_item_create, name='cafe_item_create'),
     path('cafeteria/items/<int:pk>/edit/', views.cafe_item_update, name='cafe_item_update'),

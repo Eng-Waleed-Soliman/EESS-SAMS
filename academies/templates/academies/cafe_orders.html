@@ -1,0 +1,55 @@
+{% extends 'academies/base.html' %}
+{% load static %}
+{% block content %}
+<div class="orders-page">
+  <div class="orders-topbar">
+    <a class="btn orders-back" href="{% url 'cafe_sale_list' %}">رجوع إلى شاشة البيع</a>
+    <h3 class="orders-title">الأوردرات</h3>
+  </div>
+
+  <section class="orders-brand" aria-label="TIME OUT Café - Eat, Drink, Recharge">
+    <div class="orders-brand-main"><span>TIME</span><strong>OUT</strong></div>
+    <div class="orders-brand-cafe">CAFÉ</div>
+    <div class="orders-brand-icons" aria-hidden="true">
+      <span>☕</span><i></i><span>⚽</span><i></i><span>🏋</span><i></i><span>🏊</span><i></i><span>🥤</span>
+    </div>
+    <div class="orders-brand-tagline">EAT <b>•</b> DRINK <b>•</b> RECHARGE</div>
+  </section>
+
+  <section class="orders-categories" aria-labelledby="ordersCategoriesTitle">
+    <h4 id="ordersCategoriesTitle">اختر الفئة</h4>
+    <div class="orders-grid">
+      {% for card in cards %}
+      <a class="order-category-card" href="{{ card.url }}" aria-label="{{ card.title }}">
+        <img src="{% static card.image %}" alt="{{ card.title }}" loading="lazy">
+        <span>{{ card.title }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<style>
+.orders-page{max-width:1180px;margin:0 auto}
+.orders-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}
+.orders-title{margin:0!important;position:relative;padding-bottom:10px}
+.orders-title::after{content:"";position:absolute;right:0;bottom:0;width:72px;height:4px;border-radius:4px;background:#2563eb}
+.orders-back{flex:0 0 auto}
+.orders-brand{width:min(820px,100%);min-height:160px;margin:0 auto 32px;padding:14px 38px 12px;border:1px solid #bae6fd;border-radius:22px;background:linear-gradient(135deg,#fff 0%,#eaf7ff 48%,#dbeafe 100%);box-shadow:0 14px 34px rgba(37,99,235,.13);display:grid;grid-template-columns:1fr auto;grid-template-areas:"main cafe" "icons icons" "tagline tagline";align-items:center;column-gap:24px;color:#0f172a}
+.orders-brand-main{grid-area:main;direction:ltr;font:italic 900 clamp(42px,6vw,70px)/.85 Arial,sans-serif;letter-spacing:-5px;text-align:right;text-shadow:0 3px 0 #fff}
+.orders-brand-main span{color:#334155}.orders-brand-main strong{color:#2563eb;margin-left:8px}
+.orders-brand-cafe{grid-area:cafe;direction:ltr;color:#0369a1;font:900 25px/1 Arial,sans-serif;letter-spacing:9px;border-right:5px solid #38bdf8;padding-right:18px}
+.orders-brand-icons{grid-area:icons;direction:ltr;display:flex;align-items:center;justify-content:center;gap:15px;margin-top:5px;color:#0369a1;font-size:23px}
+.orders-brand-icons span{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:#fff;border:1px solid #bfdbfe;box-shadow:0 3px 8px rgba(37,99,235,.12)}
+.orders-brand-icons i{display:block;width:1px;height:25px;background:#93c5fd}
+.orders-brand-tagline{grid-area:tagline;direction:ltr;text-align:center;color:#475569;font:800 13px/1 Arial,sans-serif;letter-spacing:5px}.orders-brand-tagline b{color:#2563eb}
+.orders-categories{padding:24px;border-radius:22px;background:rgba(255,255,255,.94);box-shadow:0 15px 35px rgba(15,23,42,.08)}
+.orders-categories h4{font-weight:900;text-align:center;margin-bottom:22px}
+.orders-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+.order-category-card{position:relative;display:block;overflow:hidden;border:2px solid #bfdbfe;border-radius:18px;background:#fff;box-shadow:0 12px 28px rgba(15,23,42,.12);text-decoration:none;color:#0f172a;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.order-category-card:hover{transform:translateY(-5px);border-color:#2563eb;box-shadow:0 18px 38px rgba(37,99,235,.2)}
+.order-category-card img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+.order-category-card span{display:block;padding:13px 16px;text-align:center;font-size:22px;font-weight:900;background:linear-gradient(90deg,#eff6ff,#e0f2fe)}
+@media(max-width:768px){.orders-topbar{align-items:flex-start}.orders-brand{grid-template-columns:1fr;grid-template-areas:"main" "cafe" "icons" "tagline";row-gap:8px;padding-inline:16px}.orders-brand-main{text-align:center}.orders-brand-cafe{border-right:0;padding-right:0;text-align:center}.orders-grid{grid-template-columns:1fr}.orders-categories{padding:14px}.order-category-card span{font-size:19px}}
+</style>
+{% endblock %}
