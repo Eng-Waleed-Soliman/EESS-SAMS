@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.db import transaction
 from django.db.models.deletion import ProtectedError
 from django.db.models import Sum, Q, Count, Prefetch
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, JsonResponse
 from django.utils import timezone
 from datetime import date, timedelta
 from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
@@ -33,6 +33,11 @@ from .group_forms import AcademyTrainingGroupForm, AcademyTrainingGroupPlayerFor
 from .restricted_access import restricted_academy_portal
 from .security_views import security_home, security_movement, security_correction
 
+
+def health_check(request):
+    response = JsonResponse({'status': 'ok'})
+    response['Cache-Control'] = 'no-store'
+    return response
 
 def persistent_media(request, model_name, pk, field_name):
     allowed = {
