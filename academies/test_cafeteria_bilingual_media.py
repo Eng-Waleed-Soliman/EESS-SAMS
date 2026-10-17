@@ -83,13 +83,35 @@ class CafeteriaBilingualMediaTests(TestCase):
         self.assertContains(page, 'multipart/form-data')
         self.assertContains(page, 'data:image/png;base64,')
 
-    def test_sales_page_has_centered_logo_and_collapsible_actions_menu(self):
+    def test_sales_page_has_html_brand_header_and_collapsible_actions_menu(self):
+        category = CafeteriaCategory.objects.create(code=9963, name='مخزون منخفض')
+        CafeteriaItem.objects.create(
+            category=category,
+            code=9964,
+            name='صنف منخفض المخزون',
+            item_type=CafeteriaItem.TYPE_COUNT,
+            opening_quantity=8,
+            stock_adjustment=-8,
+            purchase_price=10,
+            sale_price=20,
+        )
+
         response = self.client.get(reverse('cafe_sale_list'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'academies/images/timeout-cafe-logo.png')
+        self.assertNotContains(response, 'academies/images/timeout-cafe-logo.png')
+        self.assertContains(response, 'class="cafe-brand-banner"')
+        self.assertContains(response, 'class="cafe-brand-time">TIME')
+        self.assertContains(response, 'class="cafe-brand-out">OUT')
+        self.assertContains(response, 'EAT <b>•</b> DRINK <b>•</b> RECHARGE')
+        self.assertContains(response, 'class="cafe-screen-title">شاشة البيع')
         self.assertContains(response, 'class="cafe-actions-toggle"')
         self.assertContains(response, 'class="cafe-actions-dropdown"')
+        self.assertContains(response, 'sales-summary-card')
+        self.assertNotContains(response, '<b>عدد الحركات</b>')
+        self.assertNotContains(response, '<b>الربح التقديري</b>')
+        self.assertContains(response, 'class="low-stock-table')
+        self.assertContains(response, 'صنف منخفض المخزون')
         for route_name in (
             'cafe_category_list', 'cafe_item_list', 'cafe_purchase_list',
             'cafe_menu', 'cafe_inventory', 'cafe_cash_supply_create',
