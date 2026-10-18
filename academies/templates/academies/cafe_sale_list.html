@@ -268,19 +268,40 @@
 const cafeActionsMenu = document.querySelector('.cafe-actions-menu');
 if(cafeActionsMenu){
   const cafeActionsToggle = cafeActionsMenu.querySelector('.cafe-actions-toggle');
+  const minimumMenuVisibilityMs = 1000;
+  let cafeActionsOpenedAt = 0;
+  let cafeActionsCloseTimer = null;
+  const cancelCafeActionsClose = function(){
+    if(cafeActionsCloseTimer){
+      window.clearTimeout(cafeActionsCloseTimer);
+      cafeActionsCloseTimer = null;
+    }
+  };
   const closeCafeActionsMenu = function(){
+    cancelCafeActionsClose();
     cafeActionsMenu.removeAttribute('open');
     if(cafeActionsToggle){ cafeActionsToggle.setAttribute('aria-expanded', 'false'); }
+  };
+  const closeCafeActionsMenuAfterMinimumTime = function(){
+    cancelCafeActionsClose();
+    const elapsed = Date.now() - cafeActionsOpenedAt;
+    const delay = Math.max(0, minimumMenuVisibilityMs - elapsed);
+    cafeActionsCloseTimer = window.setTimeout(closeCafeActionsMenu, delay);
   };
   if(cafeActionsToggle){
     cafeActionsToggle.setAttribute('aria-expanded', 'false');
     cafeActionsToggle.addEventListener('click', function(){
       window.setTimeout(function(){
+        if(cafeActionsMenu.open){
+          cafeActionsOpenedAt = Date.now();
+          cancelCafeActionsClose();
+        }
         cafeActionsToggle.setAttribute('aria-expanded', cafeActionsMenu.open ? 'true' : 'false');
       }, 0);
     });
   }
-  cafeActionsMenu.addEventListener('mouseleave', closeCafeActionsMenu);
+  cafeActionsMenu.addEventListener('mouseenter', cancelCafeActionsClose);
+  cafeActionsMenu.addEventListener('mouseleave', closeCafeActionsMenuAfterMinimumTime);
   document.addEventListener('click', function(event){
     if(!cafeActionsMenu.contains(event.target)){ closeCafeActionsMenu(); }
   });

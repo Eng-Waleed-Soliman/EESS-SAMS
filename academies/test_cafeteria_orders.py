@@ -104,7 +104,10 @@ class CafeteriaOrdersPageTests(TestCase):
 
         self.assertLess(dropdown.index(reverse('cafe_menu')), dropdown.index(reverse('cafe_orders')))
         self.assertLess(dropdown.index(reverse('cafe_orders')), dropdown.index(reverse('cafe_inventory')))
+        self.assertContains(response, 'const minimumMenuVisibilityMs = 1000')
+        self.assertContains(response, "cafeActionsMenu.addEventListener('mouseenter'")
         self.assertContains(response, "cafeActionsMenu.addEventListener('mouseleave'")
+        self.assertContains(response, 'closeCafeActionsMenuAfterMinimumTime')
         self.assertContains(response, "if(!cafeActionsMenu.contains(event.target))")
 
     def test_cafeteria_specialist_can_open_orders_page(self):
