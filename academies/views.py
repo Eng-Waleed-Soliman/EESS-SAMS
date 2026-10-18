@@ -2906,7 +2906,7 @@ def _variable_rent_context(year, month, academy_ids=None):
             'hour': int(item.hourly_rent or 0),
             'day': int(item.daily_rent or 0),
         }
-        for item in Facility.objects.all()
+        for item in Facility.objects.defer('image_data')
     }
     return {
         'cancelled_dates': set(
@@ -4587,6 +4587,10 @@ def reports_home_v2(request):
     elif report_type == 'security_log':
         security_rows = SecurityMovement.objects.select_related(
             'branch', 'academy', 'member', 'recorded_by'
+        ).defer(
+            'branch__logo_data', 'branch__image_data',
+            'academy__logo_data', 'academy__website_image_data',
+            'academy__manager_photo_data', 'member__photo_data',
         ).filter(recorded_at__date__range=(start, end))
         if not all_branches:
             security_rows = security_rows.filter(branch=active_branch)
