@@ -4,7 +4,14 @@
   <div class="category-menu-topbar">
     <a class="btn category-menu-back" href="{% url 'cafe_orders' %}">رجوع إلى الفئات</a>
     <div class="category-menu-heading">
-      <span class="category-menu-kicker">TIME OUT CAFÉ</span>
+      <div class="category-menu-brand" aria-label="TIME OUT Café - Eat, Drink, Recharge">
+        <div class="category-menu-brand__main"><span>TIME</span><strong>OUT</strong></div>
+        <div class="category-menu-brand__cafe">CAFÉ</div>
+        <div class="category-menu-brand__icons" aria-hidden="true">
+          <span title="قهوة">☕</span><i></i><span title="كرة قدم">⚽</span><i></i><span title="لياقة">🏋</span><i></i><span title="سباحة">🏊</span><i></i><span title="مشروبات">🥤</span>
+        </div>
+        <div class="category-menu-brand__tagline">EAT <b>•</b> DRINK <b>•</b> RECHARGE</div>
+      </div>
       <h2>{{ category.name }}</h2>
       <p lang="en" dir="ltr">{{ category.name_en|default:"English name not added" }}</p>
     </div>
@@ -50,12 +57,19 @@
 
 <style>
 .category-menu-page{max-width:1120px;margin:0 auto;color:#0f172a}
-.category-menu-topbar{position:relative;min-height:180px;margin-bottom:26px;padding:34px 220px 30px;border:1px solid #bae6fd;border-radius:24px;background:radial-gradient(circle at 15% 15%,rgba(56,189,248,.22),transparent 30%),linear-gradient(135deg,#fff 0%,#eff8ff 50%,#dbeafe 100%);box-shadow:0 18px 45px rgba(37,99,235,.12);display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden}
+.category-menu-topbar{position:relative;min-height:330px;margin-bottom:26px;padding:28px 220px 24px;border:1px solid #bae6fd;border-radius:24px;background:radial-gradient(circle at 15% 15%,rgba(56,189,248,.22),transparent 30%),linear-gradient(135deg,#fff 0%,#eff8ff 50%,#dbeafe 100%);box-shadow:0 18px 45px rgba(37,99,235,.12);display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden}
 .category-menu-topbar::after{content:"";position:absolute;inset:auto -55px -90px auto;width:230px;height:230px;border:34px solid rgba(37,99,235,.08);border-radius:50%}
 .category-menu-back{position:absolute;top:22px;left:22px;z-index:1;white-space:nowrap}
-.category-menu-heading{position:relative;z-index:1}
-.category-menu-kicker{display:inline-block;margin-bottom:8px;color:#2563eb;font:900 13px/1 Arial,sans-serif;letter-spacing:4px}
-.category-menu-heading h2{margin:0;font-size:clamp(30px,4vw,46px);font-weight:900}
+.category-menu-heading{position:relative;z-index:1;width:min(660px,100%)}
+.category-menu-brand{width:100%;margin:0 auto 15px;display:grid;grid-template-columns:1fr auto;grid-template-areas:"main cafe" "icons icons" "tagline tagline";align-items:center;column-gap:22px;color:#0f172a}
+.category-menu-brand__main{grid-area:main;direction:ltr;font:italic 900 clamp(38px,5vw,62px)/.85 Arial,sans-serif;letter-spacing:-4px;text-align:right;text-shadow:0 3px 0 #fff}
+.category-menu-brand__main span{color:#334155}.category-menu-brand__main strong{color:#2563eb;margin-left:8px}
+.category-menu-brand__cafe{grid-area:cafe;direction:ltr;color:#0369a1;font:900 22px/1 Arial,sans-serif;letter-spacing:8px;border-right:5px solid #38bdf8;padding-right:16px}
+.category-menu-brand__icons{grid-area:icons;direction:ltr;display:flex;align-items:center;justify-content:center;gap:14px;margin-top:7px;color:#0369a1;font-size:21px}
+.category-menu-brand__icons span{width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:#fff;border:1px solid #bfdbfe;box-shadow:0 3px 8px rgba(37,99,235,.12)}
+.category-menu-brand__icons i{display:block;width:1px;height:23px;background:#93c5fd}
+.category-menu-brand__tagline{grid-area:tagline;direction:ltr;margin-top:3px;text-align:center;color:#475569;font:800 12px/1 Arial,sans-serif;letter-spacing:5px}.category-menu-brand__tagline b{color:#2563eb}
+.category-menu-heading h2{margin:0;font-size:clamp(30px,4vw,42px);font-weight:900}
 .category-menu-heading p{margin:7px 0 0;color:#0369a1;font:800 clamp(19px,2.4vw,28px)/1.25 Arial,sans-serif}
 .category-menu-card{overflow:hidden;border:1px solid #dbeafe;border-radius:24px;background:#fff;box-shadow:0 18px 50px rgba(15,23,42,.09)}
 .category-menu-card__header{padding:22px 26px;display:flex;align-items:center;justify-content:space-between;gap:20px;background:linear-gradient(90deg,#f8fbff,#eff6ff);border-bottom:1px solid #dbeafe}
@@ -70,13 +84,13 @@
 .item-price{display:inline-block;min-width:105px;padding:8px 13px;border-radius:999px;background:#dcfce7;color:#166534;text-align:center;font-weight:900;white-space:nowrap}
 .category-menu-empty td{padding:45px!important;text-align:center;color:#64748b;background:#fff}
 @media(max-width:768px){
-  .category-menu-topbar{min-height:210px;padding:74px 18px 24px}.category-menu-back{top:16px;left:16px}.category-menu-card__header{padding:18px;align-items:flex-start}.category-menu-card__header h3{font-size:21px}
+  .category-menu-topbar{min-height:365px;padding:78px 18px 24px}.category-menu-back{top:16px;left:16px}.category-menu-brand{grid-template-columns:1fr;grid-template-areas:"main" "cafe" "icons" "tagline";row-gap:7px}.category-menu-brand__main{text-align:center}.category-menu-brand__cafe{border-right:0;padding-right:0;text-align:center}.category-menu-card__header{padding:18px;align-items:flex-start}.category-menu-card__header h3{font-size:21px}
   .category-menu-table,.category-menu-table tbody,.category-menu-table tr,.category-menu-table td{display:block;width:100%}.category-menu-table thead{display:none}
   .category-menu-table tbody{padding:12px}.category-menu-table tr{margin-bottom:12px;padding:6px 14px;border:1px solid #dbeafe;border-radius:16px;background:#fff!important;box-shadow:0 7px 18px rgba(15,23,42,.06)}
   .category-menu-table td{min-height:48px;padding:12px 0;border-bottom:1px dashed #dbeafe;display:flex;align-items:center;justify-content:center;gap:18px;text-align:center}
   .category-menu-table td::before{content:attr(data-label);color:#475569;font-weight:900;text-align:right}.category-menu-table td:last-child{border-bottom:0}.category-menu-table td[lang="en"]{justify-content:space-between}
   .category-menu-empty{padding:0!important;border:0!important;box-shadow:none!important}.category-menu-empty td{display:block;padding:30px 12px!important}.category-menu-empty td::before{display:none}
 }
-@media(max-width:480px){.category-menu-card__header{flex-direction:column}.category-items-count{align-self:flex-start}.category-menu-heading h2{font-size:28px}}
+@media(max-width:480px){.category-menu-topbar{min-height:345px}.category-menu-brand__main{font-size:43px}.category-menu-brand__icons{gap:8px;font-size:18px}.category-menu-brand__icons span{width:29px;height:29px}.category-menu-brand__tagline{font-size:10px;letter-spacing:3px}.category-menu-card__header{flex-direction:column}.category-items-count{align-self:flex-start}.category-menu-heading h2{font-size:28px}}
 </style>
 {% endblock %}
