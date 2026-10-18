@@ -3371,7 +3371,7 @@ def _month_financial_summary(year, month, start, end, branch=None):
     monthly_qs = MonthlyExpense.objects.filter(expense_month__range=(start, end))
     daily_qs = DailyExpense.objects.filter(expense_date__range=(start, end))
     operating_qs = OperatingExpense.objects.filter(expense_date__range=(start, end))
-    employee_qs = Employee.objects.defer('photo_data')
+    employee_qs = Employee.objects.all()
     if branch is not None:
         checkout_qs = checkout_qs.filter(booking__branch=branch)
         sale_qs = sale_qs.filter(item__branch=branch)
@@ -4018,7 +4018,7 @@ def reports_home_v2(request):
         'cafeteria_hospitality_total': 0,
         'security_rows': [],
     }
-    employee_qs = Employee.objects.defer('photo_data')
+    employee_qs = Employee.objects.all()
     booking_checkout_qs = DailyBookingCheckout.objects.all()
     monthly_expense_qs = MonthlyExpense.objects.all()
     daily_expense_qs = DailyExpense.objects.all()
