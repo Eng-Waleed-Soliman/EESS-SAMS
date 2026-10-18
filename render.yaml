@@ -4,7 +4,7 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
     healthCheckPath: /health/
-    # A single process fits Render's memory limit; four threads keep health and
-    # normal pages responsive while database-heavy requests are waiting. Preload
-    # also makes the infrequent replacement worker start almost immediately.
-    startCommand: python manage.py migrate --noinput && gunicorn sams_project.wsgi:application --preload --workers 1 --threads 4 --timeout 120 --graceful-timeout 30 --keep-alive 5 --max-requests 1000 --max-requests-jitter 100 --worker-tmp-dir /dev/shm --access-logfile - --error-logfile -
+    # Keep one memory-efficient process with enough threads for slow database
+    # requests. Do not preload: on the 512 MB plan the master would retain an
+    # additional Django memory image alongside the worker.
+    startCommand: python manage.py migrate --noinput && gunicorn sams_project.wsgi:application --workers 1 --threads 4 --timeout 120 --graceful-timeout 30 --keep-alive 5 --max-requests 1000 --max-requests-jitter 100 --worker-tmp-dir /dev/shm --access-logfile - --error-logfile -
