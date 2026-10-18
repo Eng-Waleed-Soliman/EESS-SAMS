@@ -265,6 +265,32 @@
 .hospitality-dialog__close{border:0;background:transparent;font-size:28px;line-height:1;color:#64748b}
 </style>
 <script>
+const cafeActionsMenu = document.querySelector('.cafe-actions-menu');
+if(cafeActionsMenu){
+  const cafeActionsToggle = cafeActionsMenu.querySelector('.cafe-actions-toggle');
+  const closeCafeActionsMenu = function(){
+    cafeActionsMenu.removeAttribute('open');
+    if(cafeActionsToggle){ cafeActionsToggle.setAttribute('aria-expanded', 'false'); }
+  };
+  if(cafeActionsToggle){
+    cafeActionsToggle.setAttribute('aria-expanded', 'false');
+    cafeActionsToggle.addEventListener('click', function(){
+      window.setTimeout(function(){
+        cafeActionsToggle.setAttribute('aria-expanded', cafeActionsMenu.open ? 'true' : 'false');
+      }, 0);
+    });
+  }
+  cafeActionsMenu.addEventListener('mouseleave', closeCafeActionsMenu);
+  document.addEventListener('click', function(event){
+    if(!cafeActionsMenu.contains(event.target)){ closeCafeActionsMenu(); }
+  });
+  document.addEventListener('keydown', function(event){
+    if(event.key === 'Escape'){
+      closeCafeActionsMenu();
+      if(cafeActionsToggle){ cafeActionsToggle.focus(); }
+    }
+  });
+}
 const rawItems = JSON.parse(document.getElementById('items-data').textContent);
 const itemMap = {};
 rawItems.forEach(function(item){ itemMap[item.id] = item; });

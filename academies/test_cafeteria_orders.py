@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import CafeteriaCategory
+from .models import CafeteriaCategory, CafeteriaItem
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -46,8 +46,48 @@ class CafeteriaOrdersPageTests(TestCase):
             self.assertNotContains(response, 'cafe-juices.webp')
             self.assertContains(
                 response,
-                f'{reverse("cafe_sale_list")}?category={self.categories[code].pk}',
+                reverse('cafe_order_category', args=[self.categories[code].pk]),
             )
+
+    def test_category_card_opens_bilingual_items_and_prices_page(self):
+        category = self.categories[100]
+        category.name_en = 'Cold Drinks'
+        category.save(update_fields=['name_en'])
+        item = CafeteriaItem.objects.create(
+            category=category,
+            code=101,
+            name='مياه معدنية',
+            name_en='Mineral Water',
+            sale_price=15,
+        )
+        CafeteriaItem.objects.create(
+            category=category,
+            code=102,
+            name='صنف غير نشط',
+            name_en='Inactive Item',
+            sale_price=20,
+            is_active=False,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('cafe_order_category', args=[category.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'academies/cafe_order_category.html')
+        self.assertContains(response, category.name)
+        self.assertContains(response, category.name_en)
+        self.assertContains(response, item.name)
+        self.assertContains(response, item.name_en)
+        self.assertContains(response, '15 جنيه')
+        self.assertNotContains(response, 'صنف غير نشط')
+        self.assertContains(response, '@media(max-width:768px)')
+
+    def test_unknown_category_returns_404(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('cafe_order_category', args=[999999]))
+
+        self.assertEqual(response.status_code, 404)
 
     def test_orders_link_is_between_menu_and_inventory(self):
         self.client.force_login(self.admin)
@@ -60,6 +100,8 @@ class CafeteriaOrdersPageTests(TestCase):
 
         self.assertLess(dropdown.index(reverse('cafe_menu')), dropdown.index(reverse('cafe_orders')))
         self.assertLess(dropdown.index(reverse('cafe_orders')), dropdown.index(reverse('cafe_inventory')))
+        self.assertContains(response, "cafeActionsMenu.addEventListener('mouseleave'")
+        self.assertContains(response, "if(!cafeActionsMenu.contains(event.target))")
 
     def test_cafeteria_specialist_can_open_orders_page(self):
         specialist = User.objects.create_user(

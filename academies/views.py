@@ -2373,11 +2373,30 @@ def cafe_orders(request):
     cards = []
     for title, image, code in card_specs:
         category = categories_by_code.get(code)
-        category_url = reverse('cafe_sale_list')
+        category_url = reverse('cafe_orders')
         if category is not None:
-            category_url = f'{category_url}?category={category.pk}'
+            category_url = reverse('cafe_order_category', args=[category.pk])
         cards.append({'title': title, 'image': image, 'url': category_url})
     return render(request, 'academies/cafe_orders.html', {'cards': cards})
+
+
+@login_required
+def cafe_order_category(request, pk):
+    category = get_object_or_404(
+        CafeteriaCategory.objects.defer('image_data'),
+        pk=pk,
+    )
+    items = (
+        CafeteriaItem.objects
+        .filter(category=category, is_active=True)
+        .defer('image_data')
+        .order_by('code', 'name')
+    )
+    return render(
+        request,
+        'academies/cafe_order_category.html',
+        {'category': category, 'items': items},
+    )
 
 def _prepare_recipe_formset(formset, product=None, branch=None):
     queryset = (
