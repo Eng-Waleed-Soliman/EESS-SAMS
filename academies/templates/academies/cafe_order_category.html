@@ -35,7 +35,7 @@
             <td data-label="م">{{ forloop.counter }}</td>
             <td data-label="اسم الصنف"><strong>{{ item.name }}</strong></td>
             <td data-label="Item name" lang="en" dir="ltr">{{ item.name_en|default:"—" }}</td>
-            <td data-label="السعر"><span class="item-price">{{ item.sale_price }} جنيه</span></td>
+            <td data-label="السعر"><span class="item-price">{{ item.staff_sale_price }} جنيه</span></td>
           </tr>
           {% empty %}
           <tr class="category-menu-empty">

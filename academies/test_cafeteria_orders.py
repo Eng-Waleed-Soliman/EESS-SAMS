@@ -59,6 +59,7 @@ class CafeteriaOrdersPageTests(TestCase):
             name='مياه معدنية',
             name_en='Mineral Water',
             sale_price=15,
+            staff_sale_price=10,
         )
         CafeteriaItem.objects.create(
             category=category,
@@ -78,7 +79,8 @@ class CafeteriaOrdersPageTests(TestCase):
         self.assertContains(response, category.name_en)
         self.assertContains(response, item.name)
         self.assertContains(response, item.name_en)
-        self.assertContains(response, '15 جنيه')
+        self.assertContains(response, '10 جنيه')
+        self.assertNotContains(response, '15 جنيه')
         self.assertNotContains(response, 'صنف غير نشط')
         self.assertNotContains(response, '<th scope="col">الكود</th>', html=True)
         self.assertNotContains(response, '<th scope="col">النوع</th>', html=True)
