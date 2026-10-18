@@ -3125,7 +3125,13 @@ def _is_ball_field_academy(academy):
 
 
 def _academy_rent_rows(year, month, start, end, branch=None):
-    queryset = Academy.objects.select_related('branch').filter(
+    # Report rows never display stored media.  Deferring these BinaryFields is
+    # important on the small Render worker: select_related() would otherwise
+    # repeat the branch images for every academy and can exhaust its memory.
+    queryset = Academy.objects.select_related('branch').defer(
+        'logo_data', 'website_image_data', 'manager_photo_data',
+        'branch__logo_data', 'branch__image_data',
+    ).filter(
             contract_start_date__lte=end,
             contract_end_date__gte=start,
         )
@@ -3365,7 +3371,7 @@ def _month_financial_summary(year, month, start, end, branch=None):
     monthly_qs = MonthlyExpense.objects.filter(expense_month__range=(start, end))
     daily_qs = DailyExpense.objects.filter(expense_date__range=(start, end))
     operating_qs = OperatingExpense.objects.filter(expense_date__range=(start, end))
-    employee_qs = Employee.objects.all()
+    employee_qs = Employee.objects.defer('photo_data')
     if branch is not None:
         checkout_qs = checkout_qs.filter(booking__branch=branch)
         sale_qs = sale_qs.filter(item__branch=branch)
@@ -4012,11 +4018,11 @@ def reports_home_v2(request):
         'cafeteria_hospitality_total': 0,
         'security_rows': [],
     }
-    employee_qs = Employee.objects.all()
+    employee_qs = Employee.objects.defer('photo_data')
     booking_checkout_qs = DailyBookingCheckout.objects.all()
     monthly_expense_qs = MonthlyExpense.objects.all()
     daily_expense_qs = DailyExpense.objects.all()
-    cafeteria_item_qs = CafeteriaItem.objects.all()
+    cafeteria_item_qs = CafeteriaItem.objects.defer('image_data')
     cafeteria_operating_expense_qs = CafeteriaOperatingExpense.objects.all()
     if not all_branches:
         employee_qs = employee_qs.filter(branch=active_branch)
@@ -4035,7 +4041,10 @@ def reports_home_v2(request):
             'variable': 'قيمة متغيرة',
             'revenue_share': 'نسبة مشاركة',
         }
-        academy_choices = Academy.objects.select_related('branch').all()
+        academy_choices = Academy.objects.select_related('branch').defer(
+            'logo_data', 'website_image_data', 'manager_photo_data',
+            'branch__logo_data', 'branch__image_data',
+        )
         if not all_branches:
             academy_choices = academy_choices.filter(branch=active_branch)
         context['academy_choices'] = academy_choices
@@ -4127,13 +4136,13 @@ def reports_home_v2(request):
                 series['daily_booking'][index] += int(row['total_amount'] or 0)
         for sale in CafeteriaSale.objects.filter(
             sale_date__range=(analysis_start, analysis_end), item__in=cafeteria_item_qs
-        ).select_related('item'):
+        ).select_related('item').defer('item__image_data'):
             index = month_indexes.get((sale.sale_date.year, sale.sale_date.month))
             if index is not None:
                 series['cafeteria_income'][index] += int(sale.total_amount or 0)
         for purchase in CafeteriaPurchase.objects.filter(
             purchase_date__range=(analysis_start, analysis_end), item__in=cafeteria_item_qs
-        ).select_related('item'):
+        ).select_related('item').defer('item__image_data'):
             index = month_indexes.get((purchase.purchase_date.year, purchase.purchase_date.month))
             if index is not None:
                 series['cafeteria_expenses'][index] += int(purchase.total_amount or 0)
@@ -4215,7 +4224,7 @@ def reports_home_v2(request):
                 cafeteria_sales = CafeteriaSale.objects.filter(
                     sale_date__range=(analysis_month_start, effective_month_end),
                     item__in=cafeteria_item_qs,
-                ).select_related('item')
+                ).select_related('item').defer('item__image_data')
             for sale in cafeteria_sales:
                 cafeteria_by_date[sale.sale_date] += int(sale.total_amount or 0)
             if eligible_dates:
@@ -4316,6 +4325,10 @@ def reports_home_v2(request):
         if range_mode == 'custom':
             payment_qs = AcademyMonthlyRentPayment.objects.select_related(
                 'academy', 'academy__branch',
+            ).defer(
+                'academy__logo_data', 'academy__website_image_data',
+                'academy__manager_photo_data', 'academy__branch__logo_data',
+                'academy__branch__image_data',
             ).filter(
                 supplied_amount__gt=0,
                 supplied_date__range=(start, end),
@@ -4368,7 +4381,7 @@ def reports_home_v2(request):
         cafeteria_income_by_date = {}
         for sale in CafeteriaSale.objects.filter(
             sale_date__range=(start, end), item__in=cafeteria_item_qs
-        ).select_related('item'):
+        ).select_related('item').defer('item__image_data'):
             cafeteria_income_by_date[sale.sale_date] = cafeteria_income_by_date.get(sale.sale_date, 0) + sale.total_amount
         cafeteria_income_rows = [
             {'date': sale_date, 'day_name': WEEKDAY_AR[sale_date.weekday()], 'amount': amount}
@@ -4387,7 +4400,7 @@ def reports_home_v2(request):
             })
         cafeteria_purchase_details = list(CafeteriaPurchase.objects.filter(
             purchase_date__range=(start, end), item__in=cafeteria_item_qs
-        ).select_related('item'))
+        ).select_related('item').defer('item__image_data'))
         cafeteria_operating_expense_details = list(
             cafeteria_operating_expense_qs.filter(
                 expense_date__range=(start, end)
@@ -4446,10 +4459,10 @@ def reports_home_v2(request):
     elif report_type == 'cafeteria':
         purchases = list(CafeteriaPurchase.objects.filter(
             purchase_date__range=(start, end), item__in=cafeteria_item_qs
-        ).select_related('item'))
+        ).select_related('item').defer('item__image_data'))
         sales = list(CafeteriaSale.objects.filter(
             sale_date__range=(start, end), item__in=cafeteria_item_qs
-        ).select_related('item'))
+        ).select_related('item').defer('item__image_data'))
         stock_purchase_total = sum(row.total_amount for row in purchases)
         cafeteria_operating_expenses = list(cafeteria_operating_expense_qs.filter(
             expense_date__range=(start, end)
@@ -4474,7 +4487,7 @@ def reports_home_v2(request):
             revenue_by_item[sale.item_id] = revenue_by_item.get(sale.item_id, 0) + sale.total_amount
             profit_by_item[sale.item_id] = profit_by_item.get(sale.item_id, 0) + sale.estimated_profit
         cafeteria_rows = []
-        for item in cafeteria_item_qs.select_related('category'):
+        for item in cafeteria_item_qs.select_related('category').defer('category__image_data'):
             revenue = revenue_by_item.get(item.id, 0)
             profit = profit_by_item.get(item.id, 0)
             cafeteria_rows.append({
@@ -4489,7 +4502,12 @@ def reports_home_v2(request):
         hospitality_qs = CafeteriaHospitality.objects.filter(
             hospitality_date__range=(start, end)
         ).select_related('board_member', 'created_by').prefetch_related(
-            'items__item'
+            Prefetch(
+                'items',
+                queryset=CafeteriaHospitalityItem.objects.select_related('item').defer(
+                    'item__image_data',
+                ),
+            )
         ).order_by('board_member__name', 'hospitality_date', 'id')
         hospitality_groups = {}
         hospitality_total = 0
