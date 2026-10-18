@@ -24,10 +24,8 @@
         <thead>
           <tr>
             <th scope="col">م</th>
-            <th scope="col">الكود</th>
             <th scope="col">اسم الصنف</th>
             <th scope="col">Item name</th>
-            <th scope="col">النوع</th>
             <th scope="col">السعر</th>
           </tr>
         </thead>
@@ -35,15 +33,13 @@
           {% for item in items %}
           <tr>
             <td data-label="م">{{ forloop.counter }}</td>
-            <td data-label="الكود"><span class="item-code">{{ item.code }}</span></td>
             <td data-label="اسم الصنف"><strong>{{ item.name }}</strong></td>
             <td data-label="Item name" lang="en" dir="ltr">{{ item.name_en|default:"—" }}</td>
-            <td data-label="النوع">{{ item.get_item_type_display }}</td>
             <td data-label="السعر"><span class="item-price">{{ item.sale_price }} جنيه</span></td>
           </tr>
           {% empty %}
           <tr class="category-menu-empty">
-            <td colspan="6">لا توجد أصناف متاحة داخل هذه الفئة حالياً.</td>
+            <td colspan="4">لا توجد أصناف متاحة داخل هذه الفئة حالياً.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -66,19 +62,18 @@
 .category-menu-card__header h3{margin:0 0 5px;font-size:24px;font-weight:900}.category-menu-card__header p{margin:0;color:#64748b}
 .category-items-count{flex:0 0 auto;padding:9px 16px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-weight:900}
 .category-menu-table-wrap{overflow-x:auto}
-.category-menu-table{width:100%;border-collapse:separate;border-spacing:0;text-align:right}
-.category-menu-table th{padding:16px 18px;background:#0f4c81;color:#fff;font-weight:900;white-space:nowrap}
-.category-menu-table td{padding:17px 18px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+.category-menu-table{width:100%;border-collapse:separate;border-spacing:0;text-align:center}
+.category-menu-table th{padding:16px 18px;background:#0f4c81;color:#fff;font-weight:900;white-space:nowrap;text-align:center;vertical-align:middle}
+.category-menu-table td{padding:17px 18px;border-bottom:1px solid #e2e8f0;vertical-align:middle;text-align:center}
 .category-menu-table tbody tr:nth-child(even){background:#f8fbff}.category-menu-table tbody tr:hover{background:#eef7ff}
 .category-menu-table tbody tr:last-child td{border-bottom:0}
-.item-code{display:inline-grid;min-width:48px;place-items:center;padding:6px 10px;border-radius:9px;background:#e0f2fe;color:#075985;font-weight:900}
 .item-price{display:inline-block;min-width:105px;padding:8px 13px;border-radius:999px;background:#dcfce7;color:#166534;text-align:center;font-weight:900;white-space:nowrap}
 .category-menu-empty td{padding:45px!important;text-align:center;color:#64748b;background:#fff}
 @media(max-width:768px){
   .category-menu-topbar{min-height:210px;padding:74px 18px 24px}.category-menu-back{top:16px;left:16px}.category-menu-card__header{padding:18px;align-items:flex-start}.category-menu-card__header h3{font-size:21px}
   .category-menu-table,.category-menu-table tbody,.category-menu-table tr,.category-menu-table td{display:block;width:100%}.category-menu-table thead{display:none}
   .category-menu-table tbody{padding:12px}.category-menu-table tr{margin-bottom:12px;padding:6px 14px;border:1px solid #dbeafe;border-radius:16px;background:#fff!important;box-shadow:0 7px 18px rgba(15,23,42,.06)}
-  .category-menu-table td{min-height:48px;padding:12px 0;border-bottom:1px dashed #dbeafe;display:flex;align-items:center;justify-content:space-between;gap:18px;text-align:left}
+  .category-menu-table td{min-height:48px;padding:12px 0;border-bottom:1px dashed #dbeafe;display:flex;align-items:center;justify-content:center;gap:18px;text-align:center}
   .category-menu-table td::before{content:attr(data-label);color:#475569;font-weight:900;text-align:right}.category-menu-table td:last-child{border-bottom:0}.category-menu-table td[lang="en"]{justify-content:space-between}
   .category-menu-empty{padding:0!important;border:0!important;box-shadow:none!important}.category-menu-empty td{display:block;padding:30px 12px!important}.category-menu-empty td::before{display:none}
 }

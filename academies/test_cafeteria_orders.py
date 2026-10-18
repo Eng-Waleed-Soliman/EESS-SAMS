@@ -80,6 +80,10 @@ class CafeteriaOrdersPageTests(TestCase):
         self.assertContains(response, item.name_en)
         self.assertContains(response, '15 جنيه')
         self.assertNotContains(response, 'صنف غير نشط')
+        self.assertNotContains(response, '<th scope="col">الكود</th>', html=True)
+        self.assertNotContains(response, '<th scope="col">النوع</th>', html=True)
+        self.assertNotContains(response, item.get_item_type_display())
+        self.assertContains(response, 'text-align:center')
         self.assertContains(response, '@media(max-width:768px)')
 
     def test_unknown_category_returns_404(self):
