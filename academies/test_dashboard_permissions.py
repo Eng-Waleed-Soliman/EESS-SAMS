@@ -1,5 +1,7 @@
 from django.contrib.auth.models import User
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from .forms import EESSPermissionForm
 from .models import Branch, UserPermission
@@ -17,6 +19,26 @@ class DashboardPermissionTests(TestCase):
         response = self.client.get(reverse('dashboard'))
         self.assertTemplateUsed(response, 'academies/dashboard.html')
         self.assertContains(response, 'href="/dashboard/"')
+
+    def test_dashboard_queries_never_load_academy_or_branch_image_blobs(self):
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        academy_queries = [
+            query['sql'] for query in queries.captured_queries
+            if 'academies_academy' in query['sql'].lower()
+        ]
+        self.assertTrue(academy_queries)
+        combined_sql = '\n'.join(academy_queries).lower()
+        for binary_column in (
+            '"academies_academy"."logo_data"',
+            '"academies_academy"."website_image_data"',
+            '"academies_academy"."manager_photo_data"',
+            '"academies_branch"."logo_data"',
+            '"academies_branch"."image_data"',
+        ):
+            self.assertNotIn(binary_column, combined_sql)
         self.user.is_staff = False
         self.user.is_superuser = True
         self.user.save(update_fields=['is_staff', 'is_superuser'])

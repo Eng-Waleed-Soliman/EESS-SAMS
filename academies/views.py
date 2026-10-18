@@ -869,7 +869,13 @@ def dashboard(request):
         return render(request, 'academies/access_landing.html')
     branch, all_branches = selected_branch(request)
     training_year = _selected_training_year(request)
-    academies = Academy.objects.select_related('branch')
+    academies = Academy.objects.select_related('branch').defer(
+        'logo_data',
+        'website_image_data',
+        'manager_photo_data',
+        'branch__logo_data',
+        'branch__image_data',
+    )
     if not all_branches:
         academies = academies.filter(branch=branch)
     training_start, training_end = _training_year_bounds(training_year)
