@@ -4,7 +4,7 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
     healthCheckPath: /health/
-    # Preload lets replacement workers fork from the already-loaded Django app.
-    # This avoids the 10-15 second 502 window previously caused by recycling the
-    # only worker every 200 requests, while one worker keeps memory within plan.
-    startCommand: python manage.py migrate --noinput && gunicorn sams_project.wsgi:application --preload --workers 1 --threads 2 --timeout 120 --graceful-timeout 30 --keep-alive 5 --max-requests 1000 --max-requests-jitter 100 --worker-tmp-dir /dev/shm --access-logfile - --error-logfile -
+    # Keep two lightweight preloaded workers so a slow report or worker restart
+    # cannot take the whole service offline. Preload shares Django's baseline
+    # memory between the forked workers and keeps replacement startup fast.
+    startCommand: python manage.py migrate --noinput && gunicorn sams_project.wsgi:application --preload --workers 2 --threads 2 --timeout 120 --graceful-timeout 30 --keep-alive 5 --max-requests 1000 --max-requests-jitter 100 --worker-tmp-dir /dev/shm --access-logfile - --error-logfile -
