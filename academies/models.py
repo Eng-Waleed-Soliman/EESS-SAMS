@@ -1551,7 +1551,7 @@ class CafeteriaRecipeComponent(models.Model):
 
 
 class CafeteriaPurchase(models.Model):
-    item = models.ForeignKey(CafeteriaItem, on_delete=models.CASCADE, related_name='purchases', verbose_name='الصنف')
+    item = models.ForeignKey(CafeteriaItem, on_delete=models.PROTECT, related_name='purchases', verbose_name='الصنف')
     purchase_date = models.DateField(verbose_name='تاريخ الشراء')
     quantity = models.PositiveIntegerField(default=1, verbose_name='الكمية')
     unit_price = models.PositiveIntegerField(default=0, verbose_name='سعر شراء الوحدة')
@@ -1587,7 +1587,7 @@ class CafeteriaAddon(models.Model):
 
 
 class CafeteriaSale(models.Model):
-    item = models.ForeignKey(CafeteriaItem, on_delete=models.CASCADE, related_name='sales', verbose_name='الصنف')
+    item = models.ForeignKey(CafeteriaItem, on_delete=models.PROTECT, related_name='sales', verbose_name='الصنف')
     sale_date = models.DateField(verbose_name='تاريخ البيع')
     quantity = models.PositiveIntegerField(default=1, verbose_name='الكمية')
     unit_price = models.PositiveIntegerField(default=0, verbose_name='سعر بيع الوحدة')

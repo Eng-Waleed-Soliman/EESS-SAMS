@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.contrib.auth.models import User
+from django.db.models.deletion import ProtectedError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -85,6 +86,11 @@ class CafeteriaItemDeleteTests(TestCase):
         self.assertFalse(item.is_active)
         self.assertTrue(CafeteriaPurchase.objects.filter(pk=purchase.pk).exists())
 
+        purchase_report = self.client.get(reverse('cafe_purchase_list'))
+        self.assertContains(purchase_report, item.name)
+        self.assertContains(purchase_report, '21')
+        self.assertEqual(purchase_report.context['grand_total'], 21)
+
     def test_archived_item_is_hidden_from_new_actions_but_sale_report_is_preserved(self):
         item = self.create_item(9805, 'صنف له مبيعات محفوظة')
         sale = CafeteriaSale.objects.create(
@@ -113,3 +119,25 @@ class CafeteriaItemDeleteTests(TestCase):
         )
         self.assertContains(report_response, item.name)
         self.assertEqual(report_response.context['total_amount'], 20)
+
+    def test_database_level_delete_cannot_cascade_historical_movements(self):
+        item = self.create_item(9806, 'صنف محمي في قاعدة البيانات')
+        purchase = CafeteriaPurchase.objects.create(
+            item=item,
+            purchase_date=date.today(),
+            quantity=4,
+            unit_price=6,
+        )
+        sale = CafeteriaSale.objects.create(
+            item=item,
+            sale_date=date.today(),
+            quantity=2,
+            unit_price=10,
+        )
+
+        with self.assertRaises(ProtectedError):
+            CafeteriaItem.objects.filter(pk=item.pk).delete()
+
+        self.assertTrue(CafeteriaItem.objects.filter(pk=item.pk).exists())
+        self.assertTrue(CafeteriaPurchase.objects.filter(pk=purchase.pk).exists())
+        self.assertTrue(CafeteriaSale.objects.filter(pk=sale.pk).exists())

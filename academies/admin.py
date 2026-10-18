@@ -164,8 +164,17 @@ class CafeteriaCategoryAdmin(admin.ModelAdmin):
 class CafeteriaItemAdmin(admin.ModelAdmin):
     list_display = ('code', 'name', 'name_en', 'category', 'purchase_price', 'sale_price', 'staff_sale_price', 'stock_quantity', 'is_low_stock')
     search_fields = ('name', 'name_en', 'category__name', 'category__name_en')
-    list_filter = ('category',)
+    list_filter = ('category', 'is_active')
     ordering = ('category__code', 'code', 'name')
+    actions = ('archive_items',)
+
+    @admin.action(description='أرشفة الأصناف المحددة مع الاحتفاظ بحركاتها')
+    def archive_items(self, request, queryset):
+        archived_count = queryset.update(is_active=False)
+        self.message_user(request, f'تمت أرشفة {archived_count} صنف مع الاحتفاظ بجميع الحركات السابقة.')
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(CafeteriaPurchase)
