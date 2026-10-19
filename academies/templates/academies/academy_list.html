@@ -56,6 +56,7 @@
 .academy-row-menu summary{list-style:none;width:58px;height:42px;border:1px solid #7dd3fc;border-radius:11px;background:#e0f7ff;color:#075985;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:21px;box-shadow:0 5px 14px rgba(14,116,144,.12);transition:.15s}
 .academy-row-menu summary::-webkit-details-marker{display:none}.academy-row-menu summary:hover,.academy-row-menu[open] summary{background:#2563eb;border-color:#2563eb;color:#fff;transform:translateY(-1px)}
 .academy-row-dropdown{position:absolute;top:49px;left:50%;transform:translateX(-50%);width:205px;padding:9px;border:1px solid #bae6fd;border-radius:13px;background:#fff;box-shadow:0 16px 38px rgba(15,23,42,.2);display:grid;gap:7px;text-align:center;z-index:40}
+.academy-row-menu.drop-up .academy-row-dropdown{top:auto;bottom:49px}
 .academy-row-dropdown a{min-height:39px;padding:8px 11px;border:1px solid #7dd3fc;border-radius:9px;background:#e0f7ff;color:#0f172a;text-decoration:none;font-weight:800;display:flex;align-items:center;justify-content:center}.academy-row-dropdown a:hover{background:#2563eb;border-color:#2563eb;color:#fff}.academy-row-dropdown .academy-delete-action{border-color:#fecaca;background:#fff1f2;color:#991b1b}.academy-row-dropdown .academy-delete-action:hover{background:#dc2626;border-color:#dc2626;color:#fff}
 .academy-scrollbar{width:100%;overflow-x:scroll;overflow-y:hidden;height:18px;margin-bottom:8px;direction:ltr;scrollbar-color:#4daee8 #e7f1f8;scrollbar-width:auto}
 .academy-scrollbar>div{width:1420px;height:1px}
@@ -78,9 +79,23 @@
   syncWidth();
   window.addEventListener('resize', syncWidth);
   const actionMenus = Array.from(document.querySelectorAll('.academy-row-menu'));
+  const placeAcademyMenu = (menu) => {
+    menu.classList.remove('drop-up');
+    const dropdown = menu.querySelector('.academy-row-dropdown');
+    if(!dropdown) return;
+    const tableBounds = table.getBoundingClientRect();
+    const availableBottom = Math.min(window.innerHeight, tableBounds.bottom);
+    if(dropdown.getBoundingClientRect().bottom > availableBottom){ menu.classList.add('drop-up'); }
+  };
   actionMenus.forEach((menu) => menu.addEventListener('toggle', () => {
-    if(menu.open){ actionMenus.forEach((other) => { if(other !== menu) other.removeAttribute('open'); }); }
+    if(menu.open){
+      actionMenus.forEach((other) => { if(other !== menu) other.removeAttribute('open'); });
+      window.requestAnimationFrame(() => placeAcademyMenu(menu));
+    }else{
+      menu.classList.remove('drop-up');
+    }
   }));
+  window.addEventListener('resize', () => actionMenus.filter((menu) => menu.open).forEach(placeAcademyMenu));
   document.addEventListener('click', (event) => {
     actionMenus.forEach((menu) => { if(!menu.contains(event.target)) menu.removeAttribute('open'); });
   });

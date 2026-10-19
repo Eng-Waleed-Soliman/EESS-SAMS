@@ -40,3 +40,6 @@ class AcademyActionMenusTests(TestCase):
         self.assertContains(response, reverse('academy_update', args=[self.academy.pk]))
         self.assertContains(response, reverse('academy_delete', args=[self.academy.pk]))
         self.assertContains(response, "document.querySelectorAll('.academy-row-menu')")
+        self.assertContains(response, '.academy-row-menu.drop-up .academy-row-dropdown')
+        self.assertContains(response, 'const placeAcademyMenu = (menu) =>')
+        self.assertContains(response, "menu.classList.add('drop-up')")
