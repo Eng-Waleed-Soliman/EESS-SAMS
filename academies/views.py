@@ -52,6 +52,7 @@ def persistent_media(request, model_name, pk, field_name):
         'member': (AcademyMember, {'photo'}),
         'shareholder': (Shareholder, {'photo'}),
         'cafeteria_category': (CafeteriaCategory, {'image'}),
+        'cafeteria_item': (CafeteriaItem, {'image'}),
     }
     model_config = allowed.get(model_name)
     if not model_config or field_name not in model_config[1]:
@@ -2374,7 +2375,9 @@ def cafe_orders(request):
     )
     categories_by_code = {
         category.code: category
-        for category in CafeteriaCategory.objects.filter(code__in=[100, 200, 400, 500])
+        for category in CafeteriaCategory.objects.filter(
+            code__in=[100, 200, 400, 500]
+        ).defer('image_data')
     }
     cards = []
     for title, image, code in card_specs:
@@ -2382,7 +2385,12 @@ def cafe_orders(request):
         category_url = reverse('cafe_orders')
         if category is not None:
             category_url = reverse('cafe_order_category', args=[category.pk])
-        cards.append({'title': title, 'image': image, 'url': category_url})
+        cards.append({
+            'title': title,
+            'image': image,
+            'url': category_url,
+            'category': category,
+        })
     return render(request, 'academies/cafe_orders.html', {'cards': cards})
 
 

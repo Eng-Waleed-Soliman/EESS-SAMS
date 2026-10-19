@@ -1,7 +1,7 @@
 {% extends 'academies/base.html' %}
 {% block content %}
 <h3 class="mb-3">{{ title }}</h3>
-<form method="post" class="card p-4" id="itemForm">
+<form method="post" enctype="multipart/form-data" class="card p-4" id="itemForm">
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
   <div class="row g-3">

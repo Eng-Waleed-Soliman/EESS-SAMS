@@ -21,7 +21,11 @@
     <div class="orders-grid">
       {% for card in cards %}
       <a class="order-category-card" href="{{ card.url }}" aria-label="{{ card.title }}">
+        {% if card.category.image_name %}
+        <img src="{% url 'persistent_media' 'cafeteria_category' card.category.pk 'image' %}" alt="{{ card.title }}" loading="lazy">
+        {% else %}
         <img src="{% static card.image %}" alt="{{ card.title }}" loading="lazy">
+        {% endif %}
         <span>{{ card.title }}</span>
       </a>
       {% endfor %}
@@ -52,6 +56,6 @@
 .order-category-card span{display:block;padding:9px 12px;text-align:center;font-size:18px;font-weight:900;background:linear-gradient(90deg,#eff6ff,#e0f2fe)}
 @media(max-width:992px){.orders-grid{grid-template-columns:repeat(2,minmax(0,280px))}}
 @media(max-width:768px){.orders-topbar{align-items:flex-start}.orders-brand{grid-template-columns:1fr;grid-template-areas:"main" "cafe" "icons" "tagline";row-gap:8px;padding-inline:16px}.orders-brand-main{text-align:center}.orders-brand-cafe{border-right:0;padding-right:0;text-align:center}.orders-categories{padding:14px}}
-@media(max-width:576px){.orders-topbar{flex-direction:column-reverse}.orders-back{align-self:flex-start}.orders-brand{min-height:145px;margin-bottom:20px}.orders-brand-main{font-size:44px}.orders-brand-icons{gap:8px;font-size:19px}.orders-brand-icons span{width:30px;height:30px}.orders-brand-tagline{font-size:11px;letter-spacing:3px}.orders-grid{grid-template-columns:minmax(0,340px);gap:14px}.order-category-card span{font-size:17px;padding:8px 10px}}
+@media(max-width:576px){.orders-topbar{flex-direction:column-reverse}.orders-back{align-self:flex-start}.orders-brand{min-height:145px;margin-bottom:20px}.orders-brand-main{font-size:44px}.orders-brand-icons{gap:8px;font-size:19px}.orders-brand-icons span{width:30px;height:30px}.orders-brand-tagline{font-size:11px;letter-spacing:3px}.orders-categories{padding:10px}.orders-categories h4{margin-bottom:14px}.orders-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.order-category-card{border-radius:10px;border-width:1px}.order-category-card span{font-size:13px;line-height:1.25;min-height:49px;padding:6px 4px;display:flex;align-items:center;justify-content:center}}
 </style>
 {% endblock %}
