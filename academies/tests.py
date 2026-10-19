@@ -123,8 +123,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(accounts_page, 'class="accounts-actions-menu"')
         self.assertContains(accounts_page, 'class="accounts-actions-toggle"')
         self.assertContains(accounts_page, 'const minimumAccountsMenuVisibilityMs = 1000')
-        self.assertContains(accounts_page, "accountsActionsMenu.addEventListener('mouseenter'")
-        self.assertContains(accounts_page, "accountsActionsMenu.addEventListener('mouseleave'")
+        self.assertContains(accounts_page, "actionsMenu.addEventListener('mouseenter'")
+        self.assertContains(accounts_page, "actionsMenu.addEventListener('mouseleave'")
         self.assertNotContains(accounts_page, 'أمر صرف مبلغ مالي')
         self.assertNotContains(accounts_page, 'المصروفات العامة')
         self.assertNotContains(accounts_page, 'onclick="printAccounts(true)"')
@@ -2845,7 +2845,7 @@ class ApplicationFlowsTests(TestCase):
         normal = self.client.get(reverse('accounts_home'))
         self.assertEqual(normal.context['signature_title'], 'مدير التشغيل')
 
-    def test_accounts_payroll_selection_and_a5_employee_receipt(self):
+    def test_accounts_payroll_actions_menu_and_a5_employee_receipt(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_accounts = True
         profile.save()
@@ -2857,10 +2857,17 @@ class ApplicationFlowsTests(TestCase):
 
         response = self.client.get(reverse('accounts_home'), {'month': '2026-08'})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'payroll-employee-checkbox')
-        self.assertContains(response, 'تحديد كل الموظفين')
-        self.assertContains(response, 'تصدير PDF للمحدد')
-        self.assertContains(response, 'exportSelectedPayroll()')
+        self.assertContains(response, 'class="payroll-actions-menu no-print"')
+        self.assertContains(response, 'class="payroll-actions-toggle"')
+        self.assertContains(response, 'class="payroll-actions-dropdown"')
+        self.assertContains(response, 'المكافآت')
+        self.assertContains(response, 'الخصومات')
+        self.assertContains(response, 'السلف')
+        self.assertNotContains(response, 'payroll-employee-checkbox')
+        self.assertNotContains(response, 'تحديد كل الموظفين')
+        self.assertNotContains(response, 'تصدير PDF للمحدد')
+        self.assertNotContains(response, 'exportSelectedPayroll')
+        self.assertContains(response, "document.querySelectorAll('.accounts-actions-menu, .payroll-actions-menu')")
         receipt_url = reverse('payroll_receipt', args=[employee.pk])
         self.assertContains(response, receipt_url)
         self.assertContains(response, 'data-receipt-url=')

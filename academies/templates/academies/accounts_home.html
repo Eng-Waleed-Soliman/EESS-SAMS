@@ -78,15 +78,18 @@
       <h4 class="mb-1">المرتبات والبونص</h4>
       <small class="text-muted no-print">دبل كليك على صف الموظف لفتح إقرار استلام المرتب.</small>
     </div>
-    <div class="d-flex gap-2 flex-wrap no-print">
-      {% if can_manage_vouchers %}
-      <a class="btn btn-success" href="{% url 'payroll_adjustments' 'reward' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">المكافآت</a>
-      <a class="btn btn-warning" href="{% url 'payroll_adjustments' 'deduction' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">الخصومات</a>
-      <a class="btn btn-info" href="{% url 'payroll_adjustments' 'advance' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">السلف</a>
-      {% endif %}
-      <button type="button" class="btn btn-outline-primary" id="selectAllPayrollEmployees" onclick="toggleAllPayrollEmployees()">تحديد كل الموظفين</button>
-      <button type="button" class="btn btn-danger" onclick="exportSelectedPayroll()">تصدير PDF للمحدد</button>
-    </div>
+    {% if can_manage_vouchers %}
+    <details class="payroll-actions-menu no-print">
+      <summary class="payroll-actions-toggle" aria-label="فتح قائمة إجراءات المرتبات" title="إجراءات المرتبات">
+        <span></span><span></span><span></span>
+      </summary>
+      <div class="payroll-actions-dropdown">
+        <a class="btn" href="{% url 'payroll_adjustments' 'reward' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">المكافآت</a>
+        <a class="btn" href="{% url 'payroll_adjustments' 'deduction' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">الخصومات</a>
+        <a class="btn" href="{% url 'payroll_adjustments' 'advance' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">السلف</a>
+      </div>
+    </details>
+    {% endif %}
   </div>
   <p class="text-muted no-print">صافي المرتب = الأساسي + البونص + المكافآت − الخصومات − السلف.</p>
   <div class="table-responsive payroll-table-wrap"><table class="table table-striped text-center payroll-table">
@@ -94,12 +97,7 @@
     <tbody>
       {% for row in summary.payroll_rows %}
       <tr class="payroll-row" data-receipt-url="{% url 'payroll_receipt' row.employee.pk %}?month={{ month_value }}{% if active_branch_is_all %}&amp;branch_id=all{% elif active_branch %}&amp;branch_id={{ active_branch.pk }}{% endif %}" title="دبل كليك لفتح إقرار استلام المرتب">
-        <td>
-          <label class="d-inline-flex align-items-center gap-2">
-            <input type="checkbox" class="form-check-input payroll-employee-checkbox no-print" value="{{ row.employee.pk }}" aria-label="اختيار {{ row.employee.name }}">
-            <span>{{ row.employee.name }}</span>
-          </label>
-        </td>
+        <td>{{ row.employee.name }}</td>
         <td>{{ row.employee.job_title }}</td>
         <td>{{ row.salary }}</td>
         <td>{{ row.bonus }}</td>
@@ -136,8 +134,15 @@
 .accounts-signature .signature-title,.accounts-signature .signature-name{display:block;width:100%;font-weight:800;text-align:center;white-space:nowrap}
 .accounts-signature .signature-name{margin-top:5px}
 .accounts-signature .signature-placeholder{margin-top:12px}
+.payroll-section-heading{position:relative;min-height:52px}
+.payroll-actions-menu{position:relative;z-index:70}.payroll-actions-menu summary{list-style:none}.payroll-actions-menu summary::-webkit-details-marker{display:none}
+.payroll-actions-toggle{width:56px;height:48px;padding:11px 13px;border:1px solid #7dd3fc;border-radius:12px;background:#e0f7ff;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;cursor:pointer;box-shadow:0 6px 18px rgba(14,116,144,.14)}
+.payroll-actions-toggle span{display:block;height:4px;border-radius:4px;background:#0369a1}.payroll-actions-menu[open] .payroll-actions-toggle{background:#2563eb;border-color:#2563eb}.payroll-actions-menu[open] .payroll-actions-toggle span{background:#fff}
+.payroll-actions-dropdown{position:absolute;top:58px;left:0;width:220px;padding:12px;border:1px solid #bae6fd;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.22);display:grid;gap:8px;z-index:90}
+.payroll-actions-dropdown .btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #7dd3fc;background:#e0f7ff;color:#0f172a;font-weight:800}.payroll-actions-dropdown .btn:hover{background:#2563eb;border-color:#2563eb;color:#fff}
 .payroll-row{cursor:pointer}
 .payroll-row:hover{--bs-table-accent-bg:#e0f2fe}
+@media(max-width:576px){.payroll-actions-dropdown{width:min(220px,78vw)}}
 @media print{
   @page{size:A4 portrait;margin:10mm}
   .sidebar,.no-print,body>nav{display:none!important}
@@ -152,13 +157,9 @@
   .accounts-print-content .row .card{text-align:center}
   .accounts-print-footer{display:flex!important;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:25px;min-height:105px;font-size:12px}
   .accounts-signature{direction:rtl}
-  body.payroll-export-mode .accounts-summary-cards,body.payroll-export-mode .profit-distribution-card{display:none!important}
-  body.payroll-export-mode .payroll-row:not(.payroll-print-selected){display:none!important}
-  body.payroll-export-mode .payroll-card{border:0!important;box-shadow:none!important}
   .payroll-table-wrap{overflow:visible!important}
   .payroll-table{width:100%!important;min-width:0!important;font-size:11px}
   .payroll-table th,.payroll-table td{padding:5px!important;white-space:normal!important}
-  body.payroll-export-mode .payroll-section-heading{justify-content:center!important;text-align:center}
 }
 </style>
 <script>
@@ -171,50 +172,12 @@ function updateAccountsSignature(){
   document.getElementById('accountsSignatureTitle').textContent=title;
   document.getElementById('accountsSignatureName').textContent=names[0]||'-';
 }
-function payrollCheckboxes(){return Array.from(document.querySelectorAll('.payroll-employee-checkbox'));}
-function toggleAllPayrollEmployees(){
-  const boxes=payrollCheckboxes();
-  const shouldCheck=boxes.some(function(box){return !box.checked;});
-  boxes.forEach(function(box){box.checked=shouldCheck;});
-  const button=document.getElementById('selectAllPayrollEmployees');
-  if(button){button.textContent=shouldCheck?'إلغاء تحديد الكل':'تحديد كل الموظفين';}
-}
-function resetPayrollExport(){
-  document.body.classList.remove('payroll-export-mode');
-  document.querySelectorAll('.payroll-row').forEach(function(row){row.classList.remove('payroll-print-selected');});
-}
-function exportSelectedPayroll(){
-  const selected=payrollCheckboxes().filter(function(box){return box.checked;});
-  if(!selected.length){window.alert('اختر موظفاً واحداً على الأقل للتصدير.');return;}
-  const selectedIds=new Set(selected.map(function(box){return box.value;}));
-  document.querySelectorAll('.payroll-row').forEach(function(row){
-    const checkbox=row.querySelector('.payroll-employee-checkbox');
-    row.classList.toggle('payroll-print-selected',!!checkbox&&selectedIds.has(checkbox.value));
-  });
-  document.body.classList.add('payroll-export-mode');
-  const printTitle=document.getElementById('accountsPrintTitle');
-  const printSubtitle=document.getElementById('accountsPrintSubtitle');
-  const oldHeading=printTitle?printTitle.textContent:'';
-  const oldSubtitle=printSubtitle?printSubtitle.textContent:'';
-  const oldDocumentTitle=document.title;
-  if(printTitle){printTitle.textContent='تقرير المرتبات والبونص';}
-  if(printSubtitle){printSubtitle.textContent='عن شهر {{ month_value|escapejs }}';}
-  document.title='تقرير المرتبات والبونص - {{ month_value|escapejs }}';
-  window.print();
-  window.setTimeout(function(){
-    resetPayrollExport();
-    if(printTitle){printTitle.textContent=oldHeading;}
-    if(printSubtitle){printSubtitle.textContent=oldSubtitle;}
-    document.title=oldDocumentTitle;
-  },500);
-}
 document.querySelectorAll('.payroll-row').forEach(function(row){
   row.addEventListener('dblclick',function(event){
     if(event.target.closest('input,button,a')) return;
     if(row.dataset.receiptUrl){window.open(row.dataset.receiptUrl,'_blank');}
   });
 });
-window.addEventListener('afterprint',resetPayrollExport);
 function printAccounts(asPdf){
   updateAccountsSignature();
   const oldTitle=document.title;
@@ -225,40 +188,39 @@ function printAccounts(asPdf){
 </script>
 {% endif %}
 <script>
-const accountsActionsMenu = document.querySelector('.accounts-actions-menu');
-if(accountsActionsMenu){
-  const accountsActionsToggle = accountsActionsMenu.querySelector('.accounts-actions-toggle');
+document.querySelectorAll('.accounts-actions-menu, .payroll-actions-menu').forEach(function(actionsMenu){
+  const actionsToggle = actionsMenu.querySelector('summary');
   const minimumAccountsMenuVisibilityMs = 1000;
-  let accountsActionsOpenedAt = 0;
-  let accountsActionsCloseTimer = null;
-  const cancelAccountsActionsClose = function(){
-    if(accountsActionsCloseTimer){ window.clearTimeout(accountsActionsCloseTimer); accountsActionsCloseTimer = null; }
+  let actionsOpenedAt = 0;
+  let actionsCloseTimer = null;
+  const cancelActionsClose = function(){
+    if(actionsCloseTimer){ window.clearTimeout(actionsCloseTimer); actionsCloseTimer = null; }
   };
-  const closeAccountsActionsMenu = function(){
-    cancelAccountsActionsClose();
-    accountsActionsMenu.removeAttribute('open');
-    accountsActionsToggle.setAttribute('aria-expanded', 'false');
+  const closeActionsMenu = function(){
+    cancelActionsClose();
+    actionsMenu.removeAttribute('open');
+    actionsToggle.setAttribute('aria-expanded', 'false');
   };
-  const closeAccountsActionsMenuAfterMinimumTime = function(){
-    cancelAccountsActionsClose();
-    const elapsed = Date.now() - accountsActionsOpenedAt;
-    accountsActionsCloseTimer = window.setTimeout(closeAccountsActionsMenu, Math.max(0, minimumAccountsMenuVisibilityMs - elapsed));
+  const closeActionsMenuAfterMinimumTime = function(){
+    cancelActionsClose();
+    const elapsed = Date.now() - actionsOpenedAt;
+    actionsCloseTimer = window.setTimeout(closeActionsMenu, Math.max(0, minimumAccountsMenuVisibilityMs - elapsed));
   };
-  accountsActionsToggle.setAttribute('aria-expanded', 'false');
-  accountsActionsToggle.addEventListener('click', function(){
+  actionsToggle.setAttribute('aria-expanded', 'false');
+  actionsToggle.addEventListener('click', function(){
     window.setTimeout(function(){
-      if(accountsActionsMenu.open){ accountsActionsOpenedAt = Date.now(); cancelAccountsActionsClose(); }
-      accountsActionsToggle.setAttribute('aria-expanded', accountsActionsMenu.open ? 'true' : 'false');
+      if(actionsMenu.open){ actionsOpenedAt = Date.now(); cancelActionsClose(); }
+      actionsToggle.setAttribute('aria-expanded', actionsMenu.open ? 'true' : 'false');
     }, 0);
   });
-  accountsActionsMenu.addEventListener('mouseenter', cancelAccountsActionsClose);
-  accountsActionsMenu.addEventListener('mouseleave', closeAccountsActionsMenuAfterMinimumTime);
+  actionsMenu.addEventListener('mouseenter', cancelActionsClose);
+  actionsMenu.addEventListener('mouseleave', closeActionsMenuAfterMinimumTime);
   document.addEventListener('click', function(event){
-    if(!accountsActionsMenu.contains(event.target)){ closeAccountsActionsMenuAfterMinimumTime(); }
+    if(!actionsMenu.contains(event.target)){ closeActionsMenuAfterMinimumTime(); }
   });
   document.addEventListener('keydown', function(event){
-    if(event.key === 'Escape'){ closeAccountsActionsMenu(); accountsActionsToggle.focus(); }
+    if(event.key === 'Escape'){ closeActionsMenu(); actionsToggle.focus(); }
   });
-}
+});
 </script>
 {% endblock %}
