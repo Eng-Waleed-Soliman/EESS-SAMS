@@ -27,6 +27,7 @@ from .middleware import is_cafeteria_specialist
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
 from .member_excel import parse_academy_members_xlsx
 from .models import PayrollAdjustment
+from .models import CafeteriaStaffOrder, CafeteriaStaffOrderItem
 from .payroll_forms import PayrollAdjustmentForm
 from .models import AcademyTrainingAttendance, AcademyTrainingGroup, AcademyTrainingGroupPlayer
 from .group_forms import AcademyTrainingGroupForm, AcademyTrainingGroupPlayerForm
@@ -2400,17 +2401,106 @@ def cafe_order_category(request, pk):
         CafeteriaCategory.objects.defer('image_data'),
         pk=pk,
     )
-    items = (
+    items = list(
         CafeteriaItem.objects
         .filter(category=category, is_active=True)
         .defer('image_data')
         .order_by('code', 'name')
     )
+    for item in items:
+        item.order_price = item.sale_price_for(is_staff=True)
+        item.available_quantity = item.stock_quantity
     return render(
         request,
-        'academies/cafe_order_category.html',
+        'academies/cafe_order_mobile.html',
         {'category': category, 'items': items},
     )
+
+
+@login_required
+def cafe_staff_order_submit(request):
+    if request.method != 'POST':
+        return redirect('cafe_orders')
+    try:
+        raw_rows = json.loads(request.POST.get('order_items', '[]'))
+    except (TypeError, json.JSONDecodeError):
+        raw_rows = []
+    if not isinstance(raw_rows, list) or not raw_rows or len(raw_rows) > 50:
+        messages.error(request, 'أضف صنفًا واحدًا على الأقل قبل تنفيذ الطلب.')
+        return redirect('cafe_orders')
+
+    delivery_place = request.POST.get('delivery_place', '').strip()
+    valid_places = {value for value, _label in CafeteriaStaffOrder.PLACE_CHOICES}
+    if delivery_place not in valid_places:
+        messages.error(request, 'اختر مكان استلام الطلب.')
+        return redirect('cafe_orders')
+
+    requested_quantities = {}
+    try:
+        for row in raw_rows:
+            item_id = int(row.get('item_id'))
+            quantity = int(row.get('quantity'))
+            if quantity < 1 or quantity > 100:
+                raise ValueError
+            requested_quantities[item_id] = requested_quantities.get(item_id, 0) + quantity
+    except (AttributeError, TypeError, ValueError):
+        messages.error(request, 'بيانات الطلب غير صحيحة.')
+        return redirect('cafe_orders')
+
+    items = {
+        item.pk: item
+        for item in CafeteriaItem.objects.filter(
+            pk__in=requested_quantities,
+            is_active=True,
+            category__show_in_sales=True,
+        ).exclude(category__name__iexact='الخامات')
+    }
+    if len(items) != len(requested_quantities):
+        messages.error(request, 'أحد الأصناف لم يعد متاحًا؛ راجع الطلب وحاول مرة أخرى.')
+        return redirect('cafe_orders')
+    for item_id, quantity in requested_quantities.items():
+        if quantity > items[item_id].stock_quantity:
+            messages.error(request, f'الكمية المطلوبة من {items[item_id].name} غير متاحة حاليًا.')
+            return redirect('cafe_orders')
+
+    active_branch, all_branches = selected_branch(request)
+    requester_name = request.user.get_full_name().strip() or request.user.username
+    with transaction.atomic():
+        order = CafeteriaStaffOrder.objects.create(
+            branch=None if all_branches else active_branch,
+            requested_by=request.user,
+            requester_name=requester_name,
+            delivery_place=delivery_place,
+            notes=request.POST.get('notes', '').strip()[:2000],
+        )
+        CafeteriaStaffOrderItem.objects.bulk_create([
+            CafeteriaStaffOrderItem(
+                order=order,
+                item=item,
+                item_name=item.name,
+                quantity=requested_quantities[item_id],
+                unit_price=item.sale_price_for(is_staff=True),
+            )
+            for item_id, item in items.items()
+        ])
+    messages.success(request, f'تم إرسال الطلب رقم {order.pk} إلى الكافيتريا بنجاح.')
+    return redirect(f"{reverse('cafe_orders')}?ordered=1")
+
+
+@login_required
+def cafe_staff_order_complete(request, pk):
+    if request.method != 'POST':
+        return redirect('cafe_sale_list')
+    if not (is_cafeteria_specialist(request.user) or request.user.is_superuser):
+        messages.error(request, 'غير مسموح بتنفيذ هذا الإجراء.')
+        return redirect('cafe_sale_list')
+    order = get_object_or_404(CafeteriaStaffOrder, pk=pk)
+    if order.status == CafeteriaStaffOrder.STATUS_PENDING:
+        order.status = CafeteriaStaffOrder.STATUS_COMPLETED
+        order.completed_at = timezone.now()
+        order.save(update_fields=['status', 'completed_at'])
+        messages.success(request, f'تم إغلاق الطلب رقم {order.pk}.')
+    return redirect('cafe_sale_list')
 
 def _prepare_recipe_formset(formset, product=None, branch=None):
     queryset = (
@@ -2835,6 +2925,13 @@ def cafe_sale_list(request):
             'unit_label': item.unit_label,
             'recipe_components': recipe_components,
         })
+    pending_staff_orders = []
+    if is_cafeteria_specialist(request.user):
+        pending_staff_orders = list(
+            CafeteriaStaffOrder.objects.filter(
+                status=CafeteriaStaffOrder.STATUS_PENDING,
+            ).select_related('requested_by', 'branch').prefetch_related('items')[:30]
+        )
     return render(request, 'academies/cafe_sale_list.html', {
         'form': form,
         'sales': sales,
@@ -2850,6 +2947,7 @@ def cafe_sale_list(request):
         'board_members': Shareholder.objects.all().order_by('name'),
         'addons': list(CafeteriaAddon.objects.all().order_by('name').values('id', 'name', 'sale_price')),
         'order_token': uuid.uuid4().hex,
+        'pending_staff_orders': pending_staff_orders,
     })
 
 @login_required

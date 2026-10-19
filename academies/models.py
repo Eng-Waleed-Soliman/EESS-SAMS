@@ -1629,6 +1629,98 @@ class CafeteriaSale(models.Model):
         return f'{self.item} - {self.quantity}'
 
 
+class CafeteriaStaffOrder(models.Model):
+    PLACE_OFFICE = 'office'
+    PLACE_CAFETERIA = 'cafeteria'
+    PLACE_CHOICES = [
+        (PLACE_OFFICE, 'المكتب'),
+        (PLACE_CAFETERIA, 'الكافيتريا'),
+    ]
+    STATUS_PENDING = 'pending'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'قيد التنفيذ'),
+        (STATUS_COMPLETED, 'تم التنفيذ'),
+    ]
+
+    branch = models.ForeignKey(
+        Branch,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='cafeteria_staff_orders',
+        verbose_name='الفرع',
+    )
+    requested_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='cafeteria_staff_orders',
+        verbose_name='مقدم الطلب',
+    )
+    requester_name = models.CharField(max_length=200, verbose_name='اسم مقدم الطلب')
+    delivery_place = models.CharField(
+        max_length=20,
+        choices=PLACE_CHOICES,
+        default=PLACE_CAFETERIA,
+        verbose_name='مكان الاستلام',
+    )
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        verbose_name='الحالة',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        verbose_name = 'طلب موظف من الكافيتريا'
+        verbose_name_plural = 'طلبات الموظفين من الكافيتريا'
+
+    @property
+    def total_amount(self):
+        return sum(line.total_amount for line in self.items.all())
+
+    def __str__(self):
+        return f'طلب #{self.pk} - {self.requester_name}'
+
+
+class CafeteriaStaffOrderItem(models.Model):
+    order = models.ForeignKey(
+        CafeteriaStaffOrder,
+        on_delete=models.CASCADE,
+        related_name='items',
+        verbose_name='الطلب',
+    )
+    item = models.ForeignKey(
+        CafeteriaItem,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='staff_order_items',
+        verbose_name='الصنف',
+    )
+    item_name = models.CharField(max_length=200, verbose_name='اسم الصنف وقت الطلب')
+    quantity = models.PositiveIntegerField(default=1, verbose_name='الكمية')
+    unit_price = models.PositiveIntegerField(default=0, verbose_name='السعر وقت الطلب')
+
+    class Meta:
+        ordering = ['id']
+        verbose_name = 'صنف طلب موظف'
+        verbose_name_plural = 'أصناف طلبات الموظفين'
+
+    @property
+    def total_amount(self):
+        return int((self.quantity or 0) * (self.unit_price or 0))
+
+    def __str__(self):
+        return f'{self.item_name} × {self.quantity}'
+
+
 class CafeteriaHospitality(models.Model):
     board_member = models.ForeignKey(
         Shareholder,

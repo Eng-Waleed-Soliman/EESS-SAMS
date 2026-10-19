@@ -1,8 +1,14 @@
+import json
+
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import CafeteriaCategory, CafeteriaItem
+from .models import (
+    CafeteriaCategory,
+    CafeteriaItem,
+    CafeteriaStaffOrder,
+)
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -58,6 +64,10 @@ class CafeteriaOrdersPageTests(TestCase):
             code=101,
             name='مياه معدنية',
             name_en='Mineral Water',
+            image_data=b'item-image',
+            image_content_type='image/png',
+            image_name='water.png',
+            opening_quantity=10,
             sale_price=15,
             staff_sale_price=10,
         )
@@ -74,27 +84,81 @@ class CafeteriaOrdersPageTests(TestCase):
         response = self.client.get(reverse('cafe_order_category', args=[category.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'academies/cafe_order_category.html')
+        self.assertTemplateUsed(response, 'academies/cafe_order_mobile.html')
         self.assertContains(response, category.name)
         self.assertContains(response, category.name_en)
-        self.assertContains(response, 'class="category-menu-brand"')
-        self.assertContains(response, 'TIME')
-        self.assertContains(response, 'OUT')
-        self.assertContains(response, '☕')
-        self.assertContains(response, '⚽')
-        self.assertContains(response, '🏋')
-        self.assertContains(response, '🏊')
-        self.assertContains(response, '🥤')
+        self.assertContains(response, 'class="mobile-products-grid"')
+        self.assertContains(response, 'class="mobile-product-card"')
+        self.assertContains(response, 'id="quantityDialog"')
+        self.assertContains(response, 'id="checkoutDialog"')
+        self.assertContains(response, 'طلب فئات أخرى')
+        self.assertContains(response, 'تنفيذ الطلب')
+        self.assertContains(response, 'مكان الاستلام')
+        self.assertContains(response, 'المكتب')
+        self.assertContains(response, 'الكافيتريا')
         self.assertContains(response, item.name)
         self.assertContains(response, item.name_en)
+        self.assertContains(
+            response,
+            reverse('persistent_media', args=['cafeteria_item', item.pk, 'image']),
+        )
         self.assertContains(response, '10 جنيه')
         self.assertNotContains(response, '15 جنيه')
         self.assertNotContains(response, 'صنف غير نشط')
-        self.assertNotContains(response, '<th scope="col">الكود</th>', html=True)
-        self.assertNotContains(response, '<th scope="col">النوع</th>', html=True)
-        self.assertNotContains(response, item.get_item_type_display())
-        self.assertContains(response, 'text-align:center')
+        self.assertContains(response, 'top:8px;left:8px')
         self.assertContains(response, '@media(max-width:768px)')
+
+    def test_employee_order_reaches_specialist_and_can_be_completed(self):
+        category = self.categories[100]
+        item = CafeteriaItem.objects.create(
+            category=category,
+            code=110,
+            name='مياه اختبار',
+            opening_quantity=20,
+            sale_price=15,
+            staff_sale_price=10,
+        )
+        employee = User.objects.create_user(
+            username='mobile.employee',
+            first_name='موظف الطلب',
+            password='test-password',
+        )
+        self.client.force_login(employee)
+        response = self.client.post(reverse('cafe_staff_order_submit'), {
+            'order_items': json.dumps([{'item_id': item.pk, 'quantity': 3}]),
+            'delivery_place': CafeteriaStaffOrder.PLACE_OFFICE,
+            'notes': 'بدون ثلج',
+        })
+        self.assertRedirects(response, f"{reverse('cafe_orders')}?ordered=1")
+        order = CafeteriaStaffOrder.objects.prefetch_related('items').get()
+        self.assertEqual(order.requested_by, employee)
+        self.assertEqual(order.requester_name, 'موظف الطلب')
+        self.assertEqual(order.delivery_place, CafeteriaStaffOrder.PLACE_OFFICE)
+        self.assertEqual(order.notes, 'بدون ثلج')
+        self.assertEqual(order.total_amount, 30)
+        line = order.items.get()
+        self.assertEqual(line.item_name, 'مياه اختبار')
+        self.assertEqual(line.quantity, 3)
+        self.assertEqual(line.unit_price, 10)
+
+        specialist = User.objects.create_user(
+            username='Cafeteria_Specialist',
+            password='test-password',
+        )
+        self.client.force_login(specialist)
+        specialist_page = self.client.get(reverse('cafe_sale_list'))
+        self.assertContains(specialist_page, 'class="incoming-orders-card"')
+        self.assertContains(specialist_page, 'موظف الطلب')
+        self.assertContains(specialist_page, 'مياه اختبار × 3')
+        self.assertContains(specialist_page, 'بدون ثلج')
+        self.assertContains(specialist_page, 'المكتب')
+        self.assertContains(specialist_page, '30 جنيه')
+
+        response = self.client.post(reverse('cafe_staff_order_complete', args=[order.pk]))
+        self.assertRedirects(response, reverse('cafe_sale_list'))
+        order.refresh_from_db()
+        self.assertEqual(order.status, CafeteriaStaffOrder.STATUS_COMPLETED)
+        self.assertIsNotNone(order.completed_at)
 
     def test_unknown_category_returns_404(self):
         self.client.force_login(self.admin)
