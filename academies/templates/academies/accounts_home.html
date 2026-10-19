@@ -1,26 +1,40 @@
 {% extends 'academies/base.html' %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
+<div class="accounts-screen-header d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
   <h3>الحسابات</h3>
-  <div class="btn-row d-flex gap-2 flex-wrap">
+  <details class="accounts-actions-menu">
+    <summary class="accounts-actions-toggle" aria-label="فتح قائمة الحسابات" title="قائمة الحسابات">
+      <span></span><span></span><span></span>
+    </summary>
+    <div class="accounts-actions-dropdown">
     {% if can_create_disbursement %}
-    <a class="btn btn-success" href="{% url 'financial_voucher_create' 'disbursement' %}">أمر صرف مبلغ مالي</a>
+    <a class="btn" href="{% url 'financial_voucher_create' 'disbursement' %}">أمر صرف مبلغ مالي</a>
     {% endif %}
     {% if can_create_supply %}
-    <a class="btn btn-info" href="{% url 'financial_voucher_create' 'supply' %}">أمر توريد مبلغ مالي</a>
+    <a class="btn" href="{% url 'financial_voucher_create' 'supply' %}">أمر توريد مبلغ مالي</a>
     {% endif %}
     {% if can_view_voucher_register %}
-    <a class="btn btn-outline-secondary" href="{% url 'financial_voucher_list' %}">سجل أوامر الصرف والتوريد</a>
+    <a class="btn" href="{% url 'financial_voucher_list' %}">سجل أوامر الصرف والتوريد</a>
     {% endif %}
-    {% if can_view_expenses %}<a class="btn btn-primary" href="{% url 'general_expenses_home' %}">المصروفات العامة</a>{% endif %}
+    {% if can_view_expenses %}<a class="btn" href="{% url 'general_expenses_home' %}">المصروفات العامة</a>{% endif %}
     {% if can_export_accounts %}
-    <button type="button" class="btn btn-danger" onclick="printAccounts(true)">تصدير PDF</button>
+    <button type="button" class="btn" onclick="printAccounts(true)">تصدير PDF</button>
     {% endif %}
     {% if can_print_accounts %}
-    <button type="button" class="btn btn-outline-primary" onclick="printAccounts(false)">طباعة</button>
+    <button type="button" class="btn" onclick="printAccounts(false)">طباعة</button>
     {% endif %}
-  </div>
+    </div>
+  </details>
 </div>
+<style>
+.accounts-screen-header{position:relative;min-height:52px}.accounts-screen-header h3{margin:0}
+.accounts-actions-menu{position:absolute;top:0;left:0;z-index:80}.accounts-actions-menu summary{list-style:none}.accounts-actions-menu summary::-webkit-details-marker{display:none}
+.accounts-actions-toggle{width:56px;height:48px;padding:11px 13px;border:1px solid #7dd3fc;border-radius:12px;background:#e0f7ff;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;cursor:pointer;box-shadow:0 6px 18px rgba(14,116,144,.14)}
+.accounts-actions-toggle span{display:block;height:4px;border-radius:4px;background:#0369a1}.accounts-actions-menu[open] .accounts-actions-toggle{background:#2563eb;border-color:#2563eb}.accounts-actions-menu[open] .accounts-actions-toggle span{background:#fff}
+.accounts-actions-dropdown{position:absolute;top:58px;left:0;width:270px;padding:12px;border:1px solid #bae6fd;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.22);display:grid;gap:8px;z-index:90}
+.accounts-actions-dropdown .btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #7dd3fc;background:#e0f7ff;color:#0f172a;font-weight:800}.accounts-actions-dropdown .btn:hover{background:#2563eb;border-color:#2563eb;color:#fff}
+@media(max-width:576px){.accounts-actions-dropdown{width:min(270px,86vw)}}
+</style>
 {% if can_view_financial_summary %}
 <div class="card p-3 mb-4 no-print">
   <form class="row g-3 align-items-end" method="get">
@@ -210,4 +224,41 @@ function printAccounts(asPdf){
 }
 </script>
 {% endif %}
+<script>
+const accountsActionsMenu = document.querySelector('.accounts-actions-menu');
+if(accountsActionsMenu){
+  const accountsActionsToggle = accountsActionsMenu.querySelector('.accounts-actions-toggle');
+  const minimumAccountsMenuVisibilityMs = 1000;
+  let accountsActionsOpenedAt = 0;
+  let accountsActionsCloseTimer = null;
+  const cancelAccountsActionsClose = function(){
+    if(accountsActionsCloseTimer){ window.clearTimeout(accountsActionsCloseTimer); accountsActionsCloseTimer = null; }
+  };
+  const closeAccountsActionsMenu = function(){
+    cancelAccountsActionsClose();
+    accountsActionsMenu.removeAttribute('open');
+    accountsActionsToggle.setAttribute('aria-expanded', 'false');
+  };
+  const closeAccountsActionsMenuAfterMinimumTime = function(){
+    cancelAccountsActionsClose();
+    const elapsed = Date.now() - accountsActionsOpenedAt;
+    accountsActionsCloseTimer = window.setTimeout(closeAccountsActionsMenu, Math.max(0, minimumAccountsMenuVisibilityMs - elapsed));
+  };
+  accountsActionsToggle.setAttribute('aria-expanded', 'false');
+  accountsActionsToggle.addEventListener('click', function(){
+    window.setTimeout(function(){
+      if(accountsActionsMenu.open){ accountsActionsOpenedAt = Date.now(); cancelAccountsActionsClose(); }
+      accountsActionsToggle.setAttribute('aria-expanded', accountsActionsMenu.open ? 'true' : 'false');
+    }, 0);
+  });
+  accountsActionsMenu.addEventListener('mouseenter', cancelAccountsActionsClose);
+  accountsActionsMenu.addEventListener('mouseleave', closeAccountsActionsMenuAfterMinimumTime);
+  document.addEventListener('click', function(event){
+    if(!accountsActionsMenu.contains(event.target)){ closeAccountsActionsMenuAfterMinimumTime(); }
+  });
+  document.addEventListener('keydown', function(event){
+    if(event.key === 'Escape'){ closeAccountsActionsMenu(); accountsActionsToggle.focus(); }
+  });
+}
+</script>
 {% endblock %}

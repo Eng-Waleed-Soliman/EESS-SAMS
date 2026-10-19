@@ -24,10 +24,23 @@
           <td>{{ a.manager_phone }}</td>
           <td>{{ a.contract_end_date }}</td>
           <td>
-            <a class="btn btn-sm btn-outline-primary" href="{% url 'academy_member_list' a.pk %}?role=staff">المدربين والإداريين</a>
-            <a class="btn btn-sm btn-outline-primary" href="{% url 'academy_member_list' a.pk %}?role=player">اللاعبين</a>
+            <details class="academy-row-menu academy-people-menu">
+              <summary aria-label="فتح قائمة المدربين واللاعبين" title="المدربين واللاعبين"><span aria-hidden="true">🧑‍🏫⚽</span></summary>
+              <div class="academy-row-dropdown">
+                <a href="{% url 'academy_member_list' a.pk %}?role=staff">المدربين والإداريين</a>
+                <a href="{% url 'academy_member_list' a.pk %}?role=player">اللاعبين</a>
+              </div>
+            </details>
           </td>
-          <td><a class="btn btn-sm btn-outline-primary" href="{% url 'academy_update' a.pk %}">تعديل</a> <a class="btn btn-sm btn-outline-danger" href="{% url 'academy_delete' a.pk %}">حذف</a></td>
+          <td>
+            <details class="academy-row-menu academy-settings-menu">
+              <summary aria-label="فتح إعدادات الأكاديمية" title="الإعدادات"><span aria-hidden="true">⚙️</span></summary>
+              <div class="academy-row-dropdown">
+                <a href="{% url 'academy_update' a.pk %}">تعديل</a>
+                <a class="academy-delete-action" href="{% url 'academy_delete' a.pk %}">حذف</a>
+              </div>
+            </details>
+          </td>
         </tr>
         {% empty %}<tr><td colspan="8">لا توجد أكاديميات</td></tr>{% endfor %}
       </tbody>
@@ -38,7 +51,12 @@
 .academy-year-select{padding-left:2.5rem!important;padding-right:1rem!important;background-position:left .75rem center!important}
 .academy-list-table{min-width:1420px}
 .academy-list-table th,.academy-list-table td{white-space:nowrap;vertical-align:middle}
-.academy-list-table td:nth-child(7),.academy-list-table td:last-child{min-width:285px}
+.academy-list-table td:nth-child(7),.academy-list-table td:last-child{min-width:105px;text-align:center}
+.academy-row-menu{position:relative;display:inline-block;z-index:1}.academy-row-menu[open]{z-index:30}
+.academy-row-menu summary{list-style:none;width:58px;height:42px;border:1px solid #7dd3fc;border-radius:11px;background:#e0f7ff;color:#075985;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:21px;box-shadow:0 5px 14px rgba(14,116,144,.12);transition:.15s}
+.academy-row-menu summary::-webkit-details-marker{display:none}.academy-row-menu summary:hover,.academy-row-menu[open] summary{background:#2563eb;border-color:#2563eb;color:#fff;transform:translateY(-1px)}
+.academy-row-dropdown{position:absolute;top:49px;left:50%;transform:translateX(-50%);width:205px;padding:9px;border:1px solid #bae6fd;border-radius:13px;background:#fff;box-shadow:0 16px 38px rgba(15,23,42,.2);display:grid;gap:7px;text-align:center;z-index:40}
+.academy-row-dropdown a{min-height:39px;padding:8px 11px;border:1px solid #7dd3fc;border-radius:9px;background:#e0f7ff;color:#0f172a;text-decoration:none;font-weight:800;display:flex;align-items:center;justify-content:center}.academy-row-dropdown a:hover{background:#2563eb;border-color:#2563eb;color:#fff}.academy-row-dropdown .academy-delete-action{border-color:#fecaca;background:#fff1f2;color:#991b1b}.academy-row-dropdown .academy-delete-action:hover{background:#dc2626;border-color:#dc2626;color:#fff}
 .academy-scrollbar{width:100%;overflow-x:scroll;overflow-y:hidden;height:18px;margin-bottom:8px;direction:ltr;scrollbar-color:#4daee8 #e7f1f8;scrollbar-width:auto}
 .academy-scrollbar>div{width:1420px;height:1px}
 .academy-table-responsive{overflow-x:auto!important;direction:ltr;scrollbar-color:#4daee8 #e7f1f8}
@@ -59,6 +77,16 @@
   table.addEventListener('scroll', () => { if (!syncing) { syncing = true; top.scrollLeft = table.scrollLeft; syncing = false; } });
   syncWidth();
   window.addEventListener('resize', syncWidth);
+  const actionMenus = Array.from(document.querySelectorAll('.academy-row-menu'));
+  actionMenus.forEach((menu) => menu.addEventListener('toggle', () => {
+    if(menu.open){ actionMenus.forEach((other) => { if(other !== menu) other.removeAttribute('open'); }); }
+  }));
+  document.addEventListener('click', (event) => {
+    actionMenus.forEach((menu) => { if(!menu.contains(event.target)) menu.removeAttribute('open'); });
+  });
+  document.addEventListener('keydown', (event) => {
+    if(event.key === 'Escape') actionMenus.forEach((menu) => menu.removeAttribute('open'));
+  });
 })();
 </script>
 {% endblock %}
