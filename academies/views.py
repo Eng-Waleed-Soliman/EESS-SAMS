@@ -2771,6 +2771,24 @@ def cafe_sale_list(request):
         .order_by('code', 'name')
     )
     categories = list(visible_categories)
+    category_card_images = {
+        100: 'academies/images/cafe-cold-drinks.webp',
+        200: 'academies/images/cafe-hot-drinks.webp',
+        300: 'academies/images/cafe-cold-drinks.webp',
+        400: 'academies/images/cafe-snacks-icecream.webp',
+        500: 'academies/images/cafe-food.webp',
+        600: 'academies/images/cafe-hot-drinks.webp',
+    }
+    sales_category_cards = [
+        {
+            'category': category,
+            'image': category_card_images.get(
+                category.code,
+                'academies/images/cafe-food.webp',
+            ),
+        }
+        for category in categories
+    ]
     visible_category_ids = {str(category.pk) for category in categories}
     if category_id not in visible_category_ids:
         category_id = ''
@@ -2815,6 +2833,7 @@ def cafe_sale_list(request):
         'history_date': history_date,
         'items': items,
         'categories': categories,
+        'sales_category_cards': sales_category_cards,
         'selected_category': category_id,
         'today_total': today_total,
         'today_profit': today_profit,
