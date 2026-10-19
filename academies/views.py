@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import uuid
 from io import BytesIO
@@ -11,7 +12,7 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.db.models.deletion import ProtectedError
 from django.db.models import Sum, Q, Count, Prefetch
 from django.http import HttpResponse, Http404, JsonResponse
@@ -24,6 +25,9 @@ from .models import AcademyPlayerMonthlySubscription
 from .models import FacilityGalleryImage
 from .forms import FacilityGalleryImageFormSet
 from .middleware import is_cafeteria_specialist
+
+
+logger = logging.getLogger(__name__)
 from .branching import TRAINING_YEAR_CHOICES, selected_branch, selected_training_year
 from .member_excel import parse_academy_members_xlsx
 from .models import PayrollAdjustment
@@ -2465,24 +2469,36 @@ def cafe_staff_order_submit(request):
 
     active_branch, all_branches = selected_branch(request)
     requester_name = request.user.get_full_name().strip() or request.user.username
-    with transaction.atomic():
-        order = CafeteriaStaffOrder.objects.create(
-            branch=None if all_branches else active_branch,
-            requested_by=request.user,
-            requester_name=requester_name,
-            delivery_place=delivery_place,
-            notes=request.POST.get('notes', '').strip()[:2000],
-        )
-        CafeteriaStaffOrderItem.objects.bulk_create([
-            CafeteriaStaffOrderItem(
-                order=order,
-                item=item,
-                item_name=item.name,
-                quantity=requested_quantities[item_id],
-                unit_price=item.sale_price_for(is_staff=True),
+    try:
+        with transaction.atomic():
+            order = CafeteriaStaffOrder.objects.create(
+                branch=None if all_branches else active_branch,
+                requested_by=request.user,
+                requester_name=requester_name,
+                delivery_place=delivery_place,
+                notes=request.POST.get('notes', '').strip()[:2000],
             )
-            for item_id, item in items.items()
-        ])
+            CafeteriaStaffOrderItem.objects.bulk_create([
+                CafeteriaStaffOrderItem(
+                    order=order,
+                    item=item,
+                    item_name=item.name,
+                    quantity=requested_quantities[item_id],
+                    unit_price=item.sale_price_for(is_staff=True),
+                )
+                for item_id, item in items.items()
+            ])
+    except DatabaseError:
+        logger.exception(
+            'Could not persist cafeteria staff order (user_id=%s, item_ids=%s).',
+            request.user.pk,
+            sorted(requested_quantities),
+        )
+        messages.error(
+            request,
+            'تعذر حفظ الطلب مؤقتًا. لم يتم تسجيل أي جزء منه، برجاء المحاولة مرة أخرى.',
+        )
+        return redirect('cafe_orders')
     messages.success(request, f'تم إرسال الطلب رقم {order.pk} إلى الكافيتريا بنجاح.')
     return redirect(f"{reverse('cafe_orders')}?ordered=1")
 

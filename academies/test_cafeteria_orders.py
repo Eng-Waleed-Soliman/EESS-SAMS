@@ -1,6 +1,8 @@
 import json
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.db import DatabaseError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -159,6 +161,35 @@ class CafeteriaOrdersPageTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, CafeteriaStaffOrder.STATUS_COMPLETED)
         self.assertIsNotNone(order.completed_at)
+
+    def test_order_database_failure_rolls_back_and_returns_to_orders_page(self):
+        category = self.categories[100]
+        item = CafeteriaItem.objects.create(
+            category=category,
+            code=111,
+            name='طلب لن يكتمل',
+            opening_quantity=20,
+            sale_price=15,
+            staff_sale_price=10,
+        )
+        employee = User.objects.create_user(
+            username='database.failure.employee',
+            password='test-password',
+        )
+        self.client.force_login(employee)
+
+        with patch(
+            'academies.views.CafeteriaStaffOrderItem.objects.bulk_create',
+            side_effect=DatabaseError('database unavailable'),
+        ):
+            response = self.client.post(reverse('cafe_staff_order_submit'), {
+                'order_items': json.dumps([{'item_id': item.pk, 'quantity': 2}]),
+                'delivery_place': CafeteriaStaffOrder.PLACE_CAFETERIA,
+                'notes': '',
+            })
+
+        self.assertRedirects(response, reverse('cafe_orders'))
+        self.assertFalse(CafeteriaStaffOrder.objects.exists())
 
     def test_unknown_category_returns_404(self):
         self.client.force_login(self.admin)

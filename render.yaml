@@ -2,7 +2,10 @@ services:
   - type: web
     name: EESS-SAMS
     env: python
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    # Apply schema changes during the deploy as well as at process startup.  This
+    # keeps a newly built release from serving code that references tables which
+    # have not been created yet, even when the dashboard overrides startCommand.
+    buildCommand: pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput
     healthCheckPath: /health/
     # Keep one memory-efficient process with enough threads for slow database
     # requests. Do not preload: on the 512 MB plan the master would retain an
