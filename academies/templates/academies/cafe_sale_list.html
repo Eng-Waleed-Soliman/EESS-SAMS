@@ -149,11 +149,8 @@
       <div class="row g-2" id="categoryCards">
         <div class="col-md-6">
           <button type="button" class="cafe-category-card {% if not selected_category %}active{% endif %}" data-category="">
-            <span class="cafe-category-card__media cafe-category-card__all" aria-hidden="true">
-              <img src="{% static 'academies/images/cafe-cold-drinks.webp' %}" alt="">
-              <img src="{% static 'academies/images/cafe-hot-drinks.webp' %}" alt="">
-              <img src="{% static 'academies/images/cafe-snacks-icecream.webp' %}" alt="">
-              <img src="{% static 'academies/images/cafe-food.webp' %}" alt="">
+            <span class="cafe-category-card__media" aria-hidden="true">
+              <img src="{% static 'academies/images/cafe-all-categories.webp' %}" alt="">
             </span>
             <strong class="cafe-category-card__label">كل الفئات</strong>
           </button>
@@ -254,7 +251,6 @@
 .cafe-category-card{width:100%;padding:0;overflow:hidden;border:2px solid #bfdbfe;border-radius:14px;background:#fff;color:#0f172a;display:block;text-align:center;font-weight:900;box-shadow:0 8px 20px rgba(15,23,42,.1);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 .cafe-category-card:hover,.cafe-category-card.active{transform:translateY(-3px);border-color:#2563eb;box-shadow:0 13px 28px rgba(37,99,235,.2)}
 .cafe-category-card__media{display:block;width:100%;aspect-ratio:16/9;overflow:hidden;background:#eff6ff}.cafe-category-card__media>img{display:block;width:100%;height:100%;object-fit:cover}
-.cafe-category-card__all{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;background:#dbeafe}.cafe-category-card__all>img{min-width:0;min-height:0}
 .cafe-category-card__label{display:flex;align-items:center;justify-content:center;min-height:43px;padding:7px 9px;background:linear-gradient(90deg,#eff6ff,#e0f2fe);font-size:16px}.cafe-category-card.active .cafe-category-card__label{background:#2563eb;color:#fff}
 @media(max-width:576px){.cafe-category-card__label{font-size:15px;min-height:40px}}
 .stock-capacity-hint{position:relative;margin-bottom:12px;padding:11px 42px 11px 16px;border:1px solid #f59e0b;border-radius:16px;background:#fff7ed;color:#9a3412;font-size:13px;font-weight:900;line-height:1.5;box-shadow:0 8px 20px rgba(180,83,9,.14)}
