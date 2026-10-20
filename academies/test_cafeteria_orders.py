@@ -9,6 +9,7 @@ from django.urls import reverse
 from .models import (
     CafeteriaCategory,
     CafeteriaItem,
+    CafeteriaSale,
     CafeteriaStaffOrder,
 )
 
@@ -247,3 +248,36 @@ class CafeteriaOrdersPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'شاشة البيع ما زالت متاحة')
         self.assertContains(response, 'class="incoming-orders-card"')
+
+    def test_missing_sale_delete_returns_to_sales_instead_of_404(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            reverse('cafe_sale_delete', args=[10279]),
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.redirect_chain[-1][0], reverse('cafe_sale_list'))
+        self.assertContains(response, 'تم حذفها بالفعل')
+
+    def test_existing_sale_still_opens_delete_confirmation(self):
+        item = CafeteriaItem.objects.create(
+            category=self.categories[100],
+            code=119,
+            name='صنف قابل للحذف',
+            opening_quantity=10,
+            sale_price=10,
+        )
+        sale = CafeteriaSale.objects.create(
+            item=item,
+            sale_date='2026-10-20',
+            quantity=1,
+            unit_price=10,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('cafe_sale_delete', args=[sale.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'حذف حركة بيع كافيتريا')

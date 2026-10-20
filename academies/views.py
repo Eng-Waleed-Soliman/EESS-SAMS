@@ -3010,7 +3010,11 @@ def cafe_sale_update(request, pk):
 
 @login_required
 def cafe_sale_delete(request, pk):
-    return _generic_delete(request, get_object_or_404(CafeteriaSale, pk=pk), 'حذف حركة بيع كافيتريا', 'cafe_sale_list')
+    sale = CafeteriaSale.objects.filter(pk=pk).first()
+    if sale is None:
+        messages.info(request, 'حركة البيع غير موجودة أو تم حذفها بالفعل.')
+        return redirect('cafe_sale_list')
+    return _generic_delete(request, sale, 'حذف حركة بيع كافيتريا', 'cafe_sale_list')
 
 
 
