@@ -230,3 +230,20 @@ class CafeteriaOrdersPageTests(TestCase):
         response = self.client.get(reverse('cafe_orders'))
 
         self.assertEqual(response.status_code, 200)
+
+    def test_specialist_sales_page_survives_pending_orders_database_failure(self):
+        specialist = User.objects.create_user(
+            username='Cafeteria_Specialist',
+            password='test-password',
+        )
+        self.client.force_login(specialist)
+
+        with patch(
+            'academies.views.CafeteriaStaffOrder.objects.filter',
+            side_effect=DatabaseError('pending orders table unavailable'),
+        ):
+            response = self.client.get(reverse('cafe_sale_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'شاشة البيع ما زالت متاحة')
+        self.assertContains(response, 'class="incoming-orders-card"')

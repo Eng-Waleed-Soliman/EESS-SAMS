@@ -2943,11 +2943,28 @@ def cafe_sale_list(request):
         })
     pending_staff_orders = []
     if is_cafeteria_specialist(request.user):
-        pending_staff_orders = list(
-            CafeteriaStaffOrder.objects.filter(
-                status=CafeteriaStaffOrder.STATUS_PENDING,
-            ).select_related('requested_by', 'branch').prefetch_related('items')[:30]
-        )
+        try:
+            # The card only uses the order snapshot fields and its lines.  Do
+            # not join Branch here: branch photos/logos are binary database
+            # columns and multiplying them across pending orders can exhaust a
+            # small production worker for no user-visible benefit.
+            pending_staff_orders = list(
+                CafeteriaStaffOrder.objects.filter(
+                    status=CafeteriaStaffOrder.STATUS_PENDING,
+                ).prefetch_related('items')[:30]
+            )
+        except DatabaseError:
+            # Keep the sales terminal usable if the orders migration is still
+            # being applied or the database briefly rejects this optional
+            # dashboard query.  The exception remains visible in Render logs.
+            logger.exception(
+                'Could not load pending cafeteria staff orders for user_id=%s.',
+                request.user.pk,
+            )
+            messages.warning(
+                request,
+                'تعذر تحميل الأوردرات الجديدة مؤقتًا، لكن شاشة البيع ما زالت متاحة.',
+            )
     return render(request, 'academies/cafe_sale_list.html', {
         'form': form,
         'sales': sales,
