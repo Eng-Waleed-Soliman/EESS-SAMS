@@ -900,11 +900,17 @@ def dashboard(request):
     activities = []
     for name in activity_names:
         media = media_by_name.get(name.strip().casefold())
+        activity_academies = academies.filter(sport_activity=name)
         activities.append({
             'name': name,
             'media': media,
             'symbol': _activity_symbol(name),
-            'academy_count': academies.filter(sport_activity=name).count(),
+            'academy_count': activity_academies.count(),
+            'player_count': AcademyMember.objects.filter(
+                academy__in=activity_academies,
+                role=AcademyMember.ROLE_PLAYER,
+                is_active=True,
+            ).count(),
         })
     schedule_weekdays = [
         {'index': weekday_index, 'name': WEEKDAY_AR[weekday_index]}
@@ -929,6 +935,314 @@ def dashboard(request):
         branch=branch,
         all_branches=all_branches,
     )
+
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+    chart_start = today - timedelta(days=6)
+
+    def branch_filter(field_name):
+        if all_branches or branch is None:
+            return Q()
+        condition = Q(**{field_name: branch})
+        default_branch_id = Branch.objects.order_by('pk').values_list('pk', flat=True).first()
+        if branch.pk == default_branch_id:
+            condition |= Q(**{f'{field_name}__isnull': True})
+        return condition
+
+    bookings = DailyBooking.objects.filter(branch_filter('branch'))
+    booking_checkouts = DailyBookingCheckout.objects.filter(branch_filter('booking__branch'))
+    cafeteria_sales = CafeteriaSale.objects.filter(
+        branch_filter('item__branch'),
+    ).select_related('item').defer('item__image_data')
+    cafeteria_items = list(
+        CafeteriaItem.objects.filter(is_active=True)
+        .filter(branch_filter('branch'))
+        .defer('image_data')
+        .prefetch_related(Prefetch(
+            'recipe_components',
+            queryset=CafeteriaRecipeComponent.objects.select_related('component').defer(
+                'component__image_data',
+            ),
+        ))
+    )
+    academy_rent_entries = AcademyRentPaymentEntry.objects.filter(
+        payment__academy__in=academies,
+    ).select_related('payment__academy').defer(
+        'payment__academy__logo_data',
+        'payment__academy__website_image_data',
+        'payment__academy__manager_photo_data',
+    )
+    legacy_academy_payments = AcademyMonthlyRentPayment.objects.filter(
+        academy__in=academies,
+        entries__isnull=True,
+    )
+
+    try:
+        pending_staff_orders_qs = CafeteriaStaffOrder.objects.filter(
+            branch_filter('branch'),
+            status=CafeteriaStaffOrder.STATUS_PENDING,
+        )
+        pending_staff_orders_count = pending_staff_orders_qs.count()
+    except DatabaseError:
+        logger.exception('Could not load pending cafeteria staff orders for dashboard.')
+        pending_staff_orders_qs = CafeteriaStaffOrder.objects.none()
+        pending_staff_orders_count = 0
+
+    booking_counts_by_day = {
+        row['booking_date']: row['total']
+        for row in bookings.filter(booking_date__range=(chart_start, today))
+        .values('booking_date').annotate(total=Count('id'))
+    }
+    revenue_by_day = {chart_start + timedelta(days=offset): 0 for offset in range(7)}
+    for row in booking_checkouts.filter(income_date__range=(chart_start, today)).values(
+        'income_date',
+    ).annotate(total=Sum('total_amount')):
+        revenue_by_day[row['income_date']] += int(row['total'] or 0)
+    for row in academy_rent_entries.filter(payment_date__range=(chart_start, today)).values(
+        'payment_date',
+    ).annotate(total=Sum('paid_amount')):
+        revenue_by_day[row['payment_date']] += int(row['total'] or 0)
+    for row in legacy_academy_payments.filter(payment_date__range=(chart_start, today)).values(
+        'payment_date',
+    ).annotate(total=Sum('paid_amount')):
+        revenue_by_day[row['payment_date']] += int(row['total'] or 0)
+    for sale in cafeteria_sales.filter(sale_date__range=(chart_start, today)):
+        revenue_by_day[sale.sale_date] += int(sale.total_amount)
+
+    today_bookings = bookings.filter(booking_date=today)
+    today_booking_count = booking_counts_by_day.get(today, 0)
+    yesterday_booking_count = booking_counts_by_day.get(yesterday, 0)
+    today_revenue = revenue_by_day.get(today, 0)
+    yesterday_revenue = revenue_by_day.get(yesterday, 0)
+    active_academies_count = len(academy_records)
+    active_players_count = AcademyMember.objects.filter(
+        academy__in=academies,
+        role=AcademyMember.ROLE_PLAYER,
+        is_active=True,
+    ).count()
+
+    expiring_contracts = academies.filter(
+        contract_end_date__range=(today, today + timedelta(days=30)),
+    ).order_by('contract_end_date')
+    expiring_contracts_count = expiring_contracts.count()
+    overdue_installments = [
+        installment
+        for installment in AcademyDepositInstallment.objects.filter(
+            plan__academy__in=academies,
+            due_month__lte=today.replace(day=1),
+        ).select_related('plan__academy').defer(
+            'plan__academy__logo_data',
+            'plan__academy__website_image_data',
+            'plan__academy__manager_photo_data',
+        )
+        if installment.remaining_amount > 0
+    ]
+    cafeteria_item_ids = [item.pk for item in cafeteria_items]
+    purchased_by_item = {
+        row['item_id']: row['total'] or 0
+        for row in CafeteriaPurchase.objects.filter(item_id__in=cafeteria_item_ids)
+        .values('item_id').annotate(total=Sum('quantity'))
+    }
+    sold_by_item = {
+        row['item_id']: row['total'] or 0
+        for row in CafeteriaSale.objects.filter(item_id__in=cafeteria_item_ids)
+        .values('item_id').annotate(total=Sum('quantity'))
+    }
+    hospitality_by_item = {
+        row['item_id']: row['total'] or 0
+        for row in CafeteriaHospitalityItem.objects.filter(item_id__in=cafeteria_item_ids)
+        .values('item_id').annotate(total=Sum('quantity'))
+    }
+    ingredient_by_item = {
+        row['component_id']: row['total'] or 0
+        for row in CafeteriaIngredientUsage.objects.filter(component_id__in=cafeteria_item_ids)
+        .values('component_id').annotate(total=Sum('quantity'))
+    }
+    stock_by_item = {
+        item.pk: int(
+            item.opening_quantity
+            + purchased_by_item.get(item.pk, 0)
+            - sold_by_item.get(item.pk, 0)
+            - hospitality_by_item.get(item.pk, 0)
+            - ingredient_by_item.get(item.pk, 0)
+            + item.stock_adjustment
+        )
+        for item in cafeteria_items
+        if item.item_type != CafeteriaItem.TYPE_MIXED
+    }
+    for item in cafeteria_items:
+        if item.item_type == CafeteriaItem.TYPE_MIXED:
+            stock_by_item[item.pk] = min(
+                (
+                    stock_by_item.get(component.component_id, 0) // component.quantity
+                    for component in item.recipe_components.all()
+                ),
+                default=0,
+            )
+    low_stock_items = [
+        item
+        for item in cafeteria_items
+        if (
+            item.opening_quantity + purchased_by_item.get(item.pk, 0) > 0
+            and stock_by_item.get(item.pk, 0) < max(
+                1,
+                int((item.opening_quantity + purchased_by_item.get(item.pk, 0)) / 4),
+            )
+        )
+    ]
+    urgent_alerts_count = (
+        expiring_contracts_count
+        + len(overdue_installments)
+        + len(low_stock_items)
+        + pending_staff_orders_count
+    )
+
+    def trend(current, previous):
+        if previous:
+            return int(round(((current - previous) / previous) * 100))
+        return 100 if current else 0
+
+    dashboard_kpis = [
+        {
+            'label': 'حجوزات اليوم', 'value': f'{today_booking_count:,}', 'icon': '▣',
+            'tone': 'blue', 'trend': trend(today_booking_count, yesterday_booking_count),
+            'hint': 'مقارنة بالأمس', 'url': reverse('booking_list'),
+        },
+        {
+            'label': 'إيراد اليوم', 'value': f'{today_revenue:,}', 'suffix': 'جنيه', 'icon': '£',
+            'tone': 'green', 'trend': trend(today_revenue, yesterday_revenue),
+            'hint': 'الحجوزات والأكاديميات والكافيتريا', 'url': reverse('accounts_home'),
+        },
+        {
+            'label': 'الأكاديميات النشطة', 'value': f'{active_academies_count:,}', 'icon': '◆',
+            'tone': 'violet', 'hint': f'ضمن العام {training_year}', 'url': reverse('academy_list'),
+        },
+        {
+            'label': 'اللاعبون المشتركون', 'value': f'{active_players_count:,}', 'icon': '●',
+            'tone': 'indigo', 'hint': 'لاعب نشط', 'url': reverse('academy_list'),
+        },
+        {
+            'label': 'طلبات الكافيتريا', 'value': f'{pending_staff_orders_count:,}', 'icon': '☕',
+            'tone': 'amber', 'hint': 'طلب قيد التنفيذ', 'url': reverse('cafe_sale_list'),
+        },
+        {
+            'label': 'تنبيهات عاجلة', 'value': f'{urgent_alerts_count:,}', 'icon': '!',
+            'tone': 'red', 'hint': 'تحتاج إلى مراجعة', 'url': '#dashboard-alerts',
+        },
+    ]
+
+    chart_days = [chart_start + timedelta(days=offset) for offset in range(7)]
+    dashboard_chart = {
+        'labels': [day.strftime('%d/%m') for day in chart_days],
+        'bookings': [booking_counts_by_day.get(day, 0) for day in chart_days],
+        'revenue': [revenue_by_day.get(day, 0) for day in chart_days],
+    }
+
+    current_time = timezone.localtime().strftime('%H:%M')
+    live_operations = []
+    for booking in today_bookings.order_by('start_time', 'venue'):
+        if booking.end_time <= current_time:
+            continue
+        status = 'قيد التنفيذ' if booking.start_time <= current_time < booking.end_time else 'قريبًا'
+        live_operations.append({
+            'time': f'{booking.start_time} - {booking.end_time}',
+            'place': booking.venue,
+            'name': booking.customer_name,
+            'status': status,
+            'tone': 'success' if status == 'قيد التنفيذ' else 'info',
+        })
+    if len(live_operations) < 4:
+        today_schedule_rows = _dashboard_academy_schedule_rows(
+            academy_records,
+            today,
+            branch=branch,
+            all_branches=all_branches,
+        )
+        current_slot = _time_to_index(current_time)
+        seen_academy_slots = set()
+        for row in today_schedule_rows:
+            for slot_index, cell in enumerate(row['cells']):
+                if not cell['busy'] or (current_slot is not None and slot_index + 1 < current_slot):
+                    continue
+                for academy_name in cell['academy_names']:
+                    key = (academy_name, row['place'])
+                    if key in seen_academy_slots:
+                        continue
+                    seen_academy_slots.add(key)
+                    live_operations.append({
+                        'time': SLOT_LABELS[slot_index],
+                        'place': row['place'],
+                        'name': academy_name,
+                        'status': 'تدريب أكاديمية',
+                        'tone': 'academy',
+                    })
+                    if len(live_operations) >= 4:
+                        break
+                if len(live_operations) >= 4:
+                    break
+            if len(live_operations) >= 4:
+                break
+
+    dashboard_alerts = [
+        {
+            'title': f'{expiring_contracts_count} عقود أكاديميات تنتهي خلال 30 يوم',
+            'detail': '، '.join(expiring_contracts.values_list('name', flat=True)[:3]) or 'لا توجد عقود قاربت على الانتهاء',
+            'count': expiring_contracts_count, 'tone': 'danger', 'icon': '⌛',
+            'url': reverse('academy_list'),
+        },
+        {
+            'title': f'{len(overdue_installments)} أقساط تأمين متأخرة',
+            'detail': f'إجمالي متبقٍ {sum(row.remaining_amount for row in overdue_installments):,} جنيه',
+            'count': len(overdue_installments), 'tone': 'warning', 'icon': '▤',
+            'url': reverse('accounts_home'),
+        },
+        {
+            'title': f'{len(low_stock_items)} أصناف كافيتريا منخفضة',
+            'detail': '، '.join(item.name for item in low_stock_items[:3]) or 'المخزون في المستوى الآمن',
+            'count': len(low_stock_items), 'tone': 'amber', 'icon': '☕',
+            'url': reverse('cafe_inventory'),
+        },
+        {
+            'title': f'{pending_staff_orders_count} طلبات موظفين معلقة',
+            'detail': 'طلبات في انتظار التنفيذ من الكافيتريا',
+            'count': pending_staff_orders_count, 'tone': 'info', 'icon': '●',
+            'url': reverse('cafe_sale_list'),
+        },
+    ]
+
+    recent_activities = []
+    for booking in bookings.order_by('-created_at')[:4]:
+        recent_activities.append({
+            'when': booking.created_at, 'title': 'حجز يومي جديد',
+            'detail': f'{booking.customer_name} — {booking.venue}', 'icon': '▣', 'tone': 'blue',
+        })
+    for payment in academy_rent_entries.order_by('-created_at')[:4]:
+        recent_activities.append({
+            'when': payment.created_at, 'title': 'سداد أكاديمية',
+            'detail': f'{payment.payment.academy.name} — {payment.paid_amount:,} جنيه', 'icon': '£', 'tone': 'green',
+        })
+    for sale in cafeteria_sales.order_by('-created_at')[:4]:
+        recent_activities.append({
+            'when': sale.created_at, 'title': 'بيع من الكافيتريا',
+            'detail': f'{sale.item.name} — {sale.total_amount:,} جنيه', 'icon': '☕', 'tone': 'amber',
+        })
+    for member in AcademyMember.objects.filter(academy__in=academies).select_related('academy').defer(
+        'photo_data',
+        'academy__logo_data',
+        'academy__website_image_data',
+        'academy__manager_photo_data',
+    ).order_by('-created_at')[:4]:
+        recent_activities.append({
+            'when': member.created_at,
+            'title': 'تسجيل لاعب جديد' if member.role == AcademyMember.ROLE_PLAYER else 'إضافة عضو أكاديمية',
+            'detail': f'{member.name} — {member.academy.name}', 'icon': '●', 'tone': 'indigo',
+        })
+    recent_activities = sorted(
+        recent_activities,
+        key=lambda row: row['when'],
+        reverse=True,
+    )[:5]
+
     context = {
         'activities': activities,
         'active_branch': branch,
@@ -937,6 +1251,11 @@ def dashboard(request):
         'schedule_weekdays': schedule_weekdays,
         'selected_schedule_day': selected_schedule_day,
         'academy_schedule_rows': schedule_rows,
+        'dashboard_kpis': dashboard_kpis,
+        'dashboard_chart': dashboard_chart,
+        'dashboard_alerts': dashboard_alerts,
+        'live_operations': live_operations[:4],
+        'recent_activities': recent_activities,
     }
     return render(request, 'academies/dashboard.html', context)
 

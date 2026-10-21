@@ -1965,9 +1965,14 @@ class ApplicationFlowsTests(TestCase):
             contract_start_date=date(today.year, 1, 1), contract_end_date=date(today.year, 12, 31),
             subscription_type='fixed', monthly_subscription=1000,
         )
+        AcademyMember.objects.create(
+            academy=academy, role=AcademyMember.ROLE_PLAYER,
+            name='لاعب لوحة التحكم', is_active=True,
+        )
         AcademyMonthlyRentPayment.objects.create(
             academy=academy, month=date(today.year, today.month, 1),
             expected_amount=1000, paid_amount=800, supplied_amount=600,
+            payment_date=today,
         )
         booking = DailyBooking.objects.create(
             venue=OPERATION_PLACE_CHOICES[0][0], booking_date=today,
@@ -1990,7 +1995,21 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.context['activities']), 1)
         self.assertEqual(response.context['activities'][0]['academy_count'], 1)
+        self.assertEqual(response.context['activities'][0]['player_count'], 1)
         self.assertEqual(response.content.decode().count('class="activity-card"'), 1)
+        self.assertEqual(len(response.context['dashboard_kpis']), 6)
+        self.assertEqual(response.context['dashboard_kpis'][0]['value'], '1')
+        self.assertEqual(response.context['dashboard_kpis'][1]['value'], '1,360')
+        self.assertEqual(response.context['dashboard_kpis'][2]['value'], '1')
+        self.assertEqual(response.context['dashboard_kpis'][3]['value'], '1')
+        self.assertEqual(len(response.context['dashboard_chart']['labels']), 7)
+        self.assertEqual(len(response.context['dashboard_chart']['revenue']), 7)
+        self.assertTrue(response.context['recent_activities'])
+        self.assertContains(response, 'الإيرادات والحجوزات')
+        self.assertContains(response, 'التشغيل الحالي والقادم')
+        self.assertContains(response, 'يحتاج انتباهك')
+        self.assertContains(response, 'آخر النشاطات')
+        self.assertContains(response, 'dashboard-chart-data')
         self.assertNotContains(response, 'dashboard-card-col')
 
     def test_dashboard_weekday_filter_marks_only_academy_training_slots_busy(self):

@@ -33,44 +33,77 @@
       </select>
     </div>
   </form>
+  <div class="dashboard-heading">
+    <h1>لوحة التحكم</h1>
+    <span class="live-badge"><i></i> مباشر الآن</span>
+  </div>
 </section>
 
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-  <h3 class="page-title mb-0">لوحة التحكم</h3>
-  <span class="context-badge">
-    {% if active_branch_is_all %}كل الفروع{% elif active_branch %}{{ active_branch.display_name }}{% endif %}
-    — {{ training_year }}
-  </span>
-</div>
+<section class="dashboard-kpis" aria-label="مؤشرات الأداء الرئيسية">
+  {% for kpi in dashboard_kpis %}
+    <a class="dashboard-kpi dashboard-kpi--{{ kpi.tone }}" href="{{ kpi.url }}">
+      <span class="dashboard-kpi__icon" aria-hidden="true">{{ kpi.icon }}</span>
+      <div class="dashboard-kpi__body">
+        <span class="dashboard-kpi__label">{{ kpi.label }}</span>
+        <strong>{{ kpi.value }}{% if kpi.suffix %}<small>{{ kpi.suffix }}</small>{% endif %}</strong>
+        <span class="dashboard-kpi__hint">{{ kpi.hint }}</span>
+      </div>
+      {% if kpi.trend or kpi.trend == 0 %}<span class="dashboard-kpi__trend {% if kpi.trend >= 0 %}positive{% else %}negative{% endif %}">{% if kpi.trend >= 0 %}↗{% else %}↘{% endif %} {{ kpi.trend }}%</span>{% endif %}
+    </a>
+  {% endfor %}
+</section>
 
-{% if activities %}
-  <div class="activity-grid">
-    {% for activity in activities %}
-      <a class="activity-card" href="{% url 'academy_list' %}?activity={{ activity.name|urlencode }}">
-        <div class="activity-visual">
-          {% if activity.media and activity.media.image_name %}
-            <img src="{% url 'persistent_media' 'sport' activity.media.pk 'image' %}" alt="{{ activity.name }}">
-          {% elif activity.media and activity.media.image %}
-            <img src="{{ activity.media.image.url }}" alt="{{ activity.name }}">
-          {% else %}
-            <span aria-hidden="true">{{ activity.symbol }}</span>
-          {% endif %}
-        </div>
-        <div class="activity-details">
-          <h4>{{ activity.name }}</h4>
-          <p>{{ activity.academy_count }} أكاديمية</p>
-          <small>فتح بيانات النشاط</small>
-        </div>
-      </a>
-    {% endfor %}
-  </div>
-{% else %}
-  <div class="card empty-branch-state p-5 text-center">
-    <div class="empty-icon">🏟️</div>
-    <h4>لا توجد ألعاب أو أنشطة مسجلة لهذا الفرع والعام التدريبي</h4>
-    <p class="text-muted mb-0">لن تظهر هنا بيانات أو مبالغ تخص فروعًا أخرى.</p>
-  </div>
-{% endif %}
+<section class="dashboard-grid dashboard-grid--primary mt-3">
+  <article class="dashboard-panel dashboard-chart-panel">
+    <header class="dashboard-panel__header">
+      <div><span class="panel-eyebrow">تحليل الأداء</span><h2>الإيرادات والحجوزات — آخر 7 أيام</h2></div>
+      <a href="{% url 'reports_home' %}">عرض التقارير ←</a>
+    </header>
+    <div class="chart-legend"><span><i class="revenue-dot"></i> الإيرادات بالجنيه</span><span><i class="booking-dot"></i> عدد الحجوزات</span></div>
+    <div class="dashboard-chart" role="img" aria-label="رسم بياني للإيرادات والحجوزات خلال آخر سبعة أيام">
+      <svg id="dashboardChart" viewBox="0 0 760 245" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="dashboardRevenueFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#2563eb" stop-opacity=".24"></stop><stop offset="100%" stop-color="#2563eb" stop-opacity="0"></stop></linearGradient></defs>
+        <g class="chart-grid-lines"><line x1="30" y1="25" x2="740" y2="25"></line><line x1="30" y1="75" x2="740" y2="75"></line><line x1="30" y1="125" x2="740" y2="125"></line><line x1="30" y1="175" x2="740" y2="175"></line><line x1="30" y1="225" x2="740" y2="225"></line></g>
+        <path id="dashboardRevenueArea" fill="url(#dashboardRevenueFill)"></path>
+        <polyline id="dashboardRevenueLine" class="chart-line chart-line--revenue"></polyline><polyline id="dashboardBookingsLine" class="chart-line chart-line--bookings"></polyline>
+        <g id="dashboardRevenuePoints"></g><g id="dashboardBookingPoints"></g>
+      </svg>
+      <div class="dashboard-chart-labels" id="dashboardChartLabels"></div>
+    </div>
+  </article>
+  <article class="dashboard-panel live-operations-panel">
+    <header class="dashboard-panel__header"><div><span class="panel-eyebrow panel-eyebrow--live">● مباشر</span><h2>التشغيل الحالي والقادم</h2></div><a href="{% url 'operation_screen' %}">شاشة التشغيل ←</a></header>
+    <div class="live-operation-table">
+      <div class="live-operation-table__head"><span>الوقت</span><span>المكان</span><span>الحجز / الأكاديمية</span><span>الحالة</span></div>
+      {% for operation in live_operations %}
+        <div class="live-operation-row"><b dir="ltr">{{ operation.time }}</b><span>{{ operation.place }}</span><strong>{{ operation.name }}</strong><em class="status-pill status-pill--{{ operation.tone }}">{{ operation.status }}</em></div>
+      {% empty %}<div class="panel-empty-state"><span>✓</span><b>لا توجد حجوزات قادمة اليوم</b><small>يمكن إضافة حجز جديد من شاشة التشغيل.</small></div>{% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="dashboard-grid dashboard-grid--secondary mt-3">
+  <article class="dashboard-panel" id="dashboard-alerts">
+    <header class="dashboard-panel__header"><div><span class="panel-eyebrow panel-eyebrow--alert">متابعة مطلوبة</span><h2>يحتاج انتباهك</h2></div><span class="panel-count">{{ dashboard_kpis.5.value }}</span></header>
+    <div class="dashboard-alert-list">
+      {% for alert in dashboard_alerts %}<a class="dashboard-alert dashboard-alert--{{ alert.tone }} {% if not alert.count %}is-clear{% endif %}" href="{{ alert.url }}"><span class="dashboard-alert__icon">{{ alert.icon }}</span><span><strong>{{ alert.title }}</strong><small>{{ alert.detail }}</small></span><b>‹</b></a>{% endfor %}
+    </div>
+  </article>
+  <article class="dashboard-panel recent-activity-panel">
+    <header class="dashboard-panel__header"><div><span class="panel-eyebrow">تحديثات النظام</span><h2>آخر النشاطات</h2></div><span class="activity-clock">◷</span></header>
+    <div class="recent-activity-list">
+      {% for event in recent_activities %}<div class="recent-event recent-event--{{ event.tone }}"><span class="recent-event__icon">{{ event.icon }}</span><div><strong>{{ event.title }}</strong><small>{{ event.detail }}</small></div><time>{{ event.when|date:'H:i' }}<small>{{ event.when|date:'d/m' }}</small></time></div>
+      {% empty %}<div class="panel-empty-state"><span>◷</span><b>لا توجد نشاطات حديثة</b></div>{% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="dashboard-panel sports-overview mt-3">
+  <header class="dashboard-panel__header"><div><span class="panel-eyebrow">نظرة سريعة</span><h2>الأنشطة الرياضية</h2></div><a href="{% url 'academy_list' %}">عرض جميع الأكاديميات ←</a></header>
+  {% if activities %}<div class="activity-grid">
+    {% for activity in activities %}<a class="activity-card" href="{% url 'academy_list' %}?activity={{ activity.name|urlencode }}"><div class="activity-visual">{% if activity.media and activity.media.image_name %}<img src="{% url 'persistent_media' 'sport' activity.media.pk 'image' %}" alt="{{ activity.name }}">{% elif activity.media and activity.media.image %}<img src="{{ activity.media.image.url }}" alt="{{ activity.name }}">{% else %}<span aria-hidden="true">{{ activity.symbol }}</span>{% endif %}</div><div class="activity-details"><h3>{{ activity.name }}</h3><div><span>{{ activity.academy_count }} أكاديمية</span><span>{{ activity.player_count }} لاعب</span></div></div></a>{% endfor %}
+  </div>{% else %}<div class="panel-empty-state panel-empty-state--wide"><span>🏟️</span><b>لا توجد ألعاب أو أنشطة مسجلة لهذا الفرع والعام التدريبي</b><small>لن تظهر هنا بيانات تخص فروعًا أخرى.</small></div>{% endif %}
+</section>
 
 <section class="academy-weekly-board mt-4" aria-labelledby="academy-weekly-board-title">
   <div class="weekly-board-heading">
@@ -114,6 +147,7 @@
   </div>
 </section>
 
+{{ dashboard_chart|json_script:"dashboard-chart-data" }}
 <style>
   .dashboard-brand-card{background:var(--sidebar-bg);border:1px solid #bfefff;border-radius:20px;padding:24px;display:flex;align-items:center;justify-content:space-between;gap:20px;box-shadow:0 15px 35px rgba(15,23,42,.08);direction:ltr}
   .dashboard-brand{display:flex;align-items:center;gap:16px;direction:ltr;flex:0 0 auto;min-width:0}
@@ -161,11 +195,80 @@
   @media(max-width:1199px){.dashboard-brand-card{align-items:stretch;flex-direction:column}.dashboard-brand{align-self:flex-start}.dashboard-context-form{width:100%}.activity-grid{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:767px){.dashboard-brand-card{padding:18px}.dashboard-brand-copy{width:auto;min-width:0}.dashboard-program-name{font-size:28px;max-width:280px;min-height:64px}.dashboard-company-name{font-size:14px;white-space:normal}.dashboard-context-form{grid-template-columns:1fr}.activity-grid{grid-template-columns:repeat(2,1fr)}.academy-weekly-board{padding:15px}.weekly-board-heading{align-items:flex-start;flex-direction:column}.weekday-filter{grid-template-columns:repeat(4,1fr)}.schedule-venue{flex-basis:125px}.schedule-cell{flex-basis:88px;width:88px}}
   @media(max-width:480px){.activity-grid{grid-template-columns:1fr}}
+
+  /* Executive dashboard */
+  .dashboard-brand-card{position:relative;min-height:112px;padding:18px 22px;border-color:#bfe7fb;background:linear-gradient(135deg,#f8fdff,#e5f7ff);box-shadow:0 12px 32px rgba(15,42,74,.08);display:grid;grid-template-columns:minmax(300px,1fr) minmax(420px,500px) auto;align-items:center}
+  .dashboard-brand .brand-logo{width:66px;height:66px;object-fit:contain;border-radius:13px;background:#fff;padding:5px;box-shadow:0 5px 16px rgba(15,42,74,.1)}
+  .dashboard-brand-copy{width:auto;min-width:0}.dashboard-program-name{min-height:0;max-width:none;margin:0;color:#0f2a4a;font:900 27px/1.08 Georgia,serif}.dashboard-company-name{margin-top:4px;color:#64748b;font-size:14px}
+  .dashboard-context-form{grid-template-columns:minmax(245px,1.35fr) minmax(190px,1fr);width:min(500px,42vw)}.dashboard-context-form select{height:44px;border-color:#cbd5e1;border-radius:11px;background-color:#fff}
+  .dashboard-heading{display:flex;align-items:center;gap:12px;direction:rtl}.dashboard-heading h1{margin:0;color:#0f2a4a;font-size:29px;font-weight:900;white-space:nowrap}.live-badge{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #9ce5bc;border-radius:999px;background:#eafbf1;color:#167647;font-size:12px;font-weight:900;white-space:nowrap}.live-badge i{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 5px rgba(34,197,94,.12);animation:dashboardPulse 1.8s infinite}
+  .dashboard-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.dashboard-kpi{position:relative;min-height:125px;padding:16px 14px;border:1px solid #e1eaf4;border-radius:17px;background:#fff;color:#0f2a4a;text-decoration:none;box-shadow:0 10px 28px rgba(15,42,74,.07);display:flex;gap:11px;overflow:hidden;transition:.2s}.dashboard-kpi:hover{color:#0f2a4a;transform:translateY(-3px);box-shadow:0 15px 34px rgba(15,42,74,.13)}.dashboard-kpi::after{content:"";position:absolute;right:0;left:0;bottom:0;height:3px;background:var(--kpi-color)}
+  .dashboard-kpi__icon{flex:0 0 42px;width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:var(--kpi-soft);color:var(--kpi-color);font-size:21px;font-weight:900}.dashboard-kpi__body{min-width:0;display:flex;flex-direction:column}.dashboard-kpi__label{font-size:13px;font-weight:900;white-space:nowrap}.dashboard-kpi__body strong{margin-top:5px;font:900 25px/1 Arial,sans-serif}.dashboard-kpi__body strong small{margin-right:4px;font:800 11px/1 Arial,sans-serif}.dashboard-kpi__hint{margin-top:auto;color:#7b8ca2;font-size:10px;line-height:1.35}.dashboard-kpi__trend{position:absolute;left:11px;bottom:12px;font-size:11px;font-weight:900}.dashboard-kpi__trend.positive{color:#16a34a}.dashboard-kpi__trend.negative{color:#dc2626}
+  .dashboard-kpi--blue{--kpi-color:#2563eb;--kpi-soft:#e9f1ff}.dashboard-kpi--green{--kpi-color:#16a34a;--kpi-soft:#e8f8ee}.dashboard-kpi--violet{--kpi-color:#7c3aed;--kpi-soft:#f1eaff}.dashboard-kpi--indigo{--kpi-color:#4f46e5;--kpi-soft:#edecff}.dashboard-kpi--amber{--kpi-color:#d97706;--kpi-soft:#fff4dc}.dashboard-kpi--red{--kpi-color:#dc2626;--kpi-soft:#ffebeb}
+  .dashboard-grid{display:grid;gap:14px}.dashboard-grid--primary{grid-template-columns:minmax(0,1.45fr) minmax(370px,.9fr)}.dashboard-grid--secondary{grid-template-columns:1fr 1fr}.dashboard-panel{min-width:0;padding:18px;border:1px solid #e1eaf4;border-radius:18px;background:#fff;box-shadow:0 10px 28px rgba(15,42,74,.07)}.dashboard-panel__header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.dashboard-panel__header h2{margin:2px 0 0;color:#0f2a4a;font-size:18px;font-weight:900}.dashboard-panel__header>a{color:#2563eb;text-decoration:none;font-size:12px;font-weight:900;white-space:nowrap}.panel-eyebrow{color:#6b7f99;font-size:10px;font-weight:900;letter-spacing:.3px}.panel-eyebrow--live{color:#dc2626}.panel-eyebrow--alert{color:#d97706}.panel-count{min-width:32px;height:32px;padding:0 8px;border-radius:10px;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-weight:900}
+  .chart-legend{display:flex;gap:18px;margin-bottom:8px;color:#64748b;font-size:11px}.chart-legend span{display:flex;align-items:center;gap:6px}.chart-legend i{width:9px;height:9px;border-radius:50%}.revenue-dot{background:#2563eb}.booking-dot{background:#38bdf8}.dashboard-chart{height:245px}.dashboard-chart svg{width:100%;height:215px;overflow:visible}.chart-grid-lines line{stroke:#e5edf6;stroke-width:1}.chart-line{fill:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.chart-line--revenue{stroke:#2563eb}.chart-line--bookings{stroke:#38bdf8}.chart-point{stroke:#fff;stroke-width:3;vector-effect:non-scaling-stroke}.chart-point--revenue{fill:#2563eb}.chart-point--booking{fill:#38bdf8}.dashboard-chart-labels{display:grid;grid-template-columns:repeat(7,1fr);padding:0 2px;color:#64748b;font-size:10px;text-align:center}
+  .live-operation-table{border:1px solid #e4ebf3;border-radius:13px;overflow:hidden}.live-operation-table__head,.live-operation-row{display:grid;grid-template-columns:1fr 1.2fr 1.5fr .9fr;align-items:center;gap:8px;padding:10px 11px}.live-operation-table__head{background:#f1f6fb;color:#64748b;font-size:10px;font-weight:900}.live-operation-row{min-height:49px;border-top:1px solid #edf1f6;font-size:11px}.live-operation-row b{font-size:11px}.live-operation-row strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.status-pill{padding:6px 7px;border-radius:999px;text-align:center;font-style:normal;font-size:9px;font-weight:900;white-space:nowrap}.status-pill--success{background:#dcfce7;color:#16814c}.status-pill--info{background:#e0f2fe;color:#0369a1}.status-pill--academy{background:#ede9fe;color:#6d28d9}
+  .dashboard-alert-list,.recent-activity-list{display:grid;gap:8px}.dashboard-alert{min-height:58px;padding:9px 11px;border-radius:12px;color:#0f2a4a;text-decoration:none;display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:10px;background:var(--alert-soft);border:1px solid var(--alert-border);transition:.18s}.dashboard-alert:hover{color:#0f2a4a;transform:translateX(-3px)}.dashboard-alert__icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#fff;color:var(--alert-color);font-weight:900}.dashboard-alert span:nth-child(2){min-width:0;display:flex;flex-direction:column}.dashboard-alert strong{font-size:12px}.dashboard-alert small{margin-top:3px;color:#677991;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dashboard-alert>b{color:var(--alert-color);font-size:22px}.dashboard-alert.is-clear{opacity:.62}.dashboard-alert--danger{--alert-soft:#fff0f0;--alert-border:#fecaca;--alert-color:#dc2626}.dashboard-alert--warning{--alert-soft:#fff7e5;--alert-border:#fde2a7;--alert-color:#d97706}.dashboard-alert--amber{--alert-soft:#fffbeb;--alert-border:#fde68a;--alert-color:#b45309}.dashboard-alert--info{--alert-soft:#eff6ff;--alert-border:#bfdbfe;--alert-color:#2563eb}
+  .activity-clock{color:#2563eb;font-size:25px}.recent-event{position:relative;min-height:58px;padding:8px 8px 8px 58px;border-bottom:1px solid #edf1f6;display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:9px}.recent-event:last-child{border-bottom:0}.recent-event::after{content:"";position:absolute;left:38px;top:0;bottom:-9px;width:1px;background:#dbe5f0}.recent-event:last-child::after{bottom:50%}.recent-event__icon{position:relative;z-index:1;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--event-soft);color:var(--event-color);font-weight:900}.recent-event>div{min-width:0;display:flex;flex-direction:column}.recent-event strong{font-size:12px}.recent-event small{margin-top:3px;color:#6b7f99;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.recent-event time{color:#50647c;font-size:11px;font-weight:900;text-align:center}.recent-event time small{display:block}.recent-event--blue{--event-color:#2563eb;--event-soft:#eaf1ff}.recent-event--green{--event-color:#16a34a;--event-soft:#e8f8ee}.recent-event--amber{--event-color:#d97706;--event-soft:#fff4dc}.recent-event--indigo{--event-color:#4f46e5;--event-soft:#edecff}
+  .sports-overview{padding-bottom:15px}.activity-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.activity-card{min-width:0;min-height:0;height:92px;border:1px solid #dce7f2;border-top:1px solid #dce7f2;border-radius:13px;background:#fff;color:#0f2a4a;text-decoration:none;display:grid;grid-template-columns:43% 57%;overflow:hidden;box-shadow:none;transition:.18s}.activity-card:hover{color:#0f2a4a;transform:translateY(-3px);box-shadow:0 10px 22px rgba(15,42,74,.12)}.activity-visual{height:auto;min-width:0;background:linear-gradient(135deg,#e7f7ff,#edf2ff);overflow:hidden;display:grid;place-items:center}.activity-visual img{width:100%;height:100%;object-fit:cover}.activity-visual>span{font-family:"Segoe UI Emoji";font-size:35px}.activity-details{min-width:0;padding:10px;text-align:right;display:flex;flex-direction:column;justify-content:center}.activity-details h3{margin:0 0 8px;font-size:14px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.activity-details>div{display:flex;flex-direction:column;gap:3px;color:#64748b;font-size:10px;font-weight:800}
+  .panel-empty-state{min-height:180px;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#64748b}.panel-empty-state>span{width:44px;height:44px;margin-bottom:9px;border-radius:50%;background:#eaf7ef;color:#16814c;display:grid;place-items:center;font-size:20px}.panel-empty-state small{margin-top:5px}.panel-empty-state--wide{min-height:110px}
+  @keyframes dashboardPulse{0%,100%{box-shadow:0 0 0 4px rgba(34,197,94,.12)}50%{box-shadow:0 0 0 8px rgba(34,197,94,.04)}}
+  @media(max-width:1350px){.dashboard-brand-card{grid-template-columns:1fr auto;grid-template-areas:"brand heading" "context context"}.dashboard-brand{grid-area:brand}.dashboard-heading{grid-area:heading}.dashboard-context-form{grid-area:context;margin:0;width:100%}.dashboard-kpis{grid-template-columns:repeat(3,1fr)}.activity-grid{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:1050px){.dashboard-brand{width:100%}.dashboard-grid--primary,.dashboard-grid--secondary{grid-template-columns:1fr}.activity-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:650px){.dashboard-brand-card{padding:15px;grid-template-columns:1fr;grid-template-areas:"heading" "brand" "context"}.dashboard-heading{justify-content:space-between}.dashboard-heading h1{font-size:24px}.dashboard-brand .brand-logo{width:52px;height:52px}.dashboard-program-name{font-size:20px}.dashboard-company-name{font-size:11px;white-space:normal}.dashboard-context-form{grid-template-columns:1fr}.dashboard-kpis{grid-template-columns:repeat(2,1fr);gap:9px}.dashboard-kpi{min-height:118px;padding:13px 10px}.dashboard-kpi__icon{flex-basis:36px;width:36px;height:36px}.dashboard-kpi__label{font-size:11px}.dashboard-kpi__body strong{font-size:21px}.dashboard-panel{padding:14px}.dashboard-panel__header h2{font-size:16px}.dashboard-chart{height:210px}.dashboard-chart svg{height:180px}.live-operation-table__head{display:none}.live-operation-row{grid-template-columns:1fr 1fr}.activity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.activity-card{height:132px;grid-template-columns:1fr;grid-template-rows:72px 1fr}.activity-details{padding:7px}.activity-details h3{margin-bottom:4px}.activity-details>div{flex-direction:row;justify-content:space-between}.weekday-filter{grid-template-columns:repeat(4,1fr)}}
 </style>
 <script>
   (function(){
     const form = document.getElementById('dashboard-context-form');
-    form.querySelectorAll('select').forEach(select => select.addEventListener('change', () => form.submit()));
+    form?.querySelectorAll('select').forEach(select => select.addEventListener('change', () => form.submit()));
+
+    const dataNode = document.getElementById('dashboard-chart-data');
+    if(!dataNode) return;
+    const data = JSON.parse(dataNode.textContent);
+    const revenue = data.revenue || [];
+    const bookings = data.bookings || [];
+    const width = 710;
+    const left = 30;
+    const top = 25;
+    const bottom = 225;
+    const step = revenue.length > 1 ? width / (revenue.length - 1) : 0;
+    const pointsFor = function(values){
+      const maximum = Math.max(...values, 1);
+      return values.map((value, index) => ({
+        x: left + (index * step),
+        y: bottom - ((Number(value || 0) / maximum) * (bottom - top)),
+      }));
+    };
+    const revenuePoints = pointsFor(revenue);
+    const bookingPoints = pointsFor(bookings);
+    const pointString = points => points.map(point => `${point.x},${point.y}`).join(' ');
+    document.getElementById('dashboardRevenueLine')?.setAttribute('points', pointString(revenuePoints));
+    document.getElementById('dashboardBookingsLine')?.setAttribute('points', pointString(bookingPoints));
+    const revenueArea = document.getElementById('dashboardRevenueArea');
+    if(revenueArea && revenuePoints.length){
+      const linePath = revenuePoints.map(point => `L ${point.x} ${point.y}`).join(' ');
+      revenueArea.setAttribute('d', `M ${revenuePoints[0].x} ${bottom} ${linePath} L ${revenuePoints[revenuePoints.length - 1].x} ${bottom} Z`);
+    }
+    const renderPoints = function(containerId, points, className){
+      const container = document.getElementById(containerId);
+      if(!container) return;
+      points.forEach(point => {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', point.x);
+        circle.setAttribute('cy', point.y);
+        circle.setAttribute('r', '5');
+        circle.setAttribute('class', `chart-point ${className}`);
+        container.appendChild(circle);
+      });
+    };
+    renderPoints('dashboardRevenuePoints', revenuePoints, 'chart-point--revenue');
+    renderPoints('dashboardBookingPoints', bookingPoints, 'chart-point--booking');
+    const labels = document.getElementById('dashboardChartLabels');
+    (data.labels || []).forEach(label => {
+      const span = document.createElement('span');
+      span.textContent = label;
+      labels?.appendChild(span);
+    });
   })();
 </script>
 {% endblock %}
