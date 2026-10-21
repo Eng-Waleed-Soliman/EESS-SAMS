@@ -42,6 +42,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "academies.middleware.ExternalCafeteriaEmployeeAccessMiddleware",
     "academies.middleware.RestrictedAcademyAccessMiddleware",
     "academies.middleware.SecurityGuardAccessMiddleware",
     "academies.middleware.CafeteriaSpecialistAccessMiddleware",
@@ -149,3 +150,7 @@ LOGGING = {
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "/login/"
+BICCHUB_CAFETERIA_VERIFY_URL = os.getenv(
+    "BICCHUB_CAFETERIA_VERIFY_URL",
+    "https://bicchub.com/api/cafeteria-sso/verify",
+)

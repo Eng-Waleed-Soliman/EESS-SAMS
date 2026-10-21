@@ -37,12 +37,18 @@
     <div class="incoming-orders-list">
       {% for order in pending_staff_orders %}
       <article class="incoming-order">
-        <div class="incoming-order-head"><strong>طلب #{{ order.pk }} — {{ order.requester_name }}</strong><time>{{ order.created_at|date:'h:i A' }}</time></div>
-        <ul>{% for line in order.items.all %}<li><span>{{ line.item_name }} × {{ line.quantity }}</span><b>{{ line.total_amount }} جنيه</b></li>{% endfor %}</ul>
-        <p><b>المكان:</b> {{ order.get_delivery_place_display }}</p>
+        <div class="incoming-order-head"><strong>أوردر #{{ order.pk }}</strong><span class="incoming-order-status {{ order.status }}">{{ order.get_status_display }}</span></div>
+        <div class="incoming-order-identity"><b>{{ order.requester_name }}</b><small>{{ order.requester_job_title|default:'المسمى الوظيفي غير مسجل' }}</small><time>{{ order.created_at|date:'d/m/Y' }} — {{ order.created_at|time:'h:i A' }}</time></div>
+        <p><b>مكان الاستلام:</b> {{ order.get_delivery_place_display }}</p>
         {% if order.notes %}<p><b>ملاحظات:</b> {{ order.notes }}</p>{% endif %}
+        <ul>{% for line in order.items.all %}<li><span>{{ line.item_name }} × {{ line.quantity }}</span><small>{{ line.unit_price }} جنيه للصنف</small><b>{{ line.total_amount }} جنيه</b></li>{% endfor %}</ul>
         <div class="incoming-order-total">الإجمالي: {{ order.total_amount }} جنيه</div>
-        <form method="post" action="{% url 'cafe_staff_order_complete' order.pk %}">{% csrf_token %}<button type="submit">تم التنفيذ</button></form>
+        <div class="incoming-order-actions">
+          {% if order.status == 'pending' %}<form method="post" action="{% url 'cafe_staff_order_complete' order.pk %}">{% csrf_token %}<input type="hidden" name="status" value="preparing"><button type="submit">بدء التجهيز</button></form>{% endif %}
+          {% if order.status == 'preparing' %}<form method="post" action="{% url 'cafe_staff_order_complete' order.pk %}">{% csrf_token %}<input type="hidden" name="status" value="ready"><button type="submit">الأوردر جاهز</button></form>{% endif %}
+          {% if order.status == 'ready' %}<form method="post" action="{% url 'cafe_staff_order_complete' order.pk %}">{% csrf_token %}<input type="hidden" name="status" value="completed"><button type="submit">تم التسليم</button></form>{% endif %}
+          <form method="post" action="{% url 'cafe_staff_order_complete' order.pk %}" class="cancel-order-form">{% csrf_token %}<input type="hidden" name="status" value="cancelled"><input name="cancellation_reason" maxlength="500" placeholder="سبب الإلغاء"><button type="submit">إلغاء</button></form>
+        </div>
       </article>
       {% empty %}<p class="incoming-orders-empty">لا توجد أوردرات جديدة.</p>{% endfor %}
     </div>
@@ -286,6 +292,7 @@
 .hospitality-dialog__actions{justify-content:flex-start;border-bottom:0;border-top:1px solid #e5e7eb}
 .hospitality-dialog__body{padding:22px 20px}
 .hospitality-dialog__close{border:0;background:transparent;font-size:28px;line-height:1;color:#64748b}
+.incoming-orders-card[open]{width:min(540px,94vw)}.incoming-order-identity{display:grid;gap:3px;margin:8px 0;padding:8px;border-radius:9px;background:#eef6ff}.incoming-order-identity small,.incoming-order-identity time{color:#64748b;font-size:13px}.incoming-order-status{padding:4px 8px;border-radius:999px;font-size:12px;font-weight:900}.incoming-order-status.pending{background:#dbeafe;color:#1d4ed8}.incoming-order-status.preparing{background:#fef3c7;color:#92400e}.incoming-order-status.ready{background:#dcfce7;color:#166534}.incoming-order li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center}.incoming-order li small{color:#64748b}.incoming-order-actions{display:grid;grid-template-columns:1fr;gap:7px}.incoming-order-actions form{margin:0}.incoming-order-actions .cancel-order-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}.cancel-order-form input{min-width:0;padding:7px 9px;border:1px solid #fecaca;border-radius:8px;font-size:14px}.incoming-order-actions .cancel-order-form button{width:auto;background:#dc2626}@media(max-width:520px){.incoming-order li{grid-template-columns:1fr auto}.incoming-order li small{grid-column:1/-1}.incoming-order-actions .cancel-order-form{grid-template-columns:1fr}.incoming-order-actions .cancel-order-form button{width:100%}}
 </style>
 <script>
 const cafeActionsMenu = document.querySelector('.cafe-actions-menu');

@@ -1637,10 +1637,16 @@ class CafeteriaStaffOrder(models.Model):
         (PLACE_CAFETERIA, 'الكافيتريا'),
     ]
     STATUS_PENDING = 'pending'
+    STATUS_PREPARING = 'preparing'
+    STATUS_READY = 'ready'
     STATUS_COMPLETED = 'completed'
+    STATUS_CANCELLED = 'cancelled'
     STATUS_CHOICES = [
-        (STATUS_PENDING, 'قيد التنفيذ'),
-        (STATUS_COMPLETED, 'تم التنفيذ'),
+        (STATUS_PENDING, 'تم الإرسال'),
+        (STATUS_PREPARING, 'جاري التجهيز'),
+        (STATUS_READY, 'جاهز'),
+        (STATUS_COMPLETED, 'تم التسليم'),
+        (STATUS_CANCELLED, 'ملغي'),
     ]
 
     branch = models.ForeignKey(
@@ -1660,6 +1666,8 @@ class CafeteriaStaffOrder(models.Model):
         verbose_name='مقدم الطلب',
     )
     requester_name = models.CharField(max_length=200, verbose_name='اسم مقدم الطلب')
+    requester_job_title = models.CharField(max_length=200, blank=True, verbose_name='المسمى الوظيفي')
+    external_employee_id = models.CharField(max_length=100, blank=True, db_index=True, verbose_name='رقم موظف BICCHub')
     delivery_place = models.CharField(
         max_length=20,
         choices=PLACE_CHOICES,
@@ -1667,6 +1675,7 @@ class CafeteriaStaffOrder(models.Model):
         verbose_name='مكان الاستلام',
     )
     notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    cancellation_reason = models.CharField(max_length=500, blank=True, verbose_name='سبب الإلغاء')
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,

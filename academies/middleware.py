@@ -65,6 +65,32 @@ def is_cafeteria_specialist(user):
     )
 
 
+class ExternalCafeteriaEmployeeAccessMiddleware:
+    """Keep BICCHub employee sessions inside the staff-ordering experience."""
+
+    allowed_prefixes = (
+        '/cafeteria/orders/',
+        '/cafeteria/external-access/',
+        '/logout/',
+        '/static/',
+        '/media/',
+        '/media-db/',
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        identity = request.session.get('external_cafeteria_employee') if hasattr(request, 'session') else None
+        if identity and request.user.is_authenticated:
+            request.external_cafeteria_employee = identity
+            if not any(request.path.startswith(prefix) for prefix in self.allowed_prefixes):
+                if request.method not in ('GET', 'HEAD'):
+                    return HttpResponseForbidden('هذا الحساب مخصص لطلبات الكافيتريا فقط.')
+                return redirect('cafe_orders')
+        return self.get_response(request)
+
+
 class CafeteriaSpecialistAccessMiddleware:
     allowed_prefixes = (
         '/cafeteria/sales/',

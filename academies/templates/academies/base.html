@@ -36,7 +36,7 @@
 <body>
 <div class="container-fluid">
   <div class="row">
-    <aside class="col-md-2 sidebar p-0">
+    {% if not external_cafeteria_employee %}<aside class="col-md-2 sidebar p-0">
       <div class="brand-block">
         {% if app_settings and app_settings.company_logo_name %}<img class="brand-logo" src="{% url 'persistent_media' 'branding' app_settings.pk 'company_logo' %}" alt="{{ app_settings.program_name }}">{% elif app_settings and app_settings.company_logo %}<img class="brand-logo" src="{{ app_settings.company_logo.url }}" alt="{{ app_settings.program_name }}">{% endif %}
         <h5 class="text-white p-3 border-bottom">{% if app_settings %}{{ app_settings.program_name }}{% else %}EESS Management System{% endif %}</h5>
@@ -70,8 +70,8 @@
       {% endif %}
       <a href="{% url 'logout' %}">خروج</a>
       </nav>
-    </aside>
-    <main class="col-md-10 p-4">
+    </aside>{% endif %}
+    <main class="{% if external_cafeteria_employee %}col-12{% else %}col-md-10{% endif %} p-4">
       {% if messages %}
       <div class="global-messages no-print" aria-live="polite">
         {% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}

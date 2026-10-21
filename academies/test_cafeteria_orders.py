@@ -14,6 +14,20 @@ from .models import (
 )
 
 
+class FakeBicchubResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode('utf-8')
+
+
 @override_settings(SECURE_SSL_REDIRECT=False)
 class CafeteriaOrdersPageTests(TestCase):
     def setUp(self):
@@ -167,6 +181,84 @@ class CafeteriaOrdersPageTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, CafeteriaStaffOrder.STATUS_COMPLETED)
         self.assertIsNotNone(order.completed_at)
+        self.assertEqual(CafeteriaSale.objects.filter(notes__contains=f'#{order.pk}').count(), 1)
+        self.client.post(reverse('cafe_staff_order_complete', args=[order.pk]))
+        self.assertEqual(CafeteriaSale.objects.filter(notes__contains=f'#{order.pk}').count(), 1)
+
+    def test_bicchub_employee_sso_creates_restricted_identity_and_history(self):
+        payload = {
+            'valid': True,
+            'employee': {
+                'employeeId': 'EMP-215',
+                'employeeName': 'أحمد موظف',
+                'jobTitle': 'مسؤول إداري',
+                'department': 'الموارد البشرية',
+                'academicYear': '2026-2027',
+            },
+        }
+        with patch('academies.views.urlopen', return_value=FakeBicchubResponse(payload)):
+            response = self.client.get(reverse('cafeteria_external_access'), {
+                'token': 'signed-token',
+                'mode': 'history',
+            })
+        self.assertRedirects(response, reverse('cafe_order_history'))
+        identity = self.client.session['external_cafeteria_employee']
+        self.assertEqual(identity['employee_id'], 'EMP-215')
+        self.assertEqual(identity['job_title'], 'مسؤول إداري')
+        self.assertTrue(User.objects.filter(username__startswith='bicchub_').exists())
+
+        category = self.categories[100]
+        item = CafeteriaItem.objects.create(
+            category=category, code=118, name='طلب موظف خارجي',
+            opening_quantity=10, sale_price=30, staff_sale_price=20,
+        )
+        response = self.client.post(reverse('cafe_staff_order_submit'), {
+            'order_items': json.dumps([{'item_id': item.pk, 'quantity': 2}]),
+            'delivery_place': CafeteriaStaffOrder.PLACE_CAFETERIA,
+            'notes': 'اختبار الربط',
+        })
+        self.assertRedirects(response, f"{reverse('cafe_orders')}?ordered=1")
+        order = CafeteriaStaffOrder.objects.get()
+        self.assertEqual(order.external_employee_id, 'EMP-215')
+        self.assertEqual(order.requester_name, 'أحمد موظف')
+        self.assertEqual(order.requester_job_title, 'مسؤول إداري')
+        self.assertEqual(order.total_amount, 40)
+        history = self.client.get(reverse('cafe_order_history'))
+        self.assertContains(history, 'طلب موظف خارجي × 2')
+        self.assertContains(history, '40 جنيه')
+        restricted = self.client.get(reverse('dashboard'))
+        self.assertRedirects(restricted, reverse('cafe_orders'))
+
+    def test_specialist_order_status_workflow_exposes_required_details(self):
+        item = CafeteriaItem.objects.create(
+            category=self.categories[100], code=117, name='قهوة موظف',
+            opening_quantity=12, sale_price=40, staff_sale_price=25,
+        )
+        employee = User.objects.create_user(username='linked.employee')
+        order = CafeteriaStaffOrder.objects.create(
+            requested_by=employee,
+            requester_name='منى محمود',
+            requester_job_title='مديرة مكتب',
+            external_employee_id='EMP-9',
+            delivery_place=CafeteriaStaffOrder.PLACE_OFFICE,
+            notes='سكر قليل',
+        )
+        order.items.create(item=item, item_name=item.name, quantity=2, unit_price=25)
+        specialist = User.objects.create_user(username='Cafeteria_Specialist')
+        self.client.force_login(specialist)
+        page = self.client.get(reverse('cafe_sale_list'))
+        for expected in ('أوردر #', 'منى محمود', 'مديرة مكتب', 'المكتب', 'سكر قليل', '25 جنيه للصنف', '50 جنيه', 'تم الإرسال'):
+            self.assertContains(page, expected)
+        self.client.post(reverse('cafe_staff_order_complete', args=[order.pk]), {'status': 'preparing'})
+        order.refresh_from_db()
+        self.assertEqual(order.status, CafeteriaStaffOrder.STATUS_PREPARING)
+        self.client.post(reverse('cafe_staff_order_complete', args=[order.pk]), {'status': 'ready'})
+        order.refresh_from_db()
+        self.assertEqual(order.status, CafeteriaStaffOrder.STATUS_READY)
+        self.client.post(reverse('cafe_staff_order_complete', args=[order.pk]), {'status': 'completed'})
+        order.refresh_from_db()
+        self.assertEqual(order.status, CafeteriaStaffOrder.STATUS_COMPLETED)
+        self.assertEqual(CafeteriaSale.objects.filter(notes__contains=f'#{order.pk}').count(), 1)
 
     def test_order_database_failure_rolls_back_and_returns_to_orders_page(self):
         category = self.categories[100]

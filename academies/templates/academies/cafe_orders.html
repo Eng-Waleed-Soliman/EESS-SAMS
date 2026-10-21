@@ -3,7 +3,7 @@
 {% block content %}
 <div class="orders-page">
   <div class="orders-topbar">
-    <a class="btn orders-back" href="{% url 'cafe_sale_list' %}">رجوع إلى شاشة البيع</a>
+    <div class="btn-row"><a class="btn orders-back" href="{% url 'cafe_order_history' %}">الأوردرات السابقة</a>{% if not external_cafeteria_employee %}<a class="btn orders-back" href="{% url 'cafe_sale_list' %}">رجوع إلى شاشة البيع</a>{% endif %}</div>
     <h3 class="orders-title">الأوردرات</h3>
   </div>
 

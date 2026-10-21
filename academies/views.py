@@ -1,7 +1,10 @@
 import json
+import hashlib
 import logging
 import re
 import uuid
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 from io import BytesIO
 from pathlib import Path
 from calendar import monthrange
@@ -10,6 +13,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib import messages
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.db import DatabaseError, transaction
@@ -980,7 +984,11 @@ def dashboard(request):
     try:
         pending_staff_orders_qs = CafeteriaStaffOrder.objects.filter(
             branch_filter('branch'),
-            status=CafeteriaStaffOrder.STATUS_PENDING,
+            status__in=[
+                CafeteriaStaffOrder.STATUS_PENDING,
+                CafeteriaStaffOrder.STATUS_PREPARING,
+                CafeteriaStaffOrder.STATUS_READY,
+            ],
         )
         pending_staff_orders_count = pending_staff_orders_qs.count()
     except DatabaseError:
@@ -2700,6 +2708,54 @@ def cafe_menu(request):
         groups.append({'category': None, 'label': 'بدون فئة', 'rows': orphan_rows})
     return render(request, 'academies/cafe_menu.html', {'groups': groups})
 
+def cafeteria_external_access(request):
+    token = (request.GET.get('token') or '').strip()
+    mode = 'history' if request.GET.get('mode') == 'history' else 'new'
+    if not token:
+        return render(request, 'academies/cafeteria_external_access_error.html', status=403)
+    verify_request = Request(
+        settings.BICCHUB_CAFETERIA_VERIFY_URL,
+        data=json.dumps({'token': token}).encode('utf-8'),
+        headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
+        method='POST',
+    )
+    try:
+        with urlopen(verify_request, timeout=8) as response:
+            result = json.loads(response.read().decode('utf-8'))
+    except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError):
+        logger.exception('Could not verify BICCHub cafeteria employee token.')
+        return render(request, 'academies/cafeteria_external_access_error.html', status=403)
+    employee = result.get('employee') if result.get('valid') else None
+    employee_id = str((employee or {}).get('employeeId') or '').strip()
+    employee_name = str((employee or {}).get('employeeName') or '').strip()
+    if not employee_id or not employee_name:
+        return render(request, 'academies/cafeteria_external_access_error.html', status=403)
+    username = f"bicchub_{hashlib.sha256(employee_id.encode('utf-8')).hexdigest()[:24]}"
+    user, created = User.objects.get_or_create(username=username)
+    if created:
+        user.set_unusable_password()
+    first_name = employee_name[:150]
+    if created or user.first_name != first_name:
+        user.first_name = first_name
+        user.save(update_fields=['password', 'first_name'] if created else ['first_name'])
+    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    request.session['external_cafeteria_employee'] = {
+        'employee_id': employee_id,
+        'name': employee_name[:200],
+        'job_title': str(employee.get('jobTitle') or '')[:200],
+        'department': str(employee.get('department') or '')[:200],
+        'academic_year': str(employee.get('academicYear') or '')[:20],
+    }
+    branch = (
+        Branch.objects.filter(short_name__iexact='BICC').first()
+        or Branch.objects.filter(name__icontains='BICC').first()
+        or Branch.objects.first()
+    )
+    if branch:
+        request.session['active_branch_id'] = branch.pk
+    return redirect('cafe_order_history' if mode == 'history' else 'cafe_orders')
+
+
 @login_required
 def cafe_orders(request):
     card_specs = (
@@ -2727,6 +2783,17 @@ def cafe_orders(request):
             'category': category,
         })
     return render(request, 'academies/cafe_orders.html', {'cards': cards})
+
+
+@login_required
+def cafe_order_history(request):
+    identity = request.session.get('external_cafeteria_employee') or {}
+    orders = CafeteriaStaffOrder.objects.prefetch_related('items')
+    if identity.get('employee_id'):
+        orders = orders.filter(external_employee_id=identity['employee_id'])
+    else:
+        orders = orders.filter(requested_by=request.user)
+    return render(request, 'academies/cafe_order_history.html', {'orders': orders[:200]})
 
 
 @login_required
@@ -2798,13 +2865,16 @@ def cafe_staff_order_submit(request):
             return redirect('cafe_orders')
 
     active_branch, all_branches = selected_branch(request)
-    requester_name = request.user.get_full_name().strip() or request.user.username
+    external_identity = request.session.get('external_cafeteria_employee') or {}
+    requester_name = external_identity.get('name') or request.user.get_full_name().strip() or request.user.username
     try:
         with transaction.atomic():
             order = CafeteriaStaffOrder.objects.create(
                 branch=None if all_branches else active_branch,
                 requested_by=request.user,
                 requester_name=requester_name,
+                requester_job_title=external_identity.get('job_title', ''),
+                external_employee_id=external_identity.get('employee_id', ''),
                 delivery_place=delivery_place,
                 notes=request.POST.get('notes', '').strip()[:2000],
             )
@@ -2840,12 +2910,42 @@ def cafe_staff_order_complete(request, pk):
     if not (is_cafeteria_specialist(request.user) or request.user.is_superuser):
         messages.error(request, 'غير مسموح بتنفيذ هذا الإجراء.')
         return redirect('cafe_sale_list')
-    order = get_object_or_404(CafeteriaStaffOrder, pk=pk)
-    if order.status == CafeteriaStaffOrder.STATUS_PENDING:
-        order.status = CafeteriaStaffOrder.STATUS_COMPLETED
-        order.completed_at = timezone.now()
-        order.save(update_fields=['status', 'completed_at'])
-        messages.success(request, f'تم إغلاق الطلب رقم {order.pk}.')
+    requested_status = request.POST.get('status', CafeteriaStaffOrder.STATUS_COMPLETED)
+    transitions = {
+        CafeteriaStaffOrder.STATUS_PENDING: {CafeteriaStaffOrder.STATUS_PREPARING, CafeteriaStaffOrder.STATUS_COMPLETED, CafeteriaStaffOrder.STATUS_CANCELLED},
+        CafeteriaStaffOrder.STATUS_PREPARING: {CafeteriaStaffOrder.STATUS_READY, CafeteriaStaffOrder.STATUS_CANCELLED},
+        CafeteriaStaffOrder.STATUS_READY: {CafeteriaStaffOrder.STATUS_COMPLETED, CafeteriaStaffOrder.STATUS_CANCELLED},
+    }
+    try:
+        with transaction.atomic():
+            order = get_object_or_404(CafeteriaStaffOrder.objects.select_for_update(), pk=pk)
+            if requested_status not in transitions.get(order.status, set()):
+                messages.info(request, 'تم تحديث حالة هذا الأوردر مسبقًا.')
+                return redirect('cafe_sale_list')
+            if requested_status == CafeteriaStaffOrder.STATUS_COMPLETED:
+                lines = list(order.items.select_related('item'))
+                for line in lines:
+                    if not line.item or line.quantity > line.item.stock_quantity:
+                        raise ValueError(f'المخزون غير كاف للصنف {line.item_name}.')
+                for line in lines:
+                    sale = CafeteriaSale.objects.create(
+                        item=line.item,
+                        sale_date=timezone.localdate(),
+                        quantity=line.quantity,
+                        unit_price=line.unit_price,
+                        is_staff_sale=True,
+                        notes=f'أوردر موظف #{order.pk} - {order.requester_name}',
+                    )
+                    _sync_cafeteria_ingredient_usage(sale)
+                order.completed_at = timezone.now()
+            if requested_status == CafeteriaStaffOrder.STATUS_CANCELLED:
+                order.cancellation_reason = request.POST.get('cancellation_reason', '').strip()[:500]
+            order.status = requested_status
+            order.save(update_fields=['status', 'completed_at', 'cancellation_reason'])
+    except ValueError as error:
+        messages.error(request, str(error))
+        return redirect('cafe_sale_list')
+    messages.success(request, f'تم تحديث حالة الأوردر رقم {order.pk} إلى {order.get_status_display()}.')
     return redirect('cafe_sale_list')
 
 def _prepare_recipe_formset(formset, product=None, branch=None):
@@ -3279,9 +3379,11 @@ def cafe_sale_list(request):
             # columns and multiplying them across pending orders can exhaust a
             # small production worker for no user-visible benefit.
             pending_staff_orders = list(
-                CafeteriaStaffOrder.objects.filter(
-                    status=CafeteriaStaffOrder.STATUS_PENDING,
-                ).prefetch_related('items')[:30]
+                CafeteriaStaffOrder.objects.filter(status__in=[
+                    CafeteriaStaffOrder.STATUS_PENDING,
+                    CafeteriaStaffOrder.STATUS_PREPARING,
+                    CafeteriaStaffOrder.STATUS_READY,
+                ]).prefetch_related('items')[:30]
             )
         except DatabaseError:
             # Keep the sales terminal usable if the orders migration is still
