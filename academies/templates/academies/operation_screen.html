@@ -16,9 +16,16 @@
         <option value="{{ value }}" {% if selected_period == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    <a class="btn btn-success" href="{% url 'booking_create' %}">إضافة حجز</a>
-    <a class="btn btn-warning border border-dark" href="{% url 'daily_expense_create' %}?date={{ selected_date|date:'Y-m-d' }}">المصروفات اليومية</a>
-    <button type="submit" form="cancelDayForm" class="btn btn-danger" onclick="return confirm('سيتم إلغاء كل حجوزات اليوم المختار، هل أنت متأكد؟')">إلغاء حجوزات اليوم</button>
+    <details class="timed-actions-menu" id="operationActionsMenu">
+      <summary class="timed-actions-toggle" aria-label="فتح قائمة إجراءات التشغيل" title="إجراءات التشغيل">
+        <span></span><span></span><span></span>
+      </summary>
+      <div class="timed-actions-dropdown">
+        <a class="btn btn-success" href="{% url 'booking_create' %}">إضافة حجز</a>
+        <a class="btn btn-warning border border-dark" href="{% url 'daily_expense_create' %}?date={{ selected_date|date:'Y-m-d' }}">المصروفات اليومية</a>
+        <button type="submit" form="cancelDayForm" class="btn btn-danger" onclick="return confirm('سيتم إلغاء كل حجوزات اليوم المختار، هل أنت متأكد؟')">إلغاء حجوزات اليوم</button>
+      </div>
+    </details>
   </form>
 </div>
 <style>
@@ -26,6 +33,13 @@
 .operation-filter-date{width:175px!important;min-width:175px!important;flex:0 0 175px!important}
 .operation-filter-period{width:310px!important;min-width:310px!important;flex:0 0 310px!important}
 .operation-filter-branch{width:285px!important;min-width:285px!important;flex:0 0 285px!important}
+.timed-actions-menu{position:relative;z-index:60;direction:rtl}
+.timed-actions-menu summary{list-style:none}.timed-actions-menu summary::-webkit-details-marker{display:none}
+.timed-actions-toggle{width:56px;height:48px;padding:11px 13px;border:1px solid #7dd3fc;border-radius:12px;background:#e0f7ff;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;cursor:pointer;box-shadow:0 6px 18px rgba(14,116,144,.14)}
+.timed-actions-toggle span{display:block;height:4px;border-radius:4px;background:#0369a1}
+.timed-actions-menu[open] .timed-actions-toggle{background:#2563eb;border-color:#2563eb}.timed-actions-menu[open] .timed-actions-toggle span{background:#fff}
+.timed-actions-dropdown{position:absolute;top:58px;left:0;width:240px;padding:12px;border:1px solid #bae6fd;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.22);display:grid;gap:8px;z-index:70}
+.timed-actions-dropdown .btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center}
 .operation-top-scroll{height:18px;overflow-x:auto;overflow-y:hidden;margin:0 8px 8px;direction:ltr}
 .operation-top-scroll>div{height:1px}
 .operation-top-scroll::-webkit-scrollbar{height:12px}.operation-top-scroll::-webkit-scrollbar-thumb{background:#64748b;border-radius:999px}.operation-top-scroll::-webkit-scrollbar-track{background:#e2e8f0;border-radius:999px}
@@ -183,6 +197,45 @@
 </div>
 
 <script>
+function setupTimedActionsMenu(menuId){
+  const menu = document.getElementById(menuId);
+  if(!menu) return;
+  const toggle = menu.querySelector('.timed-actions-toggle');
+  const minimumMenuVisibilityMs = 1000;
+  let openedAt = 0;
+  let closeTimer = null;
+  let pointerInside = false;
+  const cancelClose = function(){
+    if(closeTimer){ window.clearTimeout(closeTimer); closeTimer = null; }
+  };
+  const closeMenu = function(){
+    cancelClose();
+    if(pointerInside) return;
+    menu.removeAttribute('open');
+    toggle?.setAttribute('aria-expanded', 'false');
+  };
+  const closeAfterMinimumTime = function(){
+    cancelClose();
+    const delay = Math.max(0, minimumMenuVisibilityMs - (Date.now() - openedAt));
+    closeTimer = window.setTimeout(closeMenu, delay);
+  };
+  toggle?.setAttribute('aria-expanded', 'false');
+  toggle?.addEventListener('click', function(){
+    window.setTimeout(function(){
+      if(menu.open){ openedAt = Date.now(); closeAfterMinimumTime(); }
+      toggle.setAttribute('aria-expanded', menu.open ? 'true' : 'false');
+    }, 0);
+  });
+  menu.addEventListener('mouseenter', function(){ pointerInside = true; cancelClose(); });
+  menu.addEventListener('mouseleave', function(){ pointerInside = false; closeAfterMinimumTime(); });
+  document.addEventListener('click', function(event){
+    if(menu.open && !menu.contains(event.target)){ pointerInside = false; closeAfterMinimumTime(); }
+  });
+  document.addEventListener('keydown', function(event){
+    if(event.key === 'Escape'){ pointerInside = false; closeMenu(); toggle?.focus(); }
+  });
+}
+setupTimedActionsMenu('operationActionsMenu');
 const selectedAvailableCards = [];
 function bookingUrlForRange(place, startTime, endTime){
   const url = new URL("{% url 'booking_create' %}", window.location.origin);

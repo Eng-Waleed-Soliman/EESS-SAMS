@@ -2,7 +2,16 @@
 {% block content %}
 <div class="d-flex justify-content-between mb-3">
   <h3>الحجز اليومي</h3>
-  <div class="d-flex gap-2 flex-wrap"><button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button><a class="btn btn-success" href="{% url 'daily_income_supply' %}">توريد مبالغ نقدية</a><a class="btn btn-primary" href="{% url 'booking_create' %}">إضافة حجز يومي</a></div>
+  <details class="timed-actions-menu" id="bookingActionsMenu">
+    <summary class="timed-actions-toggle" aria-label="فتح قائمة إجراءات الحجز اليومي" title="إجراءات الحجز اليومي">
+      <span></span><span></span><span></span>
+    </summary>
+    <div class="timed-actions-dropdown">
+      <button type="button" class="btn btn-danger" onclick="window.print()">تصدير PDF</button>
+      <a class="btn btn-success" href="{% url 'daily_income_supply' %}">توريد مبالغ نقدية</a>
+      <a class="btn btn-primary" href="{% url 'booking_create' %}">إضافة حجز يومي</a>
+    </div>
+  </details>
 </div>
 <form id="bookingFilterForm" class="card p-3 mb-3 booking-filter-form" method="get">
   <div class="d-flex align-items-end gap-3 flex-wrap">
@@ -14,7 +23,7 @@
       <label class="form-label fw-bold">البحث</label>
       <input class="form-control search-box" name="q" value="{{ q }}" placeholder="بحث باسم العميل أو رقم الموبايل أو المكان">
     </div>
-    {% if booking_date_value or q %}<a class="btn btn-outline-secondary" href="{% url 'booking_list' %}">كل الحجوزات</a>{% endif %}
+    {% if booking_date_value or q %}<a class="btn btn-outline-secondary" href="{% url 'booking_list' %}?booking_date=">كل الحجوزات</a>{% endif %}
   </div>
 </form>
 <div class="card p-3 booking-table-card">
@@ -40,9 +49,55 @@
 .booking-list-table{width:100%;min-width:1650px;table-layout:auto}
 .booking-list-table th,.booking-list-table td{white-space:nowrap!important;vertical-align:middle}
 .booking-list-table td:last-child{min-width:280px}
+.timed-actions-menu{position:relative;z-index:60;direction:rtl}
+.timed-actions-menu summary{list-style:none}.timed-actions-menu summary::-webkit-details-marker{display:none}
+.timed-actions-toggle{width:56px;height:48px;padding:11px 13px;border:1px solid #7dd3fc;border-radius:12px;background:#e0f7ff;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;cursor:pointer;box-shadow:0 6px 18px rgba(14,116,144,.14)}
+.timed-actions-toggle span{display:block;height:4px;border-radius:4px;background:#0369a1}
+.timed-actions-menu[open] .timed-actions-toggle{background:#2563eb;border-color:#2563eb}.timed-actions-menu[open] .timed-actions-toggle span{background:#fff}
+.timed-actions-dropdown{position:absolute;top:58px;left:0;width:240px;padding:12px;border:1px solid #bae6fd;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.22);display:grid;gap:8px;z-index:70}
+.timed-actions-dropdown .btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center}
 @media(max-width:768px){.booking-date-filter,.booking-search-filter{width:100%;max-width:none;flex-basis:100%}}
 </style>
 <script>
+function setupTimedActionsMenu(menuId){
+  const menu = document.getElementById(menuId);
+  if(!menu) return;
+  const toggle = menu.querySelector('.timed-actions-toggle');
+  const minimumMenuVisibilityMs = 1000;
+  let openedAt = 0;
+  let closeTimer = null;
+  let pointerInside = false;
+  const cancelClose = function(){
+    if(closeTimer){ window.clearTimeout(closeTimer); closeTimer = null; }
+  };
+  const closeMenu = function(){
+    cancelClose();
+    if(pointerInside) return;
+    menu.removeAttribute('open');
+    toggle?.setAttribute('aria-expanded', 'false');
+  };
+  const closeAfterMinimumTime = function(){
+    cancelClose();
+    const delay = Math.max(0, minimumMenuVisibilityMs - (Date.now() - openedAt));
+    closeTimer = window.setTimeout(closeMenu, delay);
+  };
+  toggle?.setAttribute('aria-expanded', 'false');
+  toggle?.addEventListener('click', function(){
+    window.setTimeout(function(){
+      if(menu.open){ openedAt = Date.now(); closeAfterMinimumTime(); }
+      toggle.setAttribute('aria-expanded', menu.open ? 'true' : 'false');
+    }, 0);
+  });
+  menu.addEventListener('mouseenter', function(){ pointerInside = true; cancelClose(); });
+  menu.addEventListener('mouseleave', function(){ pointerInside = false; closeAfterMinimumTime(); });
+  document.addEventListener('click', function(event){
+    if(menu.open && !menu.contains(event.target)){ pointerInside = false; closeAfterMinimumTime(); }
+  });
+  document.addEventListener('keydown', function(event){
+    if(event.key === 'Escape'){ pointerInside = false; closeMenu(); toggle?.focus(); }
+  });
+}
+setupTimedActionsMenu('bookingActionsMenu');
 const bookingFilterForm = document.getElementById('bookingFilterForm');
 let bookingSearchTimer;
 bookingFilterForm?.querySelector('input[name="booking_date"]')?.addEventListener('change', () => bookingFilterForm.submit());

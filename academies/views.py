@@ -1051,7 +1051,12 @@ def _customers_lookup_context():
 @login_required
 def booking_list(request):
     q = request.GET.get('q', '').strip()
-    booking_date_value = request.GET.get('booking_date', '').strip()
+    requested_booking_date = request.GET.get('booking_date')
+    booking_date_value = (
+        date.today().isoformat()
+        if requested_booking_date is None
+        else requested_booking_date.strip()
+    )
     bookings = DailyBooking.objects.all()
     active_branch, all_branches = selected_branch(request)
     if not all_branches:

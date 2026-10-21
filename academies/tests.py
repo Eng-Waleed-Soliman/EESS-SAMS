@@ -2101,6 +2101,39 @@ class ApplicationFlowsTests(TestCase):
         self.assertNotContains(response, '<th>المقدم</th>', html=True)
         self.assertNotContains(response, '<th>المتبقي</th>', html=True)
 
+    def test_daily_booking_list_defaults_to_today_and_uses_timed_actions_menu(self):
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+        common = {
+            'venue': OPERATION_PLACE_CHOICES[0][0],
+            'start_time': TIME_CHOICES[0][0],
+            'end_time': TIME_CHOICES[2][0],
+            'customer_phone': '01000000123',
+            'total_amount': 500,
+            'advance_payment': 100,
+            'remaining_amount': 400,
+        }
+        DailyBooking.objects.create(
+            **common, booking_date=today, customer_name='Default today booking',
+        )
+        DailyBooking.objects.create(
+            **{**common, 'customer_phone': '01000000456'},
+            booking_date=tomorrow, customer_name='Tomorrow booking',
+        )
+
+        response = self.client.get(reverse('booking_list'))
+
+        self.assertContains(response, 'Default today booking')
+        self.assertNotContains(response, 'Tomorrow booking')
+        self.assertContains(response, f'value="{today.isoformat()}"')
+        self.assertContains(response, 'id="bookingActionsMenu"')
+        self.assertContains(response, 'const minimumMenuVisibilityMs = 1000')
+        self.assertContains(response, "setupTimedActionsMenu('bookingActionsMenu')")
+
+        all_bookings_response = self.client.get(reverse('booking_list'), {'booking_date': ''})
+        self.assertContains(all_bookings_response, 'Default today booking')
+        self.assertContains(all_bookings_response, 'Tomorrow booking')
+
     def test_daily_booking_list_uses_booking_branch_without_requiring_facilities(self):
         selected_date = date.today()
         active_branch = Branch.objects.create(name='BICC', short_name='BICC')
@@ -2154,6 +2187,9 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'width:310px!important')
         self.assertContains(response, 'operationTopScroll')
         self.assertContains(response, 'operationFilterForm')
+        self.assertContains(response, 'id="operationActionsMenu"')
+        self.assertContains(response, 'const minimumMenuVisibilityMs = 1000')
+        self.assertContains(response, "setupTimedActionsMenu('operationActionsMenu')")
         self.assertNotContains(response, '<button class="btn btn-primary">عرض</button>', html=True)
 
         booking_response = self.client.get(reverse('booking_create'), {
