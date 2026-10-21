@@ -993,11 +993,14 @@ def dashboard(request):
         for row in bookings.filter(booking_date__range=(chart_start, today))
         .values('booking_date').annotate(total=Count('id'))
     }
+    booking_revenue_by_day = {chart_start + timedelta(days=offset): 0 for offset in range(7)}
     revenue_by_day = {chart_start + timedelta(days=offset): 0 for offset in range(7)}
     for row in booking_checkouts.filter(income_date__range=(chart_start, today)).values(
         'income_date',
     ).annotate(total=Sum('total_amount')):
-        revenue_by_day[row['income_date']] += int(row['total'] or 0)
+        daily_booking_revenue = int(row['total'] or 0)
+        booking_revenue_by_day[row['income_date']] += daily_booking_revenue
+        revenue_by_day[row['income_date']] += daily_booking_revenue
     for row in academy_rent_entries.filter(payment_date__range=(chart_start, today)).values(
         'payment_date',
     ).annotate(total=Sum('paid_amount')):
@@ -1135,7 +1138,7 @@ def dashboard(request):
     dashboard_chart = {
         'labels': [day.strftime('%d/%m') for day in chart_days],
         'bookings': [booking_counts_by_day.get(day, 0) for day in chart_days],
-        'revenue': [revenue_by_day.get(day, 0) for day in chart_days],
+        'revenue': [booking_revenue_by_day.get(day, 0) for day in chart_days],
     }
 
     current_time = timezone.localtime().strftime('%H:%M')

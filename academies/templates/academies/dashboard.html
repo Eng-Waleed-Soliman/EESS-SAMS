@@ -59,7 +59,7 @@
       <div><span class="panel-eyebrow">تحليل الأداء</span><h2>الإيرادات والحجوزات — آخر 7 أيام</h2></div>
       <a href="{% url 'reports_home' %}">عرض التقارير ←</a>
     </header>
-    <div class="chart-legend"><span><i class="revenue-dot"></i> الإيرادات بالجنيه</span><span><i class="booking-dot"></i> عدد الحجوزات</span></div>
+    <div class="chart-legend"><span><i class="revenue-dot"></i> إيراد الحجز اليومي بالجنيه</span><span><i class="booking-dot"></i> عدد الحجوزات</span></div>
     <div class="dashboard-chart" role="img" aria-label="رسم بياني للإيرادات والحجوزات خلال آخر سبعة أيام">
       <svg id="dashboardChart" viewBox="0 0 760 245" preserveAspectRatio="none" aria-hidden="true">
         <defs><linearGradient id="dashboardRevenueFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#2563eb" stop-opacity=".24"></stop><stop offset="100%" stop-color="#2563eb" stop-opacity="0"></stop></linearGradient></defs>
@@ -236,7 +236,7 @@
     const pointsFor = function(values){
       const maximum = Math.max(...values, 1);
       return values.map((value, index) => ({
-        x: left + (index * step),
+        x: left + ((values.length - 1 - index) * step),
         y: bottom - ((Number(value || 0) / maximum) * (bottom - top)),
       }));
     };
@@ -258,7 +258,7 @@
       if(!chart || !chartSvg || !tooltip) return;
       const chartRect = chart.getBoundingClientRect();
       const svgRect = chartSvg.getBoundingClientRect();
-      tooltip.innerHTML = `<strong>${data.labels[index]}</strong><span>عدد الحجوزات: <b>${numberFormatter.format(bookings[index] || 0)}</b></span><span>الإيراد: <b>${numberFormatter.format(revenue[index] || 0)} جنيه</b></span>`;
+      tooltip.innerHTML = `<strong>${data.labels[index]}</strong><span>عدد الحجوزات: <b>${numberFormatter.format(bookings[index] || 0)}</b></span><span>إيراد الحجز اليومي: <b>${numberFormatter.format(revenue[index] || 0)} جنيه</b></span>`;
       tooltip.style.left = `${(svgRect.left - chartRect.left) + ((point.x / 760) * svgRect.width)}px`;
       tooltip.style.top = `${(svgRect.top - chartRect.top) + ((point.y / 245) * svgRect.height)}px`;
       tooltip.classList.add('is-visible');

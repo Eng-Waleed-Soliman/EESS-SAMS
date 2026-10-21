@@ -2004,6 +2004,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.context['dashboard_kpis'][3]['value'], '1')
         self.assertEqual(len(response.context['dashboard_chart']['labels']), 7)
         self.assertEqual(len(response.context['dashboard_chart']['revenue']), 7)
+        self.assertEqual(response.context['dashboard_chart']['revenue'][-1], 500)
         self.assertTrue(response.context['recent_activities'])
         self.assertContains(response, 'الإيرادات والحجوزات')
         self.assertContains(response, 'التشغيل الحالي والقادم')
@@ -2012,6 +2013,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'dashboard-chart-data')
         self.assertContains(response, 'id="dashboardChartTooltip"')
         self.assertContains(response, 'عدد الحجوزات:')
+        self.assertContains(response, 'إيراد الحجز اليومي:')
+        self.assertContains(response, 'values.length - 1 - index')
         self.assertContains(response, "circle.addEventListener('mouseenter'", html=False)
         self.assertNotContains(response, 'dashboard-card-col')
 
