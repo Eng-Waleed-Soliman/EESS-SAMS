@@ -56,17 +56,17 @@
 <section class="dashboard-grid dashboard-grid--primary mt-3">
   <article class="dashboard-panel dashboard-chart-panel">
     <header class="dashboard-panel__header">
-      <div><span class="panel-eyebrow">تحليل الأداء</span><h2>الإيرادات والحجوزات — آخر 7 أيام</h2></div>
+      <div><span class="panel-eyebrow">تحليل الأداء</span><h2>إيراد الحجز اليومي والكافيتريا — آخر 7 أيام</h2></div>
       <a href="{% url 'reports_home' %}">عرض التقارير ←</a>
     </header>
-    <div class="chart-legend"><span><i class="revenue-dot"></i> إيراد الحجز اليومي بالجنيه</span><span><i class="booking-dot"></i> عدد الحجوزات</span></div>
-    <div class="dashboard-chart" role="img" aria-label="رسم بياني للإيرادات والحجوزات خلال آخر سبعة أيام">
+    <div class="chart-legend"><span><i class="booking-revenue-dot"></i> إيراد الحجز اليومي</span><span><i class="cafeteria-revenue-dot"></i> إيراد الكافيتريا</span></div>
+    <div class="dashboard-chart" role="img" aria-label="رسم بياني لإيراد الحجز اليومي والكافيتريا خلال آخر سبعة أيام">
       <svg id="dashboardChart" viewBox="0 0 760 245" preserveAspectRatio="none" aria-hidden="true">
         <defs><linearGradient id="dashboardRevenueFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#2563eb" stop-opacity=".24"></stop><stop offset="100%" stop-color="#2563eb" stop-opacity="0"></stop></linearGradient></defs>
         <g class="chart-grid-lines"><line x1="30" y1="25" x2="740" y2="25"></line><line x1="30" y1="75" x2="740" y2="75"></line><line x1="30" y1="125" x2="740" y2="125"></line><line x1="30" y1="175" x2="740" y2="175"></line><line x1="30" y1="225" x2="740" y2="225"></line></g>
         <path id="dashboardRevenueArea" fill="url(#dashboardRevenueFill)"></path>
-        <polyline id="dashboardRevenueLine" class="chart-line chart-line--revenue"></polyline><polyline id="dashboardBookingsLine" class="chart-line chart-line--bookings"></polyline>
-        <g id="dashboardRevenuePoints"></g><g id="dashboardBookingPoints"></g>
+        <polyline id="dashboardBookingRevenueLine" class="chart-line chart-line--booking-revenue"></polyline><polyline id="dashboardCafeteriaRevenueLine" class="chart-line chart-line--cafeteria-revenue"></polyline>
+        <g id="dashboardBookingRevenuePoints"></g><g id="dashboardCafeteriaRevenuePoints"></g>
       </svg>
       <div class="dashboard-chart-labels" id="dashboardChartLabels"></div>
       <div class="dashboard-chart-tooltip" id="dashboardChartTooltip" role="status" aria-live="polite"></div>
@@ -207,7 +207,7 @@
   .dashboard-kpi__icon{flex:0 0 42px;width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:var(--kpi-soft);color:var(--kpi-color);font-size:21px;font-weight:900}.dashboard-kpi__body{min-width:0;display:flex;flex-direction:column}.dashboard-kpi__label{font-size:13px;font-weight:900;white-space:nowrap}.dashboard-kpi__body strong{margin-top:5px;font:900 25px/1 Arial,sans-serif}.dashboard-kpi__body strong small{margin-right:4px;font:800 11px/1 Arial,sans-serif}.dashboard-kpi__hint{margin-top:auto;color:#7b8ca2;font-size:10px;line-height:1.35}.dashboard-kpi__trend{position:absolute;left:11px;bottom:12px;font-size:11px;font-weight:900}.dashboard-kpi__trend.positive{color:#16a34a}.dashboard-kpi__trend.negative{color:#dc2626}
   .dashboard-kpi--blue{--kpi-color:#2563eb;--kpi-soft:#e9f1ff}.dashboard-kpi--green{--kpi-color:#16a34a;--kpi-soft:#e8f8ee}.dashboard-kpi--violet{--kpi-color:#7c3aed;--kpi-soft:#f1eaff}.dashboard-kpi--indigo{--kpi-color:#4f46e5;--kpi-soft:#edecff}.dashboard-kpi--amber{--kpi-color:#d97706;--kpi-soft:#fff4dc}.dashboard-kpi--red{--kpi-color:#dc2626;--kpi-soft:#ffebeb}
   .dashboard-grid{display:grid;gap:14px}.dashboard-grid--primary{grid-template-columns:minmax(0,1.45fr) minmax(370px,.9fr)}.dashboard-grid--secondary{grid-template-columns:1fr 1fr}.dashboard-panel{min-width:0;padding:18px;border:1px solid #e1eaf4;border-radius:18px;background:#fff;box-shadow:0 10px 28px rgba(15,42,74,.07)}.dashboard-panel__header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.dashboard-panel__header h2{margin:2px 0 0;color:#0f2a4a;font-size:18px;font-weight:900}.dashboard-panel__header>a{color:#2563eb;text-decoration:none;font-size:12px;font-weight:900;white-space:nowrap}.panel-eyebrow{color:#6b7f99;font-size:10px;font-weight:900;letter-spacing:.3px}.panel-eyebrow--live{color:#dc2626}.panel-eyebrow--alert{color:#d97706}.panel-count{min-width:32px;height:32px;padding:0 8px;border-radius:10px;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-weight:900}
-  .chart-legend{display:flex;gap:18px;margin-bottom:8px;color:#64748b;font-size:11px}.chart-legend span{display:flex;align-items:center;gap:6px}.chart-legend i{width:9px;height:9px;border-radius:50%}.revenue-dot{background:#2563eb}.booking-dot{background:#38bdf8}.dashboard-chart{position:relative;height:245px}.dashboard-chart svg{width:100%;height:215px;overflow:visible}.chart-grid-lines line{stroke:#e5edf6;stroke-width:1}.chart-line{fill:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.chart-line--revenue{stroke:#2563eb}.chart-line--bookings{stroke:#38bdf8}.chart-point{stroke:#fff;stroke-width:3;vector-effect:non-scaling-stroke;cursor:pointer;transition:r .15s ease}.chart-point:hover,.chart-point:focus{r:8;outline:none}.chart-point--revenue{fill:#2563eb}.chart-point--booking{fill:#38bdf8}.dashboard-chart-labels{display:grid;grid-template-columns:repeat(7,1fr);padding:0 2px;color:#64748b;font-size:10px;text-align:center}.dashboard-chart-tooltip{position:absolute;z-index:5;min-width:155px;padding:10px 12px;border:1px solid #bfdbfe;border-radius:11px;background:#0f2a4a;color:#fff;box-shadow:0 12px 28px rgba(15,42,74,.25);display:none;pointer-events:none;transform:translate(-50%,calc(-100% - 12px));text-align:right;font-size:11px;line-height:1.55}.dashboard-chart-tooltip.is-visible{display:flex;flex-direction:column}.dashboard-chart-tooltip strong{margin-bottom:3px;color:#bae6fd}.dashboard-chart-tooltip span{white-space:nowrap}.dashboard-chart-tooltip::after{content:"";position:absolute;left:50%;bottom:-6px;width:11px;height:11px;background:#0f2a4a;transform:translateX(-50%) rotate(45deg)}
+  .chart-legend{display:flex;gap:18px;margin-bottom:8px;color:#64748b;font-size:11px}.chart-legend span{display:flex;align-items:center;gap:6px}.chart-legend i{width:9px;height:9px;border-radius:50%}.booking-revenue-dot{background:#2563eb}.cafeteria-revenue-dot{background:#38bdf8}.dashboard-chart{position:relative;height:245px}.dashboard-chart svg{width:100%;height:215px;overflow:visible}.chart-grid-lines line{stroke:#e5edf6;stroke-width:1}.chart-line{fill:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.chart-line--booking-revenue{stroke:#2563eb}.chart-line--cafeteria-revenue{stroke:#38bdf8}.chart-point{stroke:#fff;stroke-width:3;vector-effect:non-scaling-stroke;cursor:pointer;transition:r .15s ease}.chart-point:hover,.chart-point:focus{r:8;outline:none}.chart-point--booking-revenue{fill:#2563eb}.chart-point--cafeteria-revenue{fill:#38bdf8}.dashboard-chart-labels{display:grid;grid-template-columns:repeat(7,1fr);padding:0 2px;color:#64748b;font-size:10px;text-align:center}.dashboard-chart-tooltip{position:absolute;z-index:5;min-width:155px;padding:10px 12px;border:1px solid #bfdbfe;border-radius:11px;background:#0f2a4a;color:#fff;box-shadow:0 12px 28px rgba(15,42,74,.25);display:none;pointer-events:none;transform:translate(-50%,calc(-100% - 12px));text-align:right;font-size:11px;line-height:1.55}.dashboard-chart-tooltip.is-visible{display:flex;flex-direction:column}.dashboard-chart-tooltip strong{margin-bottom:3px;color:#bae6fd}.dashboard-chart-tooltip span{white-space:nowrap}.dashboard-chart-tooltip::after{content:"";position:absolute;left:50%;bottom:-6px;width:11px;height:11px;background:#0f2a4a;transform:translateX(-50%) rotate(45deg)}
   .live-operation-table{border:1px solid #e4ebf3;border-radius:13px;overflow:hidden}.live-operation-table__head,.live-operation-row{display:grid;grid-template-columns:1fr 1.2fr 1.5fr .9fr;align-items:center;gap:8px;padding:10px 11px}.live-operation-table__head{background:#f1f6fb;color:#64748b;font-size:10px;font-weight:900}.live-operation-row{min-height:49px;border-top:1px solid #edf1f6;font-size:11px}.live-operation-row b{font-size:11px}.live-operation-row strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.status-pill{padding:6px 7px;border-radius:999px;text-align:center;font-style:normal;font-size:9px;font-weight:900;white-space:nowrap}.status-pill--success{background:#dcfce7;color:#16814c}.status-pill--info{background:#e0f2fe;color:#0369a1}.status-pill--academy{background:#ede9fe;color:#6d28d9}
   .dashboard-alert-list,.recent-activity-list{display:grid;gap:8px}.dashboard-alert{min-height:58px;padding:9px 11px;border-radius:12px;color:#0f2a4a;text-decoration:none;display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:10px;background:var(--alert-soft);border:1px solid var(--alert-border);transition:.18s}.dashboard-alert:hover{color:#0f2a4a;transform:translateX(-3px)}.dashboard-alert__icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#fff;color:var(--alert-color);font-weight:900}.dashboard-alert span:nth-child(2){min-width:0;display:flex;flex-direction:column}.dashboard-alert strong{font-size:12px}.dashboard-alert small{margin-top:3px;color:#677991;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dashboard-alert>b{color:var(--alert-color);font-size:22px}.dashboard-alert.is-clear{opacity:.62}.dashboard-alert--danger{--alert-soft:#fff0f0;--alert-border:#fecaca;--alert-color:#dc2626}.dashboard-alert--warning{--alert-soft:#fff7e5;--alert-border:#fde2a7;--alert-color:#d97706}.dashboard-alert--amber{--alert-soft:#fffbeb;--alert-border:#fde68a;--alert-color:#b45309}.dashboard-alert--info{--alert-soft:#eff6ff;--alert-border:#bfdbfe;--alert-color:#2563eb}
   .activity-clock{color:#2563eb;font-size:25px}.recent-event{position:relative;min-height:58px;padding:8px 8px 8px 58px;border-bottom:1px solid #edf1f6;display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:9px}.recent-event:last-child{border-bottom:0}.recent-event::after{content:"";position:absolute;left:38px;top:0;bottom:-9px;width:1px;background:#dbe5f0}.recent-event:last-child::after{bottom:50%}.recent-event__icon{position:relative;z-index:1;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--event-soft);color:var(--event-color);font-weight:900}.recent-event>div{min-width:0;display:flex;flex-direction:column}.recent-event strong{font-size:12px}.recent-event small{margin-top:3px;color:#6b7f99;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.recent-event time{color:#50647c;font-size:11px;font-weight:900;text-align:center}.recent-event time small{display:block}.recent-event--blue{--event-color:#2563eb;--event-soft:#eaf1ff}.recent-event--green{--event-color:#16a34a;--event-soft:#e8f8ee}.recent-event--amber{--event-color:#d97706;--event-soft:#fff4dc}.recent-event--indigo{--event-color:#4f46e5;--event-soft:#edecff}
@@ -226,29 +226,29 @@
     const dataNode = document.getElementById('dashboard-chart-data');
     if(!dataNode) return;
     const data = JSON.parse(dataNode.textContent);
-    const revenue = data.revenue || [];
-    const bookings = data.bookings || [];
+    const bookingRevenue = data.booking_revenue || [];
+    const cafeteriaRevenue = data.cafeteria_revenue || [];
     const width = 710;
     const left = 30;
     const top = 25;
     const bottom = 225;
-    const step = revenue.length > 1 ? width / (revenue.length - 1) : 0;
+    const step = bookingRevenue.length > 1 ? width / (bookingRevenue.length - 1) : 0;
+    const maximum = Math.max(...bookingRevenue, ...cafeteriaRevenue, 1);
     const pointsFor = function(values){
-      const maximum = Math.max(...values, 1);
       return values.map((value, index) => ({
         x: left + ((values.length - 1 - index) * step),
         y: bottom - ((Number(value || 0) / maximum) * (bottom - top)),
       }));
     };
-    const revenuePoints = pointsFor(revenue);
-    const bookingPoints = pointsFor(bookings);
+    const bookingRevenuePoints = pointsFor(bookingRevenue);
+    const cafeteriaRevenuePoints = pointsFor(cafeteriaRevenue);
     const pointString = points => points.map(point => `${point.x},${point.y}`).join(' ');
-    document.getElementById('dashboardRevenueLine')?.setAttribute('points', pointString(revenuePoints));
-    document.getElementById('dashboardBookingsLine')?.setAttribute('points', pointString(bookingPoints));
+    document.getElementById('dashboardBookingRevenueLine')?.setAttribute('points', pointString(bookingRevenuePoints));
+    document.getElementById('dashboardCafeteriaRevenueLine')?.setAttribute('points', pointString(cafeteriaRevenuePoints));
     const revenueArea = document.getElementById('dashboardRevenueArea');
-    if(revenueArea && revenuePoints.length){
-      const linePath = revenuePoints.map(point => `L ${point.x} ${point.y}`).join(' ');
-      revenueArea.setAttribute('d', `M ${revenuePoints[0].x} ${bottom} ${linePath} L ${revenuePoints[revenuePoints.length - 1].x} ${bottom} Z`);
+    if(revenueArea && bookingRevenuePoints.length){
+      const linePath = bookingRevenuePoints.map(point => `L ${point.x} ${point.y}`).join(' ');
+      revenueArea.setAttribute('d', `M ${bookingRevenuePoints[0].x} ${bottom} ${linePath} L ${bookingRevenuePoints[bookingRevenuePoints.length - 1].x} ${bottom} Z`);
     }
     const chart = document.querySelector('.dashboard-chart');
     const chartSvg = document.getElementById('dashboardChart');
@@ -258,7 +258,7 @@
       if(!chart || !chartSvg || !tooltip) return;
       const chartRect = chart.getBoundingClientRect();
       const svgRect = chartSvg.getBoundingClientRect();
-      tooltip.innerHTML = `<strong>${data.labels[index]}</strong><span>عدد الحجوزات: <b>${numberFormatter.format(bookings[index] || 0)}</b></span><span>إيراد الحجز اليومي: <b>${numberFormatter.format(revenue[index] || 0)} جنيه</b></span>`;
+      tooltip.innerHTML = `<strong>${data.labels[index]}</strong><span>إيراد الحجز اليومي: <b>${numberFormatter.format(bookingRevenue[index] || 0)} جنيه</b></span><span>إيراد الكافيتريا: <b>${numberFormatter.format(cafeteriaRevenue[index] || 0)} جنيه</b></span>`;
       tooltip.style.left = `${(svgRect.left - chartRect.left) + ((point.x / 760) * svgRect.width)}px`;
       tooltip.style.top = `${(svgRect.top - chartRect.top) + ((point.y / 245) * svgRect.height)}px`;
       tooltip.classList.add('is-visible');
@@ -275,7 +275,7 @@
         circle.setAttribute('class', `chart-point ${className}`);
         circle.setAttribute('tabindex', '0');
         circle.setAttribute('role', 'button');
-        circle.setAttribute('aria-label', `${data.labels[index]}، ${bookings[index] || 0} حجوزات، إيراد ${revenue[index] || 0} جنيه`);
+        circle.setAttribute('aria-label', `${data.labels[index]}، إيراد الحجز اليومي ${bookingRevenue[index] || 0} جنيه، إيراد الكافيتريا ${cafeteriaRevenue[index] || 0} جنيه`);
         circle.addEventListener('mouseenter', () => showTooltip(index, point));
         circle.addEventListener('focus', () => showTooltip(index, point));
         circle.addEventListener('click', () => showTooltip(index, point));
@@ -284,8 +284,8 @@
         container.appendChild(circle);
       });
     };
-    renderPoints('dashboardRevenuePoints', revenuePoints, 'chart-point--revenue');
-    renderPoints('dashboardBookingPoints', bookingPoints, 'chart-point--booking');
+    renderPoints('dashboardBookingRevenuePoints', bookingRevenuePoints, 'chart-point--booking-revenue');
+    renderPoints('dashboardCafeteriaRevenuePoints', cafeteriaRevenuePoints, 'chart-point--cafeteria-revenue');
     const labels = document.getElementById('dashboardChartLabels');
     (data.labels || []).forEach(label => {
       const span = document.createElement('span');

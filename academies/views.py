@@ -994,6 +994,7 @@ def dashboard(request):
         .values('booking_date').annotate(total=Count('id'))
     }
     booking_revenue_by_day = {chart_start + timedelta(days=offset): 0 for offset in range(7)}
+    cafeteria_revenue_by_day = {chart_start + timedelta(days=offset): 0 for offset in range(7)}
     revenue_by_day = {chart_start + timedelta(days=offset): 0 for offset in range(7)}
     for row in booking_checkouts.filter(income_date__range=(chart_start, today)).values(
         'income_date',
@@ -1010,7 +1011,9 @@ def dashboard(request):
     ).annotate(total=Sum('paid_amount')):
         revenue_by_day[row['payment_date']] += int(row['total'] or 0)
     for sale in cafeteria_sales.filter(sale_date__range=(chart_start, today)):
-        revenue_by_day[sale.sale_date] += int(sale.total_amount)
+        daily_cafeteria_revenue = int(sale.total_amount)
+        cafeteria_revenue_by_day[sale.sale_date] += daily_cafeteria_revenue
+        revenue_by_day[sale.sale_date] += daily_cafeteria_revenue
 
     today_bookings = bookings.filter(booking_date=today)
     today_booking_count = booking_counts_by_day.get(today, 0)
@@ -1137,8 +1140,8 @@ def dashboard(request):
     chart_days = [chart_start + timedelta(days=offset) for offset in range(7)]
     dashboard_chart = {
         'labels': [day.strftime('%d/%m') for day in chart_days],
-        'bookings': [booking_counts_by_day.get(day, 0) for day in chart_days],
-        'revenue': [booking_revenue_by_day.get(day, 0) for day in chart_days],
+        'booking_revenue': [booking_revenue_by_day.get(day, 0) for day in chart_days],
+        'cafeteria_revenue': [cafeteria_revenue_by_day.get(day, 0) for day in chart_days],
     }
 
     current_time = timezone.localtime().strftime('%H:%M')
