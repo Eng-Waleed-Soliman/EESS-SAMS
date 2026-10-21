@@ -2730,15 +2730,20 @@ def cafeteria_external_access(request):
     employee_name = str((employee or {}).get('employeeName') or '').strip()
     if not employee_id or not employee_name:
         return render(request, 'academies/cafeteria_external_access_error.html', status=403)
-    username = f"bicchub_{hashlib.sha256(employee_id.encode('utf-8')).hexdigest()[:24]}"
-    user, created = User.objects.get_or_create(username=username)
-    if created:
-        user.set_unusable_password()
-    first_name = employee_name[:150]
-    if created or user.first_name != first_name:
-        user.first_name = first_name
-        user.save(update_fields=['password', 'first_name'] if created else ['first_name'])
-    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    preserve_internal_login = (
+        request.user.is_authenticated
+        and not (request.user.username or '').startswith('bicchub_')
+    )
+    if not preserve_internal_login:
+        username = f"bicchub_{hashlib.sha256(employee_id.encode('utf-8')).hexdigest()[:24]}"
+        user, created = User.objects.get_or_create(username=username)
+        if created:
+            user.set_unusable_password()
+        first_name = employee_name[:150]
+        if created or user.first_name != first_name:
+            user.first_name = first_name
+            user.save(update_fields=['password', 'first_name'] if created else ['first_name'])
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
     request.session['external_cafeteria_employee'] = {
         'employee_id': employee_id,
         'name': employee_name[:200],

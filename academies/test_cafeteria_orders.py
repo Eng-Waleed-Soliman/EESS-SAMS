@@ -227,7 +227,32 @@ class CafeteriaOrdersPageTests(TestCase):
         self.assertContains(history, 'طلب موظف خارجي × 2')
         self.assertContains(history, '40 جنيه')
         restricted = self.client.get(reverse('dashboard'))
-        self.assertRedirects(restricted, reverse('cafe_orders'))
+        self.assertRedirects(restricted, reverse('login'))
+
+    def test_bicchub_cafeteria_link_preserves_existing_eess_login(self):
+        self.client.force_login(self.admin)
+        payload = {
+            'valid': True,
+            'employee': {
+                'employeeId': 'EMP-ADMIN',
+                'employeeName': 'مدير مسجل',
+                'jobTitle': 'مدير النظام',
+                'department': 'الإدارة',
+                'academicYear': '2026-2027',
+            },
+        }
+        with patch('academies.views.urlopen', return_value=FakeBicchubResponse(payload)):
+            response = self.client.get(reverse('cafeteria_external_access'), {
+                'token': 'signed-token',
+                'mode': 'new',
+            })
+        self.assertRedirects(response, reverse('cafe_orders'))
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.admin.pk)
+        orders_page = self.client.get(reverse('cafe_orders'))
+        self.assertContains(orders_page, 'class="sidebar')
+        dashboard = self.client.get(reverse('dashboard'))
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertNotIn('external_cafeteria_employee', self.client.session)
 
     def test_specialist_order_status_workflow_exposes_required_details(self):
         item = CafeteriaItem.objects.create(

@@ -21,6 +21,7 @@ def app_settings(request):
             'app_settings': settings_object,
             'is_cafeteria_specialist': is_cafeteria_specialist(request.user),
             'external_cafeteria_employee': getattr(request, 'external_cafeteria_employee', None),
+            'external_cafeteria_only': getattr(request, 'external_cafeteria_only', False),
             'available_branches': Branch.objects.defer(
                 'logo_data',
                 'image_data',
@@ -38,4 +39,5 @@ def app_settings(request):
             'app_settings': None,
             'is_cafeteria_specialist': is_cafeteria_specialist(request.user),
             'external_cafeteria_employee': getattr(request, 'external_cafeteria_employee', None),
+            'external_cafeteria_only': getattr(request, 'external_cafeteria_only', False),
         }

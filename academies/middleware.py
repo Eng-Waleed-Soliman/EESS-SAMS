@@ -1,6 +1,7 @@
 import logging
 import time
 
+from django.contrib.auth import logout
 from django.db import connections
 from django.db.utils import InterfaceError, OperationalError
 from django.shortcuts import redirect
@@ -84,10 +85,16 @@ class ExternalCafeteriaEmployeeAccessMiddleware:
         identity = request.session.get('external_cafeteria_employee') if hasattr(request, 'session') else None
         if identity and request.user.is_authenticated:
             request.external_cafeteria_employee = identity
-            if not any(request.path.startswith(prefix) for prefix in self.allowed_prefixes):
+            cafeteria_only = (request.user.username or '').startswith('bicchub_')
+            request.external_cafeteria_only = cafeteria_only
+            if cafeteria_only and not any(request.path.startswith(prefix) for prefix in self.allowed_prefixes):
+                logout(request)
                 if request.method not in ('GET', 'HEAD'):
                     return HttpResponseForbidden('هذا الحساب مخصص لطلبات الكافيتريا فقط.')
-                return redirect('cafe_orders')
+                return redirect('login')
+            if not cafeteria_only and not request.path.startswith('/cafeteria/orders/'):
+                request.session.pop('external_cafeteria_employee', None)
+                request.external_cafeteria_employee = None
         return self.get_response(request)
 
 
