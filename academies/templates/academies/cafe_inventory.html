@@ -2,15 +2,19 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h3>جرد الكافيتريا</h3>
-  <div class="d-flex gap-2 flex-wrap">
-    <a class="btn btn-warning cafe-inventory-action" href="{% url 'cafe_operating_expense_create' %}">مصاريف تشغيل الكافيتريا</a>
-    <a class="btn btn-info cafe-inventory-action" href="{% url 'cafe_daily_sales' %}">تقرير المبيعات</a>
-    <a class="btn btn-primary" href="{% url 'cafe_cash_supply_create' %}">توريد مبلغ مالي</a>
-    <a class="btn btn-secondary" href="{% url 'cafe_sale_list' %}">رجوع للكافيتريا</a>
-  </div>
+  <details class="timed-actions-menu" id="inventoryActionsMenu">
+    <summary class="timed-actions-toggle" aria-label="فتح قائمة إجراءات جرد الكافيتريا" title="إجراءات جرد الكافيتريا">
+      <span></span><span></span><span></span>
+    </summary>
+    <div class="timed-actions-dropdown">
+      <a class="btn btn-info" href="{% url 'cafe_daily_sales' %}">تقرير المبيعات</a>
+      <a class="btn btn-warning" href="{% url 'cafe_operating_expense_create' %}">مصاريف تشغيل الكافيتريا</a>
+      <a class="btn btn-primary" href="{% url 'cafe_cash_supply_create' %}">توريد مبلغ مالي</a>
+    </div>
+  </details>
 </div>
 
-<form method="get" class="card p-3 mb-3">
+<form method="get" class="card p-3 mb-3" id="inventoryFilterForm">
   <div class="row g-3 align-items-end">
     <div class="col-md-3">
       <label class="form-label fw-bold">من تاريخ</label>
@@ -21,9 +25,9 @@
       <input type="date" class="form-control" name="date_to" value="{{ date_to|date:'Y-m-d' }}">
     </div>
     <div class="col-md-6 d-flex gap-2 flex-wrap">
-      <button class="btn btn-primary">عرض الفترة</button>
       <a class="btn btn-outline-primary" href="?preset=today">اليوم</a>
       <a class="btn btn-outline-primary" href="?preset=month">الشهر الحالي</a>
+      <a class="btn btn-secondary" href="{% url 'cafe_sale_list' %}">رجوع للكافيتريا</a>
     </div>
   </div>
 </form>
@@ -52,7 +56,59 @@
   </table>
 </div>
 <style>
-.cafe-inventory-action{width:210px!important;min-width:210px!important;min-height:42px;display:inline-flex;align-items:center;justify-content:center}
-@media(max-width:575.98px){.cafe-inventory-action{width:100%!important;min-width:100%!important}}
+.timed-actions-menu{position:relative;z-index:60;direction:rtl}
+.timed-actions-menu summary{list-style:none}.timed-actions-menu summary::-webkit-details-marker{display:none}
+.timed-actions-toggle{width:56px;height:48px;padding:11px 13px;border:1px solid #7dd3fc;border-radius:12px;background:#e0f7ff;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;cursor:pointer;box-shadow:0 6px 18px rgba(14,116,144,.14)}
+.timed-actions-toggle span{display:block;height:4px;border-radius:4px;background:#0369a1}
+.timed-actions-menu[open] .timed-actions-toggle{background:#2563eb;border-color:#2563eb}.timed-actions-menu[open] .timed-actions-toggle span{background:#fff}
+.timed-actions-dropdown{position:absolute;top:58px;left:0;width:260px;padding:12px;border:1px solid #bae6fd;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.22);display:grid;gap:8px;z-index:70}
+.timed-actions-dropdown .btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center}
+@media(max-width:575.98px){.timed-actions-dropdown{width:min(260px,82vw)}}
 </style>
+<script>
+function setupTimedActionsMenu(menuId){
+  const menu = document.getElementById(menuId);
+  if(!menu) return;
+  const toggle = menu.querySelector('.timed-actions-toggle');
+  const minimumMenuVisibilityMs = 1000;
+  let openedAt = 0;
+  let closeTimer = null;
+  let pointerInside = false;
+  const cancelClose = function(){
+    if(closeTimer){ window.clearTimeout(closeTimer); closeTimer = null; }
+  };
+  const closeMenu = function(){
+    cancelClose();
+    if(pointerInside) return;
+    menu.removeAttribute('open');
+    toggle?.setAttribute('aria-expanded', 'false');
+  };
+  const closeAfterMinimumTime = function(){
+    cancelClose();
+    const delay = Math.max(0, minimumMenuVisibilityMs - (Date.now() - openedAt));
+    closeTimer = window.setTimeout(closeMenu, delay);
+  };
+  toggle?.setAttribute('aria-expanded', 'false');
+  toggle?.addEventListener('click', function(){
+    window.setTimeout(function(){
+      if(menu.open){ openedAt = Date.now(); closeAfterMinimumTime(); }
+      toggle.setAttribute('aria-expanded', menu.open ? 'true' : 'false');
+    }, 0);
+  });
+  menu.addEventListener('mouseenter', function(){ pointerInside = true; cancelClose(); });
+  menu.addEventListener('mouseleave', function(){ pointerInside = false; closeAfterMinimumTime(); });
+  document.addEventListener('click', function(event){
+    if(menu.open && !menu.contains(event.target)){ pointerInside = false; closeAfterMinimumTime(); }
+  });
+  document.addEventListener('keydown', function(event){
+    if(event.key === 'Escape'){ pointerInside = false; closeMenu(); toggle?.focus(); }
+  });
+}
+setupTimedActionsMenu('inventoryActionsMenu');
+
+const inventoryFilterForm = document.getElementById('inventoryFilterForm');
+inventoryFilterForm?.querySelectorAll('input[type="date"]').forEach(function(field){
+  field.addEventListener('change', function(){ inventoryFilterForm.submit(); });
+});
+</script>
 {% endblock %}
