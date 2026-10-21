@@ -2010,6 +2010,9 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'يحتاج انتباهك')
         self.assertContains(response, 'آخر النشاطات')
         self.assertContains(response, 'dashboard-chart-data')
+        self.assertContains(response, 'id="dashboardChartTooltip"')
+        self.assertContains(response, 'عدد الحجوزات:')
+        self.assertContains(response, "circle.addEventListener('mouseenter'", html=False)
         self.assertNotContains(response, 'dashboard-card-col')
 
     def test_dashboard_weekday_filter_marks_only_academy_training_slots_busy(self):
