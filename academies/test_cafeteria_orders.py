@@ -130,6 +130,30 @@ class CafeteriaOrdersPageTests(TestCase):
         self.assertContains(response, 'top:8px;left:8px')
         self.assertContains(response, '@media(max-width:768px)')
 
+    def test_item_without_image_does_not_repeat_the_category_image(self):
+        category = self.categories[100]
+        category.image_data = b'category-image'
+        category.image_content_type = 'image/webp'
+        category.image_name = 'cold-drinks.webp'
+        category.save(update_fields=['image_data', 'image_content_type', 'image_name'])
+        item = CafeteriaItem.objects.create(
+            category=category,
+            code=199,
+            name='صنف بدون صورة',
+            opening_quantity=5,
+            sale_price=20,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(reverse('cafe_order_category', args=[category.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(
+            response,
+            reverse('persistent_media', args=['cafeteria_category', category.pk, 'image']),
+        )
+        self.assertContains(response, f'<small>{item.code}</small>', html=True)
+
     def test_employee_order_reaches_specialist_and_can_be_completed(self):
         category = self.categories[100]
         item = CafeteriaItem.objects.create(
