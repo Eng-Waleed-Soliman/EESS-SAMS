@@ -131,6 +131,22 @@ class CafeteriaOrdersPageTests(TestCase):
         self.assertContains(response, 'top:8px;left:8px')
         self.assertContains(response, '@media(max-width:768px)')
 
+        english_response = self.client.get(
+            reverse('cafe_order_category', args=[category.pk]),
+            {'lang': 'en'},
+        )
+        self.assertContains(english_response, 'Display language')
+        self.assertContains(english_response, item.name_en)
+        self.assertContains(english_response, 'Other Categories')
+        self.assertContains(english_response, 'Clear Order')
+        self.assertContains(english_response, 'Submit Order')
+        self.assertContains(english_response, 'Pickup Location')
+        self.assertContains(english_response, 'value="en"')
+        english_orders = self.client.get(reverse('cafe_orders'))
+        self.assertContains(english_orders, 'Choose a category')
+        self.assertContains(english_orders, 'Cold Drinks')
+        self.assertContains(english_orders, 'Previous Orders')
+
     def test_item_without_image_does_not_repeat_the_category_image(self):
         category = self.categories[100]
         category.image_data = b'category-image'
@@ -244,7 +260,7 @@ class CafeteriaOrdersPageTests(TestCase):
 
         category = self.categories[100]
         item = CafeteriaItem.objects.create(
-            category=category, code=118, name='طلب موظف خارجي',
+            category=category, code=118, name='طلب موظف خارجي', name_en='External Employee Order',
             opening_quantity=10, sale_price=30, staff_sale_price=20,
         )
         self.client.cookies.clear()
@@ -275,6 +291,12 @@ class CafeteriaOrdersPageTests(TestCase):
         history = self.client.get(reverse('cafe_order_history'))
         self.assertContains(history, 'طلب موظف خارجي × 2')
         self.assertContains(history, '40 جنيه')
+        english_history = self.client.get(reverse('cafe_order_history'), {'lang': 'en'})
+        self.assertContains(english_history, 'Previous Orders')
+        self.assertContains(english_history, 'External Employee Order × 2')
+        self.assertContains(english_history, '40 EGP')
+        self.assertContains(english_history, 'Pickup Location')
+        self.assertContains(english_history, 'Cafeteria')
         restricted = self.client.get(reverse('dashboard'))
         self.assertRedirects(restricted, reverse('login'))
 

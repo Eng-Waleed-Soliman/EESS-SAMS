@@ -2847,13 +2847,28 @@ def cafeteria_external_order_status(request):
     })
 
 
+def _cafeteria_order_language(request):
+    requested = (request.GET.get('lang') or request.POST.get('lang') or '').strip().lower()
+    if requested in {'ar', 'en'}:
+        request.session['cafeteria_order_language'] = requested
+    return request.session.get('cafeteria_order_language', 'ar') if request.session.get('cafeteria_order_language') in {'ar', 'en'} else 'ar'
+
+
+def _cafeteria_order_query(access_token, language):
+    params = {'lang': language}
+    if access_token:
+        params['access'] = access_token
+    return urlencode(params)
+
+
 @login_required
 def cafe_orders(request):
+    language = _cafeteria_order_language(request)
     card_specs = (
-        ('مشروبات ساقعة', 'academies/images/cafe-cold-drinks.webp', 100),
-        ('مشروبات ساخنة', 'academies/images/cafe-hot-drinks.webp', 200),
-        ('سناكس وآيس كريم', 'academies/images/cafe-snacks-icecream.webp', 400),
-        ('مأكولات', 'academies/images/cafe-food.webp', 500),
+        ('مشروبات ساقعة', 'Cold Drinks', 'academies/images/cafe-cold-drinks.webp', 100),
+        ('مشروبات ساخنة', 'Hot Drinks', 'academies/images/cafe-hot-drinks.webp', 200),
+        ('سناكس وآيس كريم', 'Snacks & Ice Cream', 'academies/images/cafe-snacks-icecream.webp', 400),
+        ('مأكولات', 'Food', 'academies/images/cafe-food.webp', 500),
     )
     categories_by_code = {
         category.code: category
@@ -2862,43 +2877,75 @@ def cafe_orders(request):
         ).defer('image_data')
     }
     cards = []
-    for title, image, code in card_specs:
+    for title_ar, title_en, image, code in card_specs:
         category = categories_by_code.get(code)
         category_url = reverse('cafe_orders')
         if category is not None:
             category_url = reverse('cafe_order_category', args=[category.pk])
         cards.append({
-            'title': title,
+            'title': ((category.name_en or title_en) if language == 'en' else title_ar) if category else (title_en if language == 'en' else title_ar),
             'image': image,
             'url': category_url,
             'category': category,
         })
     access_token = getattr(request, 'external_cafeteria_access', '')
+    order_query = _cafeteria_order_query(access_token, language)
     return render(request, 'academies/cafe_orders.html', {
         'cards': cards,
+        'order_language': language,
+        'is_english': language == 'en',
         'external_access_token': access_token,
-        'external_access_query': urlencode({'access': access_token}) if access_token else '',
+        'external_access_query': order_query,
+        'language_ar_query': _cafeteria_order_query(access_token, 'ar'),
+        'language_en_query': _cafeteria_order_query(access_token, 'en'),
     })
 
 
 @login_required
 def cafe_order_history(request):
+    language = _cafeteria_order_language(request)
     identity = request.session.get('external_cafeteria_employee') or {}
-    orders = CafeteriaStaffOrder.objects.prefetch_related('items')
+    orders = CafeteriaStaffOrder.objects.prefetch_related(Prefetch(
+        'items',
+        queryset=CafeteriaStaffOrderItem.objects.select_related('item'),
+    ))
     if identity.get('employee_id'):
         orders = orders.filter(external_employee_id=identity['employee_id'])
     else:
         orders = orders.filter(requested_by=request.user)
+    orders = list(orders[:200])
+    status_labels_en = {
+        CafeteriaStaffOrder.STATUS_PENDING: 'Submitted',
+        CafeteriaStaffOrder.STATUS_PREPARING: 'Preparing',
+        CafeteriaStaffOrder.STATUS_READY: 'Ready',
+        CafeteriaStaffOrder.STATUS_COMPLETED: 'Delivered',
+        CafeteriaStaffOrder.STATUS_CANCELLED: 'Cancelled',
+    }
+    delivery_labels_en = {
+        CafeteriaStaffOrder.PLACE_OFFICE: 'Office',
+        CafeteriaStaffOrder.PLACE_CAFETERIA: 'Cafeteria',
+    }
+    for order in orders:
+        order.status_label_en = status_labels_en.get(order.status, order.status)
+        order.delivery_label_en = delivery_labels_en.get(order.delivery_place, order.delivery_place)
+        for line in order.items.all():
+            line.display_name_en = (line.item.name_en if line.item else '') or line.item_name
     access_token = getattr(request, 'external_cafeteria_access', '')
+    order_query = _cafeteria_order_query(access_token, language)
     return render(request, 'academies/cafe_order_history.html', {
-        'orders': orders[:200],
+        'orders': orders,
+        'order_language': language,
+        'is_english': language == 'en',
         'external_access_token': access_token,
-        'external_access_query': urlencode({'access': access_token}) if access_token else '',
+        'external_access_query': order_query,
+        'language_ar_query': _cafeteria_order_query(access_token, 'ar'),
+        'language_en_query': _cafeteria_order_query(access_token, 'en'),
     })
 
 
 @login_required
 def cafe_order_category(request, pk):
+    language = _cafeteria_order_language(request)
     category = get_object_or_404(
         CafeteriaCategory.objects.defer('image_data'),
         pk=pk,
@@ -2913,14 +2960,19 @@ def cafe_order_category(request, pk):
         item.order_price = item.sale_price_for(is_staff=True)
         item.available_quantity = item.stock_quantity
     access_token = getattr(request, 'external_cafeteria_access', '')
+    order_query = _cafeteria_order_query(access_token, language)
     return render(
         request,
         'academies/cafe_order_mobile.html',
         {
             'category': category,
             'items': items,
+            'order_language': language,
+            'is_english': language == 'en',
             'external_access_token': access_token,
-            'external_access_query': urlencode({'access': access_token}) if access_token else '',
+            'external_access_query': order_query,
+            'language_ar_query': _cafeteria_order_query(access_token, 'ar'),
+            'language_en_query': _cafeteria_order_query(access_token, 'en'),
         },
     )
 
@@ -2929,18 +2981,20 @@ def cafe_order_category(request, pk):
 def cafe_staff_order_submit(request):
     if request.method != 'POST':
         return redirect('cafe_orders')
+    language = _cafeteria_order_language(request)
+    translate = lambda ar, en: en if language == 'en' else ar
     try:
         raw_rows = json.loads(request.POST.get('order_items', '[]'))
     except (TypeError, json.JSONDecodeError):
         raw_rows = []
     if not isinstance(raw_rows, list) or not raw_rows or len(raw_rows) > 50:
-        messages.error(request, 'أضف صنفًا واحدًا على الأقل قبل تنفيذ الطلب.')
+        messages.error(request, translate('أضف صنفًا واحدًا على الأقل قبل تنفيذ الطلب.', 'Add at least one item before submitting the order.'))
         return redirect('cafe_orders')
 
     delivery_place = request.POST.get('delivery_place', '').strip()
     valid_places = {value for value, _label in CafeteriaStaffOrder.PLACE_CHOICES}
     if delivery_place not in valid_places:
-        messages.error(request, 'اختر مكان استلام الطلب.')
+        messages.error(request, translate('اختر مكان استلام الطلب.', 'Choose the pickup location.'))
         return redirect('cafe_orders')
 
     requested_quantities = {}
@@ -2952,7 +3006,7 @@ def cafe_staff_order_submit(request):
                 raise ValueError
             requested_quantities[item_id] = requested_quantities.get(item_id, 0) + quantity
     except (AttributeError, TypeError, ValueError):
-        messages.error(request, 'بيانات الطلب غير صحيحة.')
+        messages.error(request, translate('بيانات الطلب غير صحيحة.', 'The order details are invalid.'))
         return redirect('cafe_orders')
 
     items = {
@@ -2964,11 +3018,12 @@ def cafe_staff_order_submit(request):
         ).exclude(category__name__iexact='الخامات')
     }
     if len(items) != len(requested_quantities):
-        messages.error(request, 'أحد الأصناف لم يعد متاحًا؛ راجع الطلب وحاول مرة أخرى.')
+        messages.error(request, translate('أحد الأصناف لم يعد متاحًا؛ راجع الطلب وحاول مرة أخرى.', 'One of the items is no longer available. Review the order and try again.'))
         return redirect('cafe_orders')
     for item_id, quantity in requested_quantities.items():
         if quantity > items[item_id].stock_quantity:
-            messages.error(request, f'الكمية المطلوبة من {items[item_id].name} غير متاحة حاليًا.')
+            item_name = (items[item_id].name_en or items[item_id].name) if language == 'en' else items[item_id].name
+            messages.error(request, translate(f'الكمية المطلوبة من {items[item_id].name} غير متاحة حاليًا.', f'The requested quantity of {item_name} is currently unavailable.'))
             return redirect('cafe_orders')
 
     active_branch, all_branches = selected_branch(request)
@@ -3004,14 +3059,16 @@ def cafe_staff_order_submit(request):
         )
         messages.error(
             request,
-            'تعذر حفظ الطلب مؤقتًا. لم يتم تسجيل أي جزء منه، برجاء المحاولة مرة أخرى.',
+            translate('تعذر حفظ الطلب مؤقتًا. لم يتم تسجيل أي جزء منه، برجاء المحاولة مرة أخرى.', 'The order could not be saved. Nothing was recorded; please try again.'),
         )
         return redirect('cafe_orders')
-    messages.success(request, f'تم إرسال الطلب رقم {order.pk} إلى الكافيتريا بنجاح.')
+    messages.success(request, translate(f'تم إرسال الطلب رقم {order.pk} إلى الكافيتريا بنجاح.', f'Order #{order.pk} was sent to the cafeteria successfully.'))
     access_token = getattr(request, 'external_cafeteria_access', '')
     query = {'ordered': '1'}
     if access_token:
         query['access'] = access_token
+    if language == 'en':
+        query['lang'] = language
     return redirect(f"{reverse('cafe_orders')}?{urlencode(query)}")
 
 

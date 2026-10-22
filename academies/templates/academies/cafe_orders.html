@@ -1,10 +1,10 @@
 {% extends 'academies/base.html' %}
 {% load static %}
 {% block content %}
-<div class="orders-page">
+<div class="orders-page" lang="{% if is_english %}en{% else %}ar{% endif %}" dir="{% if is_english %}ltr{% else %}rtl{% endif %}">
   <div class="orders-topbar">
-    <div class="btn-row"><a class="btn orders-back" href="{% url 'cafe_order_history' %}{% if external_access_query %}?{{ external_access_query }}{% endif %}">الأوردرات السابقة</a>{% if not external_cafeteria_employee %}<a class="btn orders-back" href="{% url 'cafe_sale_list' %}">رجوع إلى شاشة البيع</a>{% endif %}</div>
-    <h3 class="orders-title">الأوردرات</h3>
+    <div class="btn-row"><a class="btn orders-back" href="{% url 'cafe_order_history' %}?{{ external_access_query }}">{% if is_english %}Previous Orders{% else %}الأوردرات السابقة{% endif %}</a>{% if not external_cafeteria_employee %}<a class="btn orders-back" href="{% url 'cafe_sale_list' %}">{% if is_english %}Back to Sales{% else %}رجوع إلى شاشة البيع{% endif %}</a>{% endif %}</div>
+    <div class="orders-heading"><nav class="order-language-switch" aria-label="{% if is_english %}Display language{% else %}لغة العرض{% endif %}"><a href="?{{ language_ar_query }}" class="{% if not is_english %}active{% endif %}">عربي</a><a href="?{{ language_en_query }}" class="{% if is_english %}active{% endif %}">English</a></nav><h3 class="orders-title">{% if is_english %}Orders{% else %}الأوردرات{% endif %}</h3></div>
   </div>
 
   <section class="orders-brand" aria-label="TIME OUT Café - Eat, Drink, Recharge">
@@ -17,10 +17,10 @@
   </section>
 
   <section class="orders-categories" aria-labelledby="ordersCategoriesTitle">
-    <h4 id="ordersCategoriesTitle">اختر الفئة</h4>
+    <h4 id="ordersCategoriesTitle">{% if is_english %}Choose a category{% else %}اختر الفئة{% endif %}</h4>
     <div class="orders-grid">
       {% for card in cards %}
-      <a class="order-category-card" href="{{ card.url }}{% if external_access_query %}?{{ external_access_query }}{% endif %}" aria-label="{{ card.title }}">
+      <a class="order-category-card" href="{{ card.url }}?{{ external_access_query }}" aria-label="{{ card.title }}">
         {% if card.category.image_name %}
         <img src="{% url 'persistent_media' 'cafeteria_category' card.category.pk 'image' %}" alt="{{ card.title }}" loading="lazy">
         {% else %}
@@ -36,6 +36,7 @@
 <style>
 .orders-page{max-width:1180px;margin:0 auto}
 .orders-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}
+.orders-heading{display:flex;align-items:center;gap:14px}.order-language-switch{display:inline-flex;padding:4px;border:1px solid #93c5fd;border-radius:12px;background:#fff;box-shadow:0 6px 16px rgba(37,99,235,.1)}.order-language-switch a{padding:7px 12px;border-radius:8px;color:#1e3a8a;text-decoration:none;font:800 14px Arial,sans-serif}.order-language-switch a.active{background:#2563eb;color:#fff}.orders-page[dir="ltr"] .orders-title::after{right:auto;left:0}
 .orders-title{margin:0!important;position:relative;padding-bottom:10px}
 .orders-title::after{content:"";position:absolute;right:0;bottom:0;width:72px;height:4px;border-radius:4px;background:#2563eb}
 .orders-back{flex:0 0 auto}
@@ -56,7 +57,7 @@
 .order-category-card span{display:block;padding:9px 12px;text-align:center;font-size:18px;font-weight:900;background:linear-gradient(90deg,#eff6ff,#e0f2fe)}
 @media(max-width:992px){.orders-grid{grid-template-columns:repeat(2,minmax(0,280px))}}
 @media(max-width:768px){.orders-topbar{align-items:flex-start}.orders-brand{grid-template-columns:1fr;grid-template-areas:"main" "cafe" "icons" "tagline";row-gap:8px;padding-inline:16px}.orders-brand-main{text-align:center}.orders-brand-cafe{border-right:0;padding-right:0;text-align:center}.orders-categories{padding:14px}}
-@media(max-width:576px){.orders-topbar{flex-direction:column-reverse}.orders-back{align-self:flex-start}.orders-brand{min-height:145px;margin-bottom:20px}.orders-brand-main{font-size:44px}.orders-brand-icons{gap:8px;font-size:19px}.orders-brand-icons span{width:30px;height:30px}.orders-brand-tagline{font-size:11px;letter-spacing:3px}.orders-categories{padding:10px}.orders-categories h4{margin-bottom:14px}.orders-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.order-category-card{border-radius:10px;border-width:1px}.order-category-card span{font-size:13px;line-height:1.25;min-height:49px;padding:6px 4px;display:flex;align-items:center;justify-content:center}}
+@media(max-width:576px){.orders-topbar{flex-direction:column-reverse}.orders-heading{width:100%;justify-content:space-between}.orders-back{align-self:flex-start}.orders-brand{min-height:145px;margin-bottom:20px}.orders-brand-main{font-size:44px}.orders-brand-icons{gap:8px;font-size:19px}.orders-brand-icons span{width:30px;height:30px}.orders-brand-tagline{font-size:11px;letter-spacing:3px}.orders-categories{padding:10px}.orders-categories h4{margin-bottom:14px}.orders-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.order-category-card{border-radius:10px;border-width:1px}.order-category-card span{font-size:13px;line-height:1.25;min-height:49px;padding:6px 4px;display:flex;align-items:center;justify-content:center}}
 </style>
 {% if request.GET.ordered %}
 <script>window.localStorage.removeItem('timeoutCafeStaffOrder:{{ request.user.pk }}');</script>
