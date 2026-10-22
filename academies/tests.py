@@ -211,9 +211,11 @@ class ApplicationFlowsTests(TestCase):
             job_title='عضو مجلس الإدارة',
             job_title_en='Board Member',
         )
+        photo_stream = BytesIO()
+        Image.new('RGB', (320, 420), color='#1769aa').save(photo_stream, format='PNG')
         photo = SimpleUploadedFile(
             'chairman.png',
-            b'chairman-photo-bytes',
+            photo_stream.getvalue(),
             content_type='image/png',
         )
         response = self.client.post(reverse('shareholder_create'), {
@@ -227,7 +229,10 @@ class ApplicationFlowsTests(TestCase):
         })
         self.assertRedirects(response, reverse('shareholder_list'))
         chairman = Shareholder.objects.get(name='أحمد الرئيس')
-        self.assertEqual(bytes(chairman.photo_data), b'chairman-photo-bytes')
+        self.assertEqual(chairman.photo_content_type, 'image/webp')
+        self.assertTrue(chairman.photo_name.endswith('.webp'))
+        with Image.open(BytesIO(bytes(chairman.photo_data))) as stored_photo:
+            self.assertEqual(stored_photo.format, 'WEBP')
 
         self.client.logout()
         arabic_response = self.client.get(reverse('public_website'), {'lang': 'ar'})
@@ -524,7 +529,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(public_response, media_url)
         media_response = self.client.get(media_url)
         self.assertEqual(media_response.status_code, 200)
-        self.assertEqual(media_response['Content-Type'], 'image/jpeg')
+        self.assertEqual(media_response['Content-Type'], 'image/webp')
 
         delete_formset = BranchGalleryImageFormSet(
             data={
@@ -578,7 +583,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertTrue(primary_form.is_valid(), primary_form.errors)
         facility = primary_form.save()
         self.assertTrue(facility.image_data)
-        self.assertEqual(facility.image_content_type, 'image/jpeg')
+        self.assertEqual(facility.image_content_type, 'image/webp')
 
         uploads = []
         for filename, colour in (
@@ -626,13 +631,13 @@ class ApplicationFlowsTests(TestCase):
             self.assertContains(public_response, media_url)
             media_response = self.client.get(media_url)
             self.assertEqual(media_response.status_code, 200)
-            self.assertEqual(media_response['Content-Type'], 'image/jpeg')
+            self.assertEqual(media_response['Content-Type'], 'image/webp')
 
         primary_media_url = reverse('persistent_media', args=['facility', facility.pk, 'image'])
         self.assertContains(public_response, primary_media_url)
         primary_media_response = self.client.get(primary_media_url)
         self.assertEqual(primary_media_response.status_code, 200)
-        self.assertEqual(primary_media_response['Content-Type'], 'image/jpeg')
+        self.assertEqual(primary_media_response['Content-Type'], 'image/webp')
 
         self.user.is_staff = True
         self.user.is_superuser = True
@@ -2358,7 +2363,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(coach.role, AcademyMember.ROLE_COACH)
         self.assertEqual(coach.job_title, 'مدرب لياقة')
         self.assertTrue(coach.photo_data)
-        self.assertEqual(coach.photo_content_type, 'image/png')
+        self.assertEqual(coach.photo_content_type, 'image/webp')
         with Image.open(BytesIO(bytes(coach.photo_data))) as resized_photo:
             self.assertLessEqual(resized_photo.width, 1000)
             self.assertLessEqual(resized_photo.height, 1400)

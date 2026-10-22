@@ -1,17 +1,18 @@
+from io import BytesIO
+
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from PIL import Image
 
 from .forms import CafeteriaCategoryForm, CafeteriaItemForm
 from .models import CafeteriaCategory, CafeteriaItem
 
 
-PNG_BYTES = (
-    b'\x89PNG\r\n\x1a\n'
-    b'\x00\x00\x00\rIHDR'
-    b'\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00'
-)
+_png_stream = BytesIO()
+Image.new('RGBA', (40, 30), color=(37, 99, 235, 180)).save(_png_stream, format='PNG')
+PNG_BYTES = _png_stream.getvalue()
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)
@@ -43,15 +44,17 @@ class CafeteriaBilingualMediaTests(TestCase):
         category = form.save()
         category.refresh_from_db()
         self.assertEqual(category.name_en, 'Cold Drinks')
-        self.assertEqual(bytes(category.image_data), PNG_BYTES)
-        self.assertEqual(category.image_content_type, 'image/png')
-        self.assertTrue(category.image_data_uri.startswith('data:image/png;base64,'))
+        self.assertEqual(category.image_content_type, 'image/webp')
+        self.assertEqual(category.image_name, 'category.webp')
+        self.assertTrue(category.image_data_uri.startswith('data:image/webp;base64,'))
+        with Image.open(BytesIO(bytes(category.image_data))) as stored_image:
+            self.assertEqual(stored_image.format, 'WEBP')
 
         page = self.client.get(reverse('cafe_category_update', args=[category.pk]))
         self.assertContains(page, 'name="name_en"')
         self.assertContains(page, 'name="image"')
         self.assertContains(page, 'multipart/form-data')
-        self.assertContains(page, 'data:image/png;base64,')
+        self.assertContains(page, 'data:image/webp;base64,')
         create_page = self.client.get(reverse('cafe_category_create'))
         self.assertContains(create_page, 'name="image"')
         self.assertContains(create_page, 'multipart/form-data')
@@ -78,9 +81,10 @@ class CafeteriaBilingualMediaTests(TestCase):
         item.refresh_from_db()
         self.assertEqual(item.name, 'ساندوتش')
         self.assertEqual(item.name_en, 'Sandwich')
-        self.assertEqual(bytes(item.image_data), PNG_BYTES)
-        self.assertEqual(item.image_content_type, 'image/png')
-        self.assertEqual(item.image_name, 'item.png')
+        self.assertEqual(item.image_content_type, 'image/webp')
+        self.assertEqual(item.image_name, 'item.webp')
+        with Image.open(BytesIO(bytes(item.image_data))) as stored_image:
+            self.assertEqual(stored_image.format, 'WEBP')
 
         page = self.client.get(reverse('cafe_item_update', args=[item.pk]))
         self.assertContains(page, 'name="name"')
@@ -95,8 +99,9 @@ class CafeteriaBilingualMediaTests(TestCase):
             reverse('persistent_media', args=['cafeteria_item', item.pk, 'image'])
         )
         self.assertEqual(image_response.status_code, 200)
-        self.assertEqual(image_response['Content-Type'], 'image/png')
-        self.assertEqual(image_response.content, PNG_BYTES)
+        self.assertEqual(image_response['Content-Type'], 'image/webp')
+        with Image.open(BytesIO(image_response.content)) as served_image:
+            self.assertEqual(served_image.format, 'WEBP')
         create_page = self.client.get(reverse('cafe_item_create'))
         self.assertContains(create_page, 'name="image"')
         self.assertContains(create_page, 'multipart/form-data')

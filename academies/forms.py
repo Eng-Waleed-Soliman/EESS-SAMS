@@ -20,7 +20,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 
 def _resize_image_upload(upload, max_size=(1600, 1600)):
-    """Normalize an uploaded image without cropping any part of it."""
+    """Normalize an uploaded image as an efficient WebP without cropping it."""
     if not isinstance(upload, UploadedFile):
         return upload
     try:
@@ -29,17 +29,14 @@ def _resize_image_upload(upload, max_size=(1600, 1600)):
             source.seek(0)
             image = ImageOps.exif_transpose(source)
             image.thumbnail(max_size, Image.Resampling.LANCZOS)
+            output = BytesIO()
+            stem = Path(upload.name or 'image').stem
             has_alpha = image.mode in {'RGBA', 'LA'} or (
                 image.mode == 'P' and 'transparency' in image.info
             )
-            output = BytesIO()
-            stem = Path(upload.name or 'image').stem
-            if has_alpha:
-                image.convert('RGBA').save(output, format='PNG', optimize=True)
-                content_type, filename = 'image/png', f'{stem}.png'
-            else:
-                image.convert('RGB').save(output, format='JPEG', quality=90, optimize=True)
-                content_type, filename = 'image/jpeg', f'{stem}.jpg'
+            normalized = image.convert('RGBA' if has_alpha else 'RGB')
+            normalized.save(output, format='WEBP', quality=84, method=6, exact=True)
+            content_type, filename = 'image/webp', f'{stem}.webp'
     except (UnidentifiedImageError, OSError, ValueError):
         raise forms.ValidationError('ملف الصورة غير صالح. اختر صورة JPG أو PNG أو WEBP أو GIF سليمة.')
     upload.seek(0)
@@ -956,6 +953,12 @@ class AppSettingForm(forms.ModelForm):
             if self.instance.main_screen_image:
                 self.fields['main_screen_image'].help_text = 'الصورة الحالية محفوظة تلقائيًا. اختر ملفًا فقط إذا أردت استبدالها.'
 
+    def clean_company_logo(self):
+        return _resize_image_upload(self.cleaned_data.get('company_logo'), (1000, 1000))
+
+    def clean_main_screen_image(self):
+        return _resize_image_upload(self.cleaned_data.get('main_screen_image'), (1920, 1400))
+
     def save(self, commit=True):
         setting = super().save(commit=False)
         _store_uploaded_image(setting, self.cleaned_data.get('company_logo'), 'company_logo')
@@ -1001,6 +1004,12 @@ class WebsiteSettingForm(forms.ModelForm):
             if self.instance.about_image:
                 self.fields['about_image'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
         self.fields['location_url'].help_text = 'ألصق رابط موقع الشركة من Google Maps ليظهر للزوار في قسم التواصل.'
+
+    def clean_hero_image(self):
+        return _resize_image_upload(self.cleaned_data.get('hero_image'), (1920, 1400))
+
+    def clean_about_image(self):
+        return _resize_image_upload(self.cleaned_data.get('about_image'), (1600, 1600))
 
     def save(self, commit=True):
         setting = super().save(commit=False)
@@ -1287,6 +1296,9 @@ class SportActivityMediaForm(forms.ModelForm):
                 'تم إنشاء قسم صور لهذه الرياضة / النشاط من قبل؛ استخدم زر تعديل.'
             )
         return name
+
+    def clean_image(self):
+        return _resize_image_upload(self.cleaned_data.get('image'), (1600, 1200))
 
     def save(self, commit=True):
         item = super().save(commit=False)
@@ -1655,7 +1667,7 @@ class ShareholderForm(forms.ModelForm):
         photo = self.cleaned_data.get('photo')
         if photo and photo.size > 5 * 1024 * 1024:
             raise forms.ValidationError('حجم الصورة يجب ألا يتجاوز 5 ميجابايت.')
-        return photo
+        return _resize_image_upload(photo, (1200, 1600))
 
     def save(self, commit=True):
         shareholder = super().save(commit=False)
@@ -1822,7 +1834,7 @@ def _validate_cafeteria_image(image):
     content_type = (getattr(image, 'content_type', '') or '').lower()
     if not content_type.startswith('image/'):
         raise forms.ValidationError('اختر ملف صورة صالحًا.')
-    return image
+    return _resize_image_upload(image, (1600, 1600))
 
 
 class CafeteriaCategoryForm(forms.ModelForm):
