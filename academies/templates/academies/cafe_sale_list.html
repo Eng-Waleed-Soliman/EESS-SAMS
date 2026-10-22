@@ -32,27 +32,9 @@
     <div class="sales-summary-value">{{ today_total }}</div>
   </div>
   {% if is_cafeteria_specialist %}
-  <details class="incoming-orders-card" {% if pending_staff_orders %}open{% endif %}>
-    <summary><strong>الأوردرات</strong><span>{{ pending_staff_orders|length }}</span></summary>
-    <div class="incoming-orders-list">
-      {% for order in pending_staff_orders %}
-      <article class="incoming-order">
-        <div class="incoming-order-head"><strong>أوردر #{{ order.pk }}</strong><span class="incoming-order-status {{ order.status }}">{{ order.get_status_display }}</span></div>
-        <div class="incoming-order-identity"><b>{{ order.requester_name }}</b><small>{{ order.requester_job_title|default:'المسمى الوظيفي غير مسجل' }}</small><time>{{ order.created_at|date:'d/m/Y' }} — {{ order.created_at|time:'h:i A' }}</time></div>
-        <p><b>مكان الاستلام:</b> {{ order.get_delivery_place_display }}</p>
-        {% if order.notes %}<p><b>ملاحظات:</b> {{ order.notes }}</p>{% endif %}
-        <ul>{% for line in order.items.all %}<li><span>{{ line.item_name }} × {{ line.quantity }}</span><small>{{ line.unit_price }} جنيه للصنف</small><b>{{ line.total_amount }} جنيه</b></li>{% endfor %}</ul>
-        <div class="incoming-order-total">الإجمالي: {{ order.total_amount }} جنيه</div>
-        <div class="incoming-order-actions">
-          {% if order.status == 'pending' %}<form method="post" action="{% url 'cafe_staff_order_complete' order.pk %}">{% csrf_token %}<input type="hidden" name="status" value="preparing"><button type="submit">بدء التجهيز</button></form>{% endif %}
-          {% if order.status == 'preparing' %}<form method="post" action="{% url 'cafe_staff_order_complete' order.pk %}">{% csrf_token %}<input type="hidden" name="status" value="ready"><button type="submit">الأوردر جاهز</button></form>{% endif %}
-          {% if order.status == 'ready' %}<form method="post" action="{% url 'cafe_staff_order_complete' order.pk %}">{% csrf_token %}<input type="hidden" name="status" value="completed"><button type="submit">تم التسليم</button></form>{% endif %}
-          <form method="post" action="{% url 'cafe_staff_order_complete' order.pk %}" class="cancel-order-form">{% csrf_token %}<input type="hidden" name="status" value="cancelled"><input name="cancellation_reason" maxlength="500" placeholder="سبب الإلغاء"><button type="submit">إلغاء</button></form>
-        </div>
-      </article>
-      {% empty %}<p class="incoming-orders-empty">لا توجد أوردرات جديدة.</p>{% endfor %}
-    </div>
-  </details>
+  <div id="incomingOrdersHost" data-live-url="{% url 'cafe_staff_orders_live' %}">
+    {% include 'academies/partials/cafe_incoming_orders.html' %}
+  </div>
   {% endif %}
 </div>
 <div class="row g-3 mb-4">
@@ -293,6 +275,7 @@
 .hospitality-dialog__body{padding:22px 20px}
 .hospitality-dialog__close{border:0;background:transparent;font-size:28px;line-height:1;color:#64748b}
 .incoming-orders-card[open]{width:min(540px,94vw)}.incoming-order-identity{display:grid;gap:3px;margin:8px 0;padding:8px;border-radius:9px;background:#eef6ff}.incoming-order-identity small,.incoming-order-identity time{color:#64748b;font-size:13px}.incoming-order-status{padding:4px 8px;border-radius:999px;font-size:12px;font-weight:900}.incoming-order-status.pending{background:#dbeafe;color:#1d4ed8}.incoming-order-status.preparing{background:#fef3c7;color:#92400e}.incoming-order-status.ready{background:#dcfce7;color:#166534}.incoming-order li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center}.incoming-order li small{color:#64748b}.incoming-order-actions{display:grid;grid-template-columns:1fr;gap:7px}.incoming-order-actions form{margin:0}.incoming-order-actions .cancel-order-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}.cancel-order-form input{min-width:0;padding:7px 9px;border:1px solid #fecaca;border-radius:8px;font-size:14px}.incoming-order-actions .cancel-order-form button{width:auto;background:#dc2626}@media(max-width:520px){.incoming-order li{grid-template-columns:1fr auto}.incoming-order li small{grid-column:1/-1}.incoming-order-actions .cancel-order-form{grid-template-columns:1fr}.incoming-order-actions .cancel-order-form button{width:100%}}
+.incoming-orders-card>summary{position:relative}.incoming-orders-minimize{position:absolute;top:9px;left:10px;width:32px;height:32px;padding:0;border:1px solid #f59e0b;border-radius:9px;background:#fff;color:#92400e;font:900 24px/27px Arial,sans-serif;cursor:pointer;box-shadow:0 4px 10px rgba(146,64,14,.12)}.incoming-orders-minimize:hover{background:#fef3c7}.incoming-orders-card:not([open]) .incoming-orders-minimize{display:none}.incoming-orders-card[open]>summary{padding-left:52px}.incoming-orders-card.incoming-order-arrived{animation:incomingOrderArrived 1.1s ease 2}@keyframes incomingOrderArrived{0%,100%{box-shadow:0 12px 30px rgba(15,23,42,.18)}50%{box-shadow:0 0 0 6px rgba(245,158,11,.3),0 18px 42px rgba(220,38,38,.28)}}
 </style>
 <script>
 const cafeActionsMenu = document.querySelector('.cafe-actions-menu');
@@ -341,6 +324,88 @@ if(cafeActionsMenu){
       if(cafeActionsToggle){ cafeActionsToggle.focus(); }
     }
   });
+}
+const incomingOrdersHost = document.getElementById('incomingOrdersHost');
+if(incomingOrdersHost){
+  const minimizedStorageKey = 'cafeteria-specialist-orders-minimized';
+  let incomingOrdersCard = incomingOrdersHost.querySelector('.incoming-orders-card');
+  let latestIncomingOrderId = Number(incomingOrdersCard?.dataset.latestOrderId || 0);
+  let incomingOrdersRefreshRunning = false;
+
+  const rememberIncomingOrdersMinimized = function(minimized){
+    try{ window.sessionStorage.setItem(minimizedStorageKey, minimized ? '1' : '0'); }catch(error){}
+  };
+  const wasIncomingOrdersMinimized = function(){
+    try{ return window.sessionStorage.getItem(minimizedStorageKey) === '1'; }catch(error){ return false; }
+  };
+  const bindIncomingOrdersCard = function(card){
+    if(!card){ return; }
+    const minimizeButton = card.querySelector('.incoming-orders-minimize');
+    if(minimizeButton){
+      minimizeButton.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        card.open = false;
+        rememberIncomingOrdersMinimized(true);
+      });
+    }
+    card.addEventListener('toggle', function(){
+      rememberIncomingOrdersMinimized(!card.open);
+    });
+  };
+  if(incomingOrdersCard){
+    if(wasIncomingOrdersMinimized()){ incomingOrdersCard.open = false; }
+    bindIncomingOrdersCard(incomingOrdersCard);
+  }
+
+  const refreshIncomingOrders = async function(){
+    if(incomingOrdersRefreshRunning || document.hidden){ return; }
+    incomingOrdersRefreshRunning = true;
+    try{
+      const response = await fetch(incomingOrdersHost.dataset.liveUrl, {
+        headers: {'Accept': 'text/html', 'X-Requested-With': 'XMLHttpRequest'},
+        cache: 'no-store',
+      });
+      if(!response.ok){ return; }
+      const template = document.createElement('template');
+      template.innerHTML = (await response.text()).trim();
+      const nextCard = template.content.querySelector('.incoming-orders-card');
+      if(!nextCard){ return; }
+      const nextLatestOrderId = Number(nextCard.dataset.latestOrderId || 0);
+      const hasNewOrder = nextLatestOrderId > latestIncomingOrderId;
+      const shouldStayOpen = nextLatestOrderId > 0 && (hasNewOrder || Boolean(incomingOrdersCard?.open));
+      const cancellationDrafts = new Map();
+      incomingOrdersCard?.querySelectorAll('.cancel-order-form').forEach(function(form){
+        const input = form.querySelector('[name="cancellation_reason"]');
+        if(input?.value){ cancellationDrafts.set(form.action, input.value); }
+      });
+      nextCard.open = shouldStayOpen;
+      incomingOrdersHost.replaceChildren(nextCard);
+      incomingOrdersCard = nextCard;
+      cancellationDrafts.forEach(function(value, action){
+        const form = Array.from(nextCard.querySelectorAll('.cancel-order-form')).find(item => item.action === action);
+        const input = form?.querySelector('[name="cancellation_reason"]');
+        if(input){ input.value = value; }
+      });
+      bindIncomingOrdersCard(nextCard);
+      latestIncomingOrderId = Math.max(latestIncomingOrderId, nextLatestOrderId);
+      if(hasNewOrder){
+        rememberIncomingOrdersMinimized(false);
+        nextCard.open = true;
+        nextCard.classList.add('incoming-order-arrived');
+        window.setTimeout(function(){ nextCard.classList.remove('incoming-order-arrived'); }, 2400);
+      }
+    }catch(error){
+      // Keep the sales screen usable while a background refresh is unavailable.
+    }finally{
+      incomingOrdersRefreshRunning = false;
+    }
+  };
+  window.setInterval(refreshIncomingOrders, 4000);
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden){ refreshIncomingOrders(); }
+  });
+  window.addEventListener('focus', refreshIncomingOrders);
 }
 const rawItems = JSON.parse(document.getElementById('items-data').textContent);
 const itemMap = {};

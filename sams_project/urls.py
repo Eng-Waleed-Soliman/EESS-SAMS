@@ -116,6 +116,7 @@ urlpatterns = [
     path('cafeteria/purchases/<int:pk>/edit/', views.cafe_purchase_update, name='cafe_purchase_update'),
     path('cafeteria/purchases/<int:pk>/delete/', views.cafe_purchase_delete, name='cafe_purchase_delete'),
     path('cafeteria/sales/', views.cafe_sale_list, name='cafe_sale_list'),
+    path('cafeteria/sales/orders/live/', views.cafe_staff_orders_live, name='cafe_staff_orders_live'),
     path('cafeteria/sales/add/', views.cafe_sale_create, name='cafe_sale_create'),
     path('cafeteria/sales/<int:pk>/edit/', views.cafe_sale_update, name='cafe_sale_update'),
     path('cafeteria/sales/<int:pk>/delete/', views.cafe_sale_delete, name='cafe_sale_delete'),
