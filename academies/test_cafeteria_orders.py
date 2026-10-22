@@ -1,4 +1,5 @@
 import json
+from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -225,7 +226,9 @@ class CafeteriaOrdersPageTests(TestCase):
                 'token': 'signed-token',
                 'mode': 'history',
             })
-        self.assertRedirects(response, reverse('cafe_order_history'))
+        redirect_url = response['Location']
+        self.assertEqual(urlparse(redirect_url).path, reverse('cafe_order_history'))
+        access_token = parse_qs(urlparse(redirect_url).query)['access'][0]
         identity = self.client.session['external_cafeteria_employee']
         self.assertEqual(identity['employee_id'], 'EMP-215')
         self.assertEqual(identity['job_title'], 'مسؤول إداري')
@@ -236,12 +239,25 @@ class CafeteriaOrdersPageTests(TestCase):
             category=category, code=118, name='طلب موظف خارجي',
             opening_quantity=10, sale_price=30, staff_sale_price=20,
         )
+        self.client.cookies.clear()
+        category_page = self.client.get(
+            reverse('cafe_order_category', args=[category.pk]),
+            {'access': access_token},
+        )
+        self.assertEqual(category_page.status_code, 200)
+        self.assertContains(category_page, 'طلب موظف خارجي')
+        self.assertContains(category_page, f'name="access" value="{access_token}"')
+
+        self.client.cookies.clear()
         response = self.client.post(reverse('cafe_staff_order_submit'), {
             'order_items': json.dumps([{'item_id': item.pk, 'quantity': 2}]),
             'delivery_place': CafeteriaStaffOrder.PLACE_CAFETERIA,
             'notes': 'اختبار الربط',
+            'access': access_token,
         })
-        self.assertRedirects(response, f"{reverse('cafe_orders')}?ordered=1")
+        self.assertEqual(urlparse(response['Location']).path, reverse('cafe_orders'))
+        self.assertEqual(parse_qs(urlparse(response['Location']).query)['ordered'], ['1'])
+        self.assertEqual(parse_qs(urlparse(response['Location']).query)['access'], [access_token])
         order = CafeteriaStaffOrder.objects.get()
         self.assertEqual(order.external_employee_id, 'EMP-215')
         self.assertEqual(order.requester_name, 'أحمد موظف')
@@ -270,13 +286,54 @@ class CafeteriaOrdersPageTests(TestCase):
                 'token': 'signed-token',
                 'mode': 'new',
             })
-        self.assertRedirects(response, reverse('cafe_orders'))
+        self.assertEqual(urlparse(response['Location']).path, reverse('cafe_orders'))
+        self.assertIn('access', parse_qs(urlparse(response['Location']).query))
         self.assertEqual(int(self.client.session['_auth_user_id']), self.admin.pk)
         orders_page = self.client.get(reverse('cafe_orders'))
         self.assertContains(orders_page, 'class="sidebar')
         dashboard = self.client.get(reverse('dashboard'))
         self.assertEqual(dashboard.status_code, 200)
         self.assertNotIn('external_cafeteria_employee', self.client.session)
+
+    def test_bicchub_can_fetch_external_employee_order_statuses(self):
+        employee = User.objects.create_user(username='external-order-owner')
+        order = CafeteriaStaffOrder.objects.create(
+            requested_by=employee,
+            requester_name='أحمد موظف',
+            requester_job_title='مسؤول إداري',
+            external_employee_id='EMP-215',
+            delivery_place=CafeteriaStaffOrder.PLACE_OFFICE,
+            status=CafeteriaStaffOrder.STATUS_PREPARING,
+        )
+        order.items.create(
+            item_name='قهوة',
+            quantity=2,
+            unit_price=25,
+        )
+        payload = {
+            'valid': True,
+            'employee': {
+                'employeeId': 'EMP-215',
+                'employeeName': 'أحمد موظف',
+                'jobTitle': 'مسؤول إداري',
+                'department': 'الموارد البشرية',
+                'academicYear': '2026-2027',
+            },
+        }
+        with patch('academies.views.urlopen', return_value=FakeBicchubResponse(payload)):
+            response = self.client.post(
+                reverse('cafeteria_external_order_status'),
+                data=json.dumps({'token': 'signed-token'}),
+                content_type='application/json',
+            )
+        self.assertEqual(response.status_code, 200)
+        result = response.json()
+        self.assertEqual(result['employeeId'], 'EMP-215')
+        self.assertEqual(result['orders'][0]['id'], order.pk)
+        self.assertEqual(result['orders'][0]['status'], 'preparing')
+        self.assertEqual(result['orders'][0]['statusLabel'], 'جاري التجهيز')
+        self.assertEqual(result['orders'][0]['itemsCount'], 2)
+        self.assertEqual(result['orders'][0]['total'], 50)
 
     def test_specialist_order_status_workflow_exposes_required_details(self):
         item = CafeteriaItem.objects.create(

@@ -1,9 +1,9 @@
 import json
-import hashlib
 import logging
 import re
 import uuid
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from io import BytesIO
 from pathlib import Path
@@ -21,6 +21,7 @@ from django.db.models.deletion import ProtectedError
 from django.db.models import Sum, Q, Count, Prefetch
 from django.http import HttpResponse, Http404, JsonResponse
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from datetime import date, timedelta
 from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaRecipeComponentFormSet, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
@@ -28,7 +29,11 @@ from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY
 from .models import AcademyPlayerMonthlySubscription
 from .models import FacilityGalleryImage
 from .forms import FacilityGalleryImageFormSet
-from .middleware import is_cafeteria_specialist
+from .middleware import (
+    external_cafeteria_user,
+    issue_external_cafeteria_access,
+    is_cafeteria_specialist,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -2708,11 +2713,9 @@ def cafe_menu(request):
         groups.append({'category': None, 'label': 'بدون فئة', 'rows': orphan_rows})
     return render(request, 'academies/cafe_menu.html', {'groups': groups})
 
-def cafeteria_external_access(request):
-    token = (request.GET.get('token') or '').strip()
-    mode = 'history' if request.GET.get('mode') == 'history' else 'new'
+def _verify_bicchub_cafeteria_token(token):
     if not token:
-        return render(request, 'academies/cafeteria_external_access_error.html', status=403)
+        return None
     verify_request = Request(
         settings.BICCHUB_CAFETERIA_VERIFY_URL,
         data=json.dumps({'token': token}).encode('utf-8'),
@@ -2724,33 +2727,38 @@ def cafeteria_external_access(request):
             result = json.loads(response.read().decode('utf-8'))
     except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError):
         logger.exception('Could not verify BICCHub cafeteria employee token.')
-        return render(request, 'academies/cafeteria_external_access_error.html', status=403)
+        return None
     employee = result.get('employee') if result.get('valid') else None
     employee_id = str((employee or {}).get('employeeId') or '').strip()
     employee_name = str((employee or {}).get('employeeName') or '').strip()
     if not employee_id or not employee_name:
+        return None
+    return {
+        'employee_id': employee_id[:100],
+        'name': employee_name[:200],
+        'job_title': str(employee.get('jobTitle') or '')[:200],
+        'department': str(employee.get('department') or '')[:200],
+        'academic_year': str(employee.get('academicYear') or '')[:20],
+    }
+
+
+def cafeteria_external_access(request):
+    token = (request.GET.get('token') or '').strip()
+    mode = 'history' if request.GET.get('mode') == 'history' else 'new'
+    identity = _verify_bicchub_cafeteria_token(token)
+    if not identity:
         return render(request, 'academies/cafeteria_external_access_error.html', status=403)
     preserve_internal_login = (
         request.user.is_authenticated
         and not (request.user.username or '').startswith('bicchub_')
     )
     if not preserve_internal_login:
-        username = f"bicchub_{hashlib.sha256(employee_id.encode('utf-8')).hexdigest()[:24]}"
-        user, created = User.objects.get_or_create(username=username)
-        if created:
-            user.set_unusable_password()
-        first_name = employee_name[:150]
-        if created or user.first_name != first_name:
-            user.first_name = first_name
-            user.save(update_fields=['password', 'first_name'] if created else ['first_name'])
-        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-    request.session['external_cafeteria_employee'] = {
-        'employee_id': employee_id,
-        'name': employee_name[:200],
-        'job_title': str(employee.get('jobTitle') or '')[:200],
-        'department': str(employee.get('department') or '')[:200],
-        'academic_year': str(employee.get('academicYear') or '')[:20],
-    }
+        login(
+            request,
+            external_cafeteria_user(identity),
+            backend='django.contrib.auth.backends.ModelBackend',
+        )
+    request.session['external_cafeteria_employee'] = identity
     branch = (
         Branch.objects.filter(short_name__iexact='BICC').first()
         or Branch.objects.filter(name__icontains='BICC').first()
@@ -2758,7 +2766,41 @@ def cafeteria_external_access(request):
     )
     if branch:
         request.session['active_branch_id'] = branch.pk
-    return redirect('cafe_order_history' if mode == 'history' else 'cafe_orders')
+    access_token = issue_external_cafeteria_access(identity)
+    destination = reverse('cafe_order_history' if mode == 'history' else 'cafe_orders')
+    return redirect(f"{destination}?{urlencode({'access': access_token})}")
+
+
+@csrf_exempt
+def cafeteria_external_order_status(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method-not-allowed'}, status=405)
+    try:
+        payload = json.loads(request.body or b'{}')
+    except (TypeError, ValueError, json.JSONDecodeError):
+        payload = {}
+    identity = _verify_bicchub_cafeteria_token(str(payload.get('token') or '').strip())
+    if not identity:
+        return JsonResponse({'valid': False, 'error': 'invalid-or-expired-token'}, status=401)
+    orders = CafeteriaStaffOrder.objects.filter(
+        external_employee_id=identity['employee_id'],
+    ).prefetch_related('items')[:20]
+    return JsonResponse({
+        'valid': True,
+        'employeeId': identity['employee_id'],
+        'orders': [
+            {
+                'id': order.pk,
+                'status': order.status,
+                'statusLabel': order.get_status_display(),
+                'createdAt': order.created_at.isoformat(),
+                'deliveryPlace': order.delivery_place,
+                'total': order.total_amount,
+                'itemsCount': sum(line.quantity for line in order.items.all()),
+            }
+            for order in orders
+        ],
+    })
 
 
 @login_required
@@ -2787,7 +2829,12 @@ def cafe_orders(request):
             'url': category_url,
             'category': category,
         })
-    return render(request, 'academies/cafe_orders.html', {'cards': cards})
+    access_token = getattr(request, 'external_cafeteria_access', '')
+    return render(request, 'academies/cafe_orders.html', {
+        'cards': cards,
+        'external_access_token': access_token,
+        'external_access_query': urlencode({'access': access_token}) if access_token else '',
+    })
 
 
 @login_required
@@ -2798,7 +2845,12 @@ def cafe_order_history(request):
         orders = orders.filter(external_employee_id=identity['employee_id'])
     else:
         orders = orders.filter(requested_by=request.user)
-    return render(request, 'academies/cafe_order_history.html', {'orders': orders[:200]})
+    access_token = getattr(request, 'external_cafeteria_access', '')
+    return render(request, 'academies/cafe_order_history.html', {
+        'orders': orders[:200],
+        'external_access_token': access_token,
+        'external_access_query': urlencode({'access': access_token}) if access_token else '',
+    })
 
 
 @login_required
@@ -2816,10 +2868,16 @@ def cafe_order_category(request, pk):
     for item in items:
         item.order_price = item.sale_price_for(is_staff=True)
         item.available_quantity = item.stock_quantity
+    access_token = getattr(request, 'external_cafeteria_access', '')
     return render(
         request,
         'academies/cafe_order_mobile.html',
-        {'category': category, 'items': items},
+        {
+            'category': category,
+            'items': items,
+            'external_access_token': access_token,
+            'external_access_query': urlencode({'access': access_token}) if access_token else '',
+        },
     )
 
 
@@ -2905,7 +2963,11 @@ def cafe_staff_order_submit(request):
         )
         return redirect('cafe_orders')
     messages.success(request, f'تم إرسال الطلب رقم {order.pk} إلى الكافيتريا بنجاح.')
-    return redirect(f"{reverse('cafe_orders')}?ordered=1")
+    access_token = getattr(request, 'external_cafeteria_access', '')
+    query = {'ordered': '1'}
+    if access_token:
+        query['access'] = access_token
+    return redirect(f"{reverse('cafe_orders')}?{urlencode(query)}")
 
 
 @login_required

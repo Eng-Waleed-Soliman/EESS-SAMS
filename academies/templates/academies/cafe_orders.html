@@ -3,7 +3,7 @@
 {% block content %}
 <div class="orders-page">
   <div class="orders-topbar">
-    <div class="btn-row"><a class="btn orders-back" href="{% url 'cafe_order_history' %}">الأوردرات السابقة</a>{% if not external_cafeteria_employee %}<a class="btn orders-back" href="{% url 'cafe_sale_list' %}">رجوع إلى شاشة البيع</a>{% endif %}</div>
+    <div class="btn-row"><a class="btn orders-back" href="{% url 'cafe_order_history' %}{% if external_access_query %}?{{ external_access_query }}{% endif %}">الأوردرات السابقة</a>{% if not external_cafeteria_employee %}<a class="btn orders-back" href="{% url 'cafe_sale_list' %}">رجوع إلى شاشة البيع</a>{% endif %}</div>
     <h3 class="orders-title">الأوردرات</h3>
   </div>
 
@@ -20,7 +20,7 @@
     <h4 id="ordersCategoriesTitle">اختر الفئة</h4>
     <div class="orders-grid">
       {% for card in cards %}
-      <a class="order-category-card" href="{{ card.url }}" aria-label="{{ card.title }}">
+      <a class="order-category-card" href="{{ card.url }}{% if external_access_query %}?{{ external_access_query }}{% endif %}" aria-label="{{ card.title }}">
         {% if card.category.image_name %}
         <img src="{% url 'persistent_media' 'cafeteria_category' card.category.pk 'image' %}" alt="{{ card.title }}" loading="lazy">
         {% else %}

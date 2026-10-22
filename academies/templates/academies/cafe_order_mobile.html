@@ -2,7 +2,7 @@
 {% block content %}
 <div class="mobile-order-page">
   <header class="mobile-order-header">
-    <a class="mobile-order-back" href="{% url 'cafe_orders' %}" aria-label="الرجوع إلى الفئات">‹</a>
+    <a class="mobile-order-back" href="{% url 'cafe_orders' %}{% if external_access_query %}?{{ external_access_query }}{% endif %}" aria-label="الرجوع إلى الفئات">‹</a>
     <div><small>TIME OUT CAFÉ</small><h2>{{ category.name }}</h2><p dir="ltr">{{ category.name_en|default:'Choose your item' }}</p></div>
     <span class="mobile-cart-count" id="cartCount">0</span>
   </header>
@@ -20,8 +20,8 @@
     {% empty %}<div class="mobile-order-empty">لا توجد أصناف متاحة داخل هذه الفئة حاليًا.</div>{% endfor %}
   </main>
   <nav class="mobile-order-actions" aria-label="إجراءات الطلب">
-    <a class="mobile-action secondary" href="{% url 'cafe_orders' %}">طلب فئات أخرى</a>
-    <a class="mobile-action secondary" href="{% url 'cafe_orders' %}">رجوع</a>
+    <a class="mobile-action secondary" href="{% url 'cafe_orders' %}{% if external_access_query %}?{{ external_access_query }}{% endif %}">طلب فئات أخرى</a>
+    <a class="mobile-action secondary" href="{% url 'cafe_orders' %}{% if external_access_query %}?{{ external_access_query }}{% endif %}">رجوع</a>
     <button type="button" class="mobile-action danger" id="clearOrderButton">تفريغ الأوردر</button>
     <button type="button" class="mobile-action primary" id="checkoutButton">تنفيذ الأوردر <span id="checkoutCount"></span></button>
   </nav>
@@ -43,7 +43,7 @@
     <div class="mobile-checkout-lines" id="checkoutLines"></div>
     <div class="mobile-checkout-total"><span>الإجمالي</span><strong id="checkoutTotal">0 جنيه</strong></div>
     <form method="post" action="{% url 'cafe_staff_order_submit' %}" id="staffOrderForm">
-      {% csrf_token %}<input type="hidden" name="order_items" id="orderItemsInput">
+      {% csrf_token %}<input type="hidden" name="order_items" id="orderItemsInput">{% if external_access_token %}<input type="hidden" name="access" value="{{ external_access_token }}">{% endif %}
       <label for="deliveryPlace">مكان الاستلام</label><select name="delivery_place" id="deliveryPlace" required><option value="office">المكتب</option><option value="cafeteria">الكافيتريا</option></select>
       <label for="orderNotes">ملاحظات</label><textarea name="notes" id="orderNotes" rows="3" maxlength="2000" placeholder="اكتب أي ملاحظات خاصة بالطلب"></textarea>
       <button type="submit" class="mobile-dialog-ok">OK</button>
