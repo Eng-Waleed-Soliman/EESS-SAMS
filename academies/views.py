@@ -2739,7 +2739,41 @@ def _verify_bicchub_cafeteria_token(token):
         'job_title': str(employee.get('jobTitle') or '')[:200],
         'department': str(employee.get('department') or '')[:200],
         'academic_year': str(employee.get('academicYear') or '')[:20],
+        'notification_token': str(employee.get('notificationToken') or '')[:2000],
     }
+
+
+def _notify_bicchub_cafeteria_status(order):
+    token = (order.external_notification_token or '').strip()
+    if not token or not order.external_employee_id:
+        return
+    notify_request = Request(
+        settings.BICCHUB_CAFETERIA_NOTIFY_URL,
+        data=json.dumps({
+            'token': token,
+            'orderId': order.pk,
+            'status': order.status,
+        }).encode('utf-8'),
+        headers={'Content-Type': 'application/json', 'Accept': 'application/json'},
+        method='POST',
+    )
+    try:
+        with urlopen(notify_request, timeout=4) as response:
+            if response.status >= 300:
+                raise HTTPError(
+                    settings.BICCHUB_CAFETERIA_NOTIFY_URL,
+                    response.status,
+                    'BICCHub rejected cafeteria notification',
+                    response.headers,
+                    None,
+                )
+    except (HTTPError, URLError, TimeoutError, OSError):
+        logger.warning(
+            'Could not notify BICCHub about cafeteria order %s status %s.',
+            order.pk,
+            order.status,
+            exc_info=True,
+        )
 
 
 def cafeteria_external_access(request):
@@ -2782,9 +2816,19 @@ def cafeteria_external_order_status(request):
     identity = _verify_bicchub_cafeteria_token(str(payload.get('token') or '').strip())
     if not identity:
         return JsonResponse({'valid': False, 'error': 'invalid-or-expired-token'}, status=401)
-    orders = CafeteriaStaffOrder.objects.filter(
+    orders_queryset = CafeteriaStaffOrder.objects.filter(
         external_employee_id=identity['employee_id'],
-    ).prefetch_related('items')[:20]
+    )
+    notification_token = identity.get('notification_token', '')
+    if notification_token:
+        orders_queryset.filter(status__in=[
+            CafeteriaStaffOrder.STATUS_PENDING,
+            CafeteriaStaffOrder.STATUS_PREPARING,
+            CafeteriaStaffOrder.STATUS_READY,
+        ]).exclude(external_notification_token=notification_token).update(
+            external_notification_token=notification_token,
+        )
+    orders = orders_queryset.prefetch_related('items')[:20]
     return JsonResponse({
         'valid': True,
         'employeeId': identity['employee_id'],
@@ -2938,6 +2982,7 @@ def cafe_staff_order_submit(request):
                 requester_name=requester_name,
                 requester_job_title=external_identity.get('job_title', ''),
                 external_employee_id=external_identity.get('employee_id', ''),
+                external_notification_token=external_identity.get('notification_token', ''),
                 delivery_place=delivery_place,
                 notes=request.POST.get('notes', '').strip()[:2000],
             )
@@ -3009,6 +3054,7 @@ def cafe_staff_order_complete(request, pk):
                 order.cancellation_reason = request.POST.get('cancellation_reason', '').strip()[:500]
             order.status = requested_status
             order.save(update_fields=['status', 'completed_at', 'cancellation_reason'])
+            transaction.on_commit(lambda: _notify_bicchub_cafeteria_status(order))
     except ValueError as error:
         messages.error(request, str(error))
         return redirect('cafe_sale_list')

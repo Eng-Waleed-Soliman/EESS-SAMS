@@ -105,6 +105,7 @@ def load_external_cafeteria_access(token):
         'job_title': str(identity.get('job_title') or '')[:200],
         'department': str(identity.get('department') or '')[:200],
         'academic_year': str(identity.get('academic_year') or '')[:20],
+        'notification_token': str(identity.get('notification_token') or '')[:2000],
     }
 
 

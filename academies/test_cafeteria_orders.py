@@ -219,6 +219,7 @@ class CafeteriaOrdersPageTests(TestCase):
                 'jobTitle': 'مسؤول إداري',
                 'department': 'الموارد البشرية',
                 'academicYear': '2026-2027',
+                'notificationToken': 'signed-notification-token',
             },
         }
         with patch('academies.views.urlopen', return_value=FakeBicchubResponse(payload)):
@@ -262,6 +263,7 @@ class CafeteriaOrdersPageTests(TestCase):
         self.assertEqual(order.external_employee_id, 'EMP-215')
         self.assertEqual(order.requester_name, 'أحمد موظف')
         self.assertEqual(order.requester_job_title, 'مسؤول إداري')
+        self.assertEqual(order.external_notification_token, 'signed-notification-token')
         self.assertEqual(order.total_amount, 40)
         history = self.client.get(reverse('cafe_order_history'))
         self.assertContains(history, 'طلب موظف خارجي × 2')
@@ -318,6 +320,7 @@ class CafeteriaOrdersPageTests(TestCase):
                 'jobTitle': 'مسؤول إداري',
                 'department': 'الموارد البشرية',
                 'academicYear': '2026-2027',
+                'notificationToken': 'refreshed-notification-token',
             },
         }
         with patch('academies.views.urlopen', return_value=FakeBicchubResponse(payload)):
@@ -334,6 +337,8 @@ class CafeteriaOrdersPageTests(TestCase):
         self.assertEqual(result['orders'][0]['statusLabel'], 'جاري التجهيز')
         self.assertEqual(result['orders'][0]['itemsCount'], 2)
         self.assertEqual(result['orders'][0]['total'], 50)
+        order.refresh_from_db()
+        self.assertEqual(order.external_notification_token, 'refreshed-notification-token')
 
     def test_specialist_order_status_workflow_exposes_required_details(self):
         item = CafeteriaItem.objects.create(
@@ -346,6 +351,7 @@ class CafeteriaOrdersPageTests(TestCase):
             requester_name='منى محمود',
             requester_job_title='مديرة مكتب',
             external_employee_id='EMP-9',
+            external_notification_token='signed-notification-token',
             delivery_place=CafeteriaStaffOrder.PLACE_OFFICE,
             notes='سكر قليل',
         )
@@ -355,7 +361,16 @@ class CafeteriaOrdersPageTests(TestCase):
         page = self.client.get(reverse('cafe_sale_list'))
         for expected in ('أوردر #', 'منى محمود', 'مديرة مكتب', 'المكتب', 'سكر قليل', '25 جنيه للصنف', '50 جنيه', 'تم الإرسال'):
             self.assertContains(page, expected)
-        self.client.post(reverse('cafe_staff_order_complete', args=[order.pk]), {'status': 'preparing'})
+        with patch('academies.views.urlopen') as notify, self.captureOnCommitCallbacks(execute=True):
+            notify.return_value.__enter__.return_value.status = 200
+            self.client.post(reverse('cafe_staff_order_complete', args=[order.pk]), {'status': 'preparing'})
+        notify.assert_called_once()
+        notification = json.loads(notify.call_args.args[0].data.decode('utf-8'))
+        self.assertEqual(notification, {
+            'token': 'signed-notification-token',
+            'orderId': order.pk,
+            'status': 'preparing',
+        })
         order.refresh_from_db()
         self.assertEqual(order.status, CafeteriaStaffOrder.STATUS_PREPARING)
         self.client.post(reverse('cafe_staff_order_complete', args=[order.pk]), {'status': 'ready'})

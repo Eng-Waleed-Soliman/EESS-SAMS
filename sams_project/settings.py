@@ -154,3 +154,7 @@ BICCHUB_CAFETERIA_VERIFY_URL = os.getenv(
     "BICCHUB_CAFETERIA_VERIFY_URL",
     "https://bicchub.com/api/cafeteria-sso/verify",
 )
+BICCHUB_CAFETERIA_NOTIFY_URL = os.getenv(
+    "BICCHUB_CAFETERIA_NOTIFY_URL",
+    "https://bicchub.com/api/cafeteria-order-status-notify",
+)

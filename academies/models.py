@@ -1668,6 +1668,7 @@ class CafeteriaStaffOrder(models.Model):
     requester_name = models.CharField(max_length=200, verbose_name='اسم مقدم الطلب')
     requester_job_title = models.CharField(max_length=200, blank=True, verbose_name='المسمى الوظيفي')
     external_employee_id = models.CharField(max_length=100, blank=True, db_index=True, verbose_name='رقم موظف BICCHub')
+    external_notification_token = models.TextField(blank=True, verbose_name='رمز تنبيه BICCHub')
     delivery_place = models.CharField(
         max_length=20,
         choices=PLACE_CHOICES,
