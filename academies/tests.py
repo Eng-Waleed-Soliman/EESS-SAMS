@@ -2728,6 +2728,34 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(payment.supplied_amount, 5040)
         self.assertEqual(payment.supplied_date, today)
 
+    def test_academy_list_rows_show_hover_summary_with_member_counts_and_remaining_rent(self):
+        today = date.today()
+        academy = Academy.objects.create(
+            name='أكاديمية ملخص الهوفر', sport_activity='كرة قدم', company_name='Hover Company',
+            manager_name='مدير الهوفر', manager_phone='01000000996',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date(today.year, 1, 1), contract_end_date=date(today.year, 12, 31),
+            subscription_type='fixed', monthly_subscription=1000,
+        )
+        AcademyMember.objects.create(academy=academy, role=AcademyMember.ROLE_COACH, name='مدرب الهوفر')
+        AcademyMember.objects.create(academy=academy, role=AcademyMember.ROLE_ADMIN, name='إداري الهوفر')
+        AcademyMember.objects.create(academy=academy, role=AcademyMember.ROLE_PLAYER, name='لاعب الهوفر')
+        AcademyMonthlyRentPayment.objects.create(
+            academy=academy,
+            month=date(today.year, today.month, 1),
+            expected_amount=1000,
+            paid_amount=300,
+        )
+
+        response = self.client.get(reverse('academy_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="academy-summary-row"')
+        self.assertContains(response, 'class="academy-hover-cloud"')
+        self.assertContains(response, '<b>2</b> مدرب وإداري مسجل', html=True)
+        self.assertContains(response, '<b>1</b> لاعب مسجل', html=True)
+        self.assertContains(response, '<b>700</b> جنيه متبقي للإيجار الشهري', html=True)
+
     def test_training_year_selector_and_portrait_identity_cards(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_reports = True

@@ -16,8 +16,17 @@
       <thead><tr><th>الأكاديمية</th><th>النشاط</th><th>الشركة</th><th>المدير</th><th>الهاتف</th><th>نهاية التعاقد</th><th>البيانات</th><th></th></tr></thead>
       <tbody>
         {% for a in academies %}
-        <tr>
-          <td>{{ a.name }}</td>
+        <tr class="academy-summary-row" tabindex="0" aria-describedby="academy-summary-{{ a.pk }}">
+          <td>
+            {{ a.name }}
+            <aside class="academy-hover-cloud" id="academy-summary-{{ a.pk }}" role="tooltip" aria-hidden="true">
+              <strong>{{ a.name }}</strong>
+              <small>ملخص {{ rent_month_label }}</small>
+              <span><b>{{ a.registered_staff_count }}</b> مدرب وإداري مسجل</span>
+              <span><b>{{ a.registered_players_count }}</b> لاعب مسجل</span>
+              <span><b>{{ a.monthly_rent_remaining }}</b> جنيه متبقي للإيجار الشهري</span>
+            </aside>
+          </td>
           <td>{{ a.sport_activity }}</td>
           <td>{{ a.company_name }}</td>
           <td>{{ a.manager_name }}</td>
@@ -51,6 +60,10 @@
 .academy-year-select{padding-left:2.5rem!important;padding-right:1rem!important;background-position:left .75rem center!important}
 .academy-list-table{min-width:1420px}
 .academy-list-table th,.academy-list-table td{white-space:nowrap;vertical-align:middle}
+.academy-summary-row{cursor:default}.academy-summary-row:focus{outline:2px solid #38bdf8;outline-offset:-2px}
+.academy-hover-cloud{position:fixed;display:none;width:310px;padding:18px 21px;border:1px solid #7dd3fc;border-radius:28px;background:linear-gradient(145deg,#e0f7ff,#bae6fd);color:#0c4a6e;box-shadow:0 18px 42px rgba(14,116,144,.24);z-index:1050;text-align:right;white-space:normal;pointer-events:none}
+.academy-hover-cloud::before,.academy-hover-cloud::after{content:"";position:absolute;border:1px solid #7dd3fc;background:#d8f4ff;border-radius:50%;z-index:-1}.academy-hover-cloud::before{width:54px;height:54px;top:-23px;right:45px}.academy-hover-cloud::after{width:38px;height:38px;top:-16px;right:91px}
+.academy-hover-cloud.is-visible{display:grid;gap:7px;animation:academyCloudIn .16s ease-out}.academy-hover-cloud strong{font-size:17px;color:#082f49}.academy-hover-cloud small{color:#0369a1;margin-bottom:3px}.academy-hover-cloud span{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.64);font-weight:700}.academy-hover-cloud b{min-width:46px;padding:3px 8px;border-radius:999px;background:#0284c7;color:#fff;text-align:center;font-size:15px}.academy-hover-cloud.cloud-above::before{top:auto;bottom:-23px}.academy-hover-cloud.cloud-above::after{top:auto;bottom:-16px}@keyframes academyCloudIn{from{opacity:0;transform:translateY(5px) scale(.97)}to{opacity:1;transform:none}}
 .academy-list-table td:nth-child(7),.academy-list-table td:last-child{min-width:105px;text-align:center}
 .academy-row-menu{position:relative;display:inline-block;z-index:1}.academy-row-menu[open]{z-index:30}
 .academy-row-menu summary{list-style:none;width:58px;height:42px;border:1px solid #7dd3fc;border-radius:11px;background:#e0f7ff;color:#075985;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:21px;box-shadow:0 5px 14px rgba(14,116,144,.12);transition:.15s}
@@ -79,6 +92,34 @@
   syncWidth();
   window.addEventListener('resize', syncWidth);
   const actionMenus = Array.from(document.querySelectorAll('.academy-row-menu'));
+  const summaryRows = Array.from(document.querySelectorAll('.academy-summary-row'));
+  const hideAcademyCloud = (row) => {
+    const cloud = row.querySelector('.academy-hover-cloud');
+    if(!cloud) return;
+    cloud.classList.remove('is-visible', 'cloud-above');
+    cloud.setAttribute('aria-hidden', 'true');
+  };
+  const showAcademyCloud = (row) => {
+    const cloud = row.querySelector('.academy-hover-cloud');
+    if(!cloud) return;
+    summaryRows.forEach((other) => { if(other !== row) hideAcademyCloud(other); });
+    cloud.classList.add('is-visible');
+    cloud.setAttribute('aria-hidden', 'false');
+    const rowBounds = row.getBoundingClientRect();
+    const cloudBounds = cloud.getBoundingClientRect();
+    const gap = 13;
+    const roomBelow = window.innerHeight - rowBounds.bottom;
+    const above = roomBelow < cloudBounds.height + gap && rowBounds.top > cloudBounds.height + gap;
+    cloud.classList.toggle('cloud-above', above);
+    cloud.style.top = `${above ? rowBounds.top - cloudBounds.height - gap : rowBounds.bottom + gap}px`;
+    cloud.style.left = `${Math.max(12, Math.min(window.innerWidth - cloudBounds.width - 12, rowBounds.left + (rowBounds.width - cloudBounds.width) / 2))}px`;
+  };
+  summaryRows.forEach((row) => {
+    row.addEventListener('mouseenter', () => showAcademyCloud(row));
+    row.addEventListener('mouseleave', () => hideAcademyCloud(row));
+    row.addEventListener('focusin', () => showAcademyCloud(row));
+    row.addEventListener('focusout', () => hideAcademyCloud(row));
+  });
   const placeAcademyMenu = (menu) => {
     menu.classList.remove('drop-up');
     const dropdown = menu.querySelector('.academy-row-dropdown');
@@ -89,13 +130,20 @@
   };
   actionMenus.forEach((menu) => menu.addEventListener('toggle', () => {
     if(menu.open){
+      hideAcademyCloud(menu.closest('.academy-summary-row'));
       actionMenus.forEach((other) => { if(other !== menu) other.removeAttribute('open'); });
       window.requestAnimationFrame(() => placeAcademyMenu(menu));
     }else{
       menu.classList.remove('drop-up');
     }
   }));
-  window.addEventListener('resize', () => actionMenus.filter((menu) => menu.open).forEach(placeAcademyMenu));
+  window.addEventListener('resize', () => {
+    actionMenus.filter((menu) => menu.open).forEach(placeAcademyMenu);
+    summaryRows.forEach((row) => { if(row.querySelector('.academy-hover-cloud.is-visible')) showAcademyCloud(row); });
+  });
+  table.addEventListener('scroll', () => summaryRows.forEach((row) => {
+    if(row.querySelector('.academy-hover-cloud.is-visible')) showAcademyCloud(row);
+  }));
   document.addEventListener('click', (event) => {
     actionMenus.forEach((menu) => { if(!menu.contains(event.target)) menu.removeAttribute('open'); });
   });

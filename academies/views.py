@@ -1284,7 +1284,18 @@ def academy_list(request):
     q = request.GET.get('q', '').strip()
     training_year = _selected_training_year(request)
     branch, all_branches = selected_branch(request)
-    academies = Academy.objects.all()
+    academies = Academy.objects.annotate(
+        registered_staff_count=Count(
+            'members',
+            filter=Q(members__role__in=[AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN]),
+            distinct=True,
+        ),
+        registered_players_count=Count(
+            'members',
+            filter=Q(members__role=AcademyMember.ROLE_PLAYER),
+            distinct=True,
+        ),
+    )
     if not all_branches:
         academies = academies.filter(branch=branch)
     training_start, training_end = _training_year_bounds(training_year)
@@ -1302,12 +1313,30 @@ def academy_list(request):
             | Q(manager_name__icontains=q)
             | Q(operation_place__icontains=q)
         )
+    academies = list(academies)
+    today = timezone.localdate()
+    current_month_start = today.replace(day=1)
+    current_month_end = date(today.year, today.month, monthrange(today.year, today.month)[1])
+    current_rent_rows = _academy_rent_rows(
+        today.year,
+        today.month,
+        current_month_start,
+        current_month_end,
+        None if all_branches else branch,
+    )
+    rent_remaining_by_academy = {
+        row['academy'].pk: row['remaining']
+        for row in current_rent_rows
+    }
+    for academy in academies:
+        academy.monthly_rent_remaining = rent_remaining_by_academy.get(academy.pk, 0)
     return render(request, 'academies/academy_list.html', {
         'academies': academies,
         'q': q,
         'training_year_choices': TRAINING_YEAR_CHOICES,
         'training_year': training_year,
         'activity': activity,
+        'rent_month_label': f'{ARABIC_MONTH_NAMES[today.month]} {today.year}',
     })
 
 
