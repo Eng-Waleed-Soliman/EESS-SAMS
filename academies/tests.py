@@ -2472,6 +2472,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(page, 'grid-template-columns:repeat(auto-fit,minmax(210px,260px));justify-content:center;gap:12px')
         self.assertContains(page, '.subscription-summary-card{min-height:88px;padding:14px 16px;')
         self.assertContains(page, 'background:#dcfce7!important;color:#14532d')
+        self.assertContains(page, '.subscription-summary-card span{display:block;font-size:.9rem;font-weight:900}')
         self.assertContains(page, '.subscription-summary-card:hover{background:linear-gradient(135deg,#d1fae5 0%,#86efac 52%,#dcfce7 100%)!important;')
         self.assertContains(page, 'transform:translateY(-2px) scale(1.01)')
         self.assertContains(page, 'onclick="printSubscriptionsPdf()"')
