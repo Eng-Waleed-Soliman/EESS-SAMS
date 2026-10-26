@@ -2,24 +2,31 @@
 {% block content %}
 <div class="d-flex justify-content-between mb-3 flex-wrap gap-2">
   <h3>{{ role_label }} أكاديمية {{ academy.name }}</h3>
-  <div class="btn-row">
-    {% if role == 'staff' %}
-    <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=staff">إضافة مدرب أو إداري</a>
-    {% elif role == 'player' %}
-    <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=player">إضافة لاعب</a>
-    <a class="btn btn-warning border border-dark" href="{% url 'academy_player_subscriptions' academy.id %}">الاشتراكات الشهرية</a>
-    <a class="btn btn-info border border-dark" href="{% url 'academy_training_group_list' academy.id %}">المجموعات</a>
-    {% endif %}
-    {% if role == 'staff' or role == 'player' %}
-    <a class="btn btn-outline-success" href="{% url 'academy_member_excel_template' academy.id %}?role={{ role }}">نموذج ملف الإضافة</a>
-    <form class="d-inline" method="post" enctype="multipart/form-data" action="{% url 'academy_member_excel_import' academy.id %}">
-      {% csrf_token %}
-      <input type="hidden" name="role" value="{{ role }}">
-      <input class="visually-hidden" type="file" id="member-excel-file-{{ role }}" name="excel_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required onchange="this.form.submit()">
-      <label class="btn btn-success mb-0" for="member-excel-file-{{ role }}">استيراد من Excel</label>
-    </form>
-    {% endif %}
+  <div class="member-header-actions">
     <a class="btn btn-secondary" href="{% url 'academy_list' %}">رجوع</a>
+    <details class="timed-actions-menu" id="academyMemberActionsMenu">
+      <summary class="timed-actions-toggle" aria-label="فتح قائمة إجراءات الأعضاء" title="إجراءات الأعضاء">
+        <span></span><span></span><span></span>
+      </summary>
+      <div class="timed-actions-dropdown">
+        {% if role == 'staff' %}
+        <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=staff">إضافة مدرب أو إداري</a>
+        {% elif role == 'player' %}
+        <a class="btn btn-primary" href="{% url 'academy_member_create' academy.id %}?role=player">إضافة لاعب</a>
+        <a class="btn btn-warning border border-dark" href="{% url 'academy_player_subscriptions' academy.id %}">الاشتراكات الشهرية</a>
+        <a class="btn btn-info border border-dark" href="{% url 'academy_training_group_list' academy.id %}">المجموعات</a>
+        {% endif %}
+        {% if role == 'staff' or role == 'player' %}
+        <a class="btn btn-outline-success" href="{% url 'academy_member_excel_template' academy.id %}?role={{ role }}">نموذج ملف الإضافة</a>
+        <form method="post" enctype="multipart/form-data" action="{% url 'academy_member_excel_import' academy.id %}">
+          {% csrf_token %}
+          <input type="hidden" name="role" value="{{ role }}">
+          <input class="visually-hidden" type="file" id="member-excel-file-{{ role }}" name="excel_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required onchange="this.form.submit()">
+          <label class="btn btn-success mb-0" for="member-excel-file-{{ role }}">استيراد من Excel</label>
+        </form>
+        {% endif %}
+      </div>
+    </details>
   </div>
 </div>
 <div class="card p-3">
@@ -44,5 +51,54 @@
     </table>
   </div>
 </div>
-<style>.member-list-photo{width:64px;height:64px;object-fit:contain;border-radius:10px;background:#fff}.member-list-qr{width:76px;height:76px;background:#fff;padding:3px;border:1px solid #dbe4ef;border-radius:8px}</style>
+<style>
+.member-list-photo{width:64px;height:64px;object-fit:contain;border-radius:10px;background:#fff}.member-list-qr{width:76px;height:76px;background:#fff;padding:3px;border:1px solid #dbe4ef;border-radius:8px}
+.member-header-actions{display:flex;align-items:center;gap:9px;position:relative;z-index:60}
+.timed-actions-menu{position:relative;z-index:60;direction:rtl}.timed-actions-menu summary{list-style:none}.timed-actions-menu summary::-webkit-details-marker{display:none}
+.timed-actions-toggle{width:56px;height:46px;padding:10px 13px;border:1px solid #7dd3fc;border-radius:12px;background:#e0f7ff;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;cursor:pointer;box-shadow:0 6px 18px rgba(14,116,144,.14)}
+.timed-actions-toggle span{display:block;height:4px;border-radius:4px;background:#0369a1}.timed-actions-menu[open] .timed-actions-toggle{background:#2563eb;border-color:#2563eb}.timed-actions-menu[open] .timed-actions-toggle span{background:#fff}
+.timed-actions-dropdown{position:absolute;top:56px;left:0;width:250px;padding:12px;border:1px solid #bae6fd;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.22);display:grid;gap:8px;z-index:70}
+.timed-actions-dropdown .btn,.timed-actions-dropdown form,.timed-actions-dropdown label{width:100%}.timed-actions-dropdown .btn{min-height:44px;display:flex;align-items:center;justify-content:center}
+@media(max-width:576px){.timed-actions-dropdown{left:auto;right:0;width:min(250px,calc(100vw - 32px))}}
+</style>
+<script>
+(() => {
+  const menu = document.getElementById('academyMemberActionsMenu');
+  if(!menu) return;
+  const toggle = menu.querySelector('.timed-actions-toggle');
+  const minimumMenuVisibilityMs = 1000;
+  let openedAt = 0;
+  let closeTimer = null;
+  let pointerInside = false;
+  const cancelClose = () => {
+    if(closeTimer){ window.clearTimeout(closeTimer); closeTimer = null; }
+  };
+  const closeMenu = () => {
+    cancelClose();
+    if(pointerInside) return;
+    menu.removeAttribute('open');
+    toggle?.setAttribute('aria-expanded', 'false');
+  };
+  const closeAfterMinimumTime = () => {
+    cancelClose();
+    const delay = Math.max(0, minimumMenuVisibilityMs - (Date.now() - openedAt));
+    closeTimer = window.setTimeout(closeMenu, delay);
+  };
+  toggle?.setAttribute('aria-expanded', 'false');
+  toggle?.addEventListener('click', () => {
+    window.setTimeout(() => {
+      if(menu.open){ openedAt = Date.now(); closeAfterMinimumTime(); }
+      toggle.setAttribute('aria-expanded', menu.open ? 'true' : 'false');
+    }, 0);
+  });
+  menu.addEventListener('mouseenter', () => { pointerInside = true; cancelClose(); });
+  menu.addEventListener('mouseleave', () => { pointerInside = false; closeAfterMinimumTime(); });
+  document.addEventListener('click', (event) => {
+    if(menu.open && !menu.contains(event.target)){ pointerInside = false; closeAfterMinimumTime(); }
+  });
+  document.addEventListener('keydown', (event) => {
+    if(event.key === 'Escape'){ pointerInside = false; closeMenu(); toggle?.focus(); }
+  });
+})();
+</script>
 {% endblock %}

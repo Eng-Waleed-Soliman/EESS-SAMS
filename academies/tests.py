@@ -3094,6 +3094,10 @@ class ApplicationFlowsTests(TestCase):
         for role in ('staff', 'player'):
             list_url = reverse('academy_member_list', args=[academy.pk]) + f'?role={role}'
             response = self.client.get(list_url)
+            self.assertContains(response, 'id="academyMemberActionsMenu"')
+            self.assertContains(response, 'aria-label="فتح قائمة إجراءات الأعضاء"')
+            self.assertContains(response, 'const minimumMenuVisibilityMs = 1000;')
+            self.assertContains(response, '<a class="btn btn-secondary" href="/academies/">رجوع</a>', html=True)
             self.assertContains(response, 'استيراد من Excel')
             self.assertContains(response, 'نموذج ملف الإضافة')
             self.assertContains(response, reverse('academy_member_excel_import', args=[academy.pk]))
