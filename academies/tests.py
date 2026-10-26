@@ -3103,6 +3103,7 @@ class ApplicationFlowsTests(TestCase):
             self.assertContains(response, 'id="academyMemberActionsMenu"')
             self.assertContains(response, 'aria-label="فتح قائمة إجراءات الأعضاء"')
             self.assertContains(response, 'const minimumMenuVisibilityMs = 1000;')
+            self.assertContains(response, '.timed-actions-dropdown label.btn{width:100%!important;min-width:0!important;box-sizing:border-box}')
             self.assertContains(response, '<a class="btn btn-secondary" href="/academies/">رجوع</a>', html=True)
             self.assertContains(response, 'استيراد من Excel')
             self.assertContains(response, 'نموذج ملف الإضافة')
