@@ -47,7 +47,22 @@
 .operation-table-wrap .operation-table{direction:rtl}
 .sticky-place{width:190px!important;min-width:190px!important;max-width:190px!important;white-space:normal!important;line-height:1.45!important}
 .operation-place-label{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.45}
-@media(max-width:768px){.operation-filter-date,.operation-filter-period,.operation-filter-branch{width:100%!important;min-width:100%!important;flex-basis:100%!important}}
+@media(max-width:768px){
+  .operation-toolbar-form{display:grid!important;grid-template-columns:minmax(0,1fr);align-items:stretch;width:100%;gap:8px!important}
+  .operation-filter-date,.operation-filter-period,.operation-filter-branch{width:100%!important;min-width:0!important;max-width:100%!important;flex-basis:auto!important}
+  .timed-actions-menu{width:100%;min-width:0;z-index:65}.timed-actions-toggle{margin-inline-start:auto}
+  .timed-actions-dropdown{position:static;width:100%;margin-top:8px;padding:9px;box-shadow:0 8px 20px rgba(15,23,42,.13)}
+  .timed-actions-dropdown .btn{min-width:0!important;width:100%!important}
+  .operation-top-scroll{height:14px;margin:0 2px 7px}
+  .operation-table-wrap{width:100%;padding:7px!important;border-radius:13px!important;overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch}
+  .operation-table{min-width:max-content!important;margin-bottom:0}.sticky-place{width:126px!important;min-width:126px!important;max-width:126px!important;padding:7px 5px!important;font-size:14px!important}
+  .operation-slot-cell{width:90px!important;min-width:90px!important;padding:5px!important}.operation-card{width:78px;height:auto;min-height:82px;padding:6px;border-radius:10px}.operation-time{font-size:13px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+  .operation-tooltip{width:min(270px,calc(100vw - 28px));max-width:calc(100vw - 28px);font-size:12px;line-height:1.45}
+  #selectedSlotsBar>div{width:100%;display:grid;grid-template-columns:1fr;gap:7px}#selectedSlotsBar .btn{width:100%!important;min-width:0!important}
+}
+@media(max-width:430px){
+  .sticky-place{width:108px!important;min-width:108px!important;max-width:108px!important;font-size:12px!important}.operation-slot-cell{width:82px!important;min-width:82px!important}.operation-card{width:70px;min-height:76px;padding:4px}.operation-time{font-size:12px}
+}
 </style>
 <form id="cancelDayForm" method="post" action="{% url 'cancel_operation_day' %}" style="display:none">
   {% csrf_token %}

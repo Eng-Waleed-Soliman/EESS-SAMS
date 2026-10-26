@@ -216,7 +216,23 @@
   @keyframes dashboardPulse{0%,100%{box-shadow:0 0 0 4px rgba(34,197,94,.12)}50%{box-shadow:0 0 0 8px rgba(34,197,94,.04)}}
   @media(max-width:1350px){.dashboard-brand-card{grid-template-columns:1fr auto;grid-template-areas:"brand heading" "context context"}.dashboard-brand{grid-area:brand}.dashboard-heading{grid-area:heading}.dashboard-context-form{grid-area:context;margin:0;width:100%}.dashboard-kpis{grid-template-columns:repeat(3,1fr)}.activity-grid{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:1050px){.dashboard-brand{width:100%}.dashboard-grid--primary,.dashboard-grid--secondary{grid-template-columns:1fr}.activity-grid{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:650px){.dashboard-brand-card{padding:15px;grid-template-columns:1fr;grid-template-areas:"heading" "brand" "context"}.dashboard-heading{justify-content:space-between}.dashboard-heading h1{font-size:24px}.dashboard-brand .brand-logo{width:52px;height:52px}.dashboard-program-name{font-size:20px}.dashboard-company-name{font-size:11px;white-space:normal}.dashboard-context-form{grid-template-columns:1fr}.dashboard-kpis{grid-template-columns:repeat(2,1fr);gap:9px}.dashboard-kpi{min-height:118px;padding:13px 10px}.dashboard-kpi__icon{flex-basis:36px;width:36px;height:36px}.dashboard-kpi__label{font-size:11px}.dashboard-kpi__body strong{font-size:21px}.dashboard-panel{padding:14px}.dashboard-panel__header h2{font-size:16px}.dashboard-chart{height:210px}.dashboard-chart svg{height:180px}.live-operation-table__head{display:none}.live-operation-row{grid-template-columns:1fr 1fr}.activity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.activity-card{height:132px;grid-template-columns:1fr;grid-template-rows:72px 1fr}.activity-details{padding:7px}.activity-details h3{margin-bottom:4px}.activity-details>div{flex-direction:row;justify-content:space-between}.weekday-filter{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:650px){
+    .dashboard-brand-card{padding:15px;grid-template-columns:minmax(0,1fr);grid-template-areas:"heading" "brand" "context";gap:13px;overflow:hidden}
+    .dashboard-heading{width:100%;min-width:0;justify-content:space-between;flex-wrap:wrap}.dashboard-heading h1{min-width:0;font-size:24px;white-space:normal;overflow-wrap:anywhere}
+    .dashboard-brand{width:100%;min-width:0;align-items:flex-start}.dashboard-brand .brand-logo{flex:0 0 52px;width:52px;height:52px}.dashboard-brand-copy{min-width:0}.dashboard-program-name{max-width:100%;font-size:20px;white-space:normal;overflow-wrap:anywhere}.dashboard-company-name{font-size:11px;white-space:normal;overflow-wrap:anywhere}
+    .dashboard-context-form{width:100%;grid-template-columns:minmax(0,1fr)}.dashboard-context-form>div,.dashboard-context-form select{width:100%;min-width:0;max-width:100%}
+    .dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.dashboard-kpi{min-width:0;min-height:118px;padding:12px 9px;gap:8px}.dashboard-kpi__icon{flex:0 0 34px;width:34px;height:34px;border-radius:11px;font-size:18px}.dashboard-kpi__label{font-size:11px;line-height:1.25;white-space:normal}.dashboard-kpi__body strong{font-size:20px;white-space:nowrap}.dashboard-kpi__hint{font-size:9px;line-height:1.25;padding-left:2px}.dashboard-kpi__trend{position:static;margin-top:4px;font-size:9px}
+    .dashboard-panel{padding:12px;overflow:hidden}.dashboard-panel__header{min-width:0;flex-wrap:wrap;align-items:center}.dashboard-panel__header>div{min-width:0;flex:1 1 190px}.dashboard-panel__header h2{font-size:16px;line-height:1.45;overflow-wrap:anywhere}.dashboard-panel__header>a{white-space:normal}.chart-legend{flex-wrap:wrap;gap:7px 13px;line-height:1.35}
+    .dashboard-chart{height:210px;overflow:hidden}.dashboard-chart svg{height:180px}.dashboard-chart-labels{font-size:8px;gap:2px}.dashboard-chart-tooltip{min-width:0;width:max-content;max-width:calc(100% - 12px);font-size:10px}.dashboard-chart-tooltip span{white-space:normal}
+    .live-operation-table__head{display:none}.live-operation-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:7px;padding:10px}.live-operation-row>*{min-width:0}.live-operation-row strong{white-space:normal;overflow-wrap:anywhere}.status-pill{white-space:normal}
+    .dashboard-alert{grid-template-columns:34px minmax(0,1fr) auto;gap:8px}.dashboard-alert small{white-space:normal}.recent-event{padding:8px;grid-template-columns:34px minmax(0,1fr) auto}.recent-event::after{display:none}.recent-event small{white-space:normal}
+    .activity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.activity-card{height:132px;grid-template-columns:1fr;grid-template-rows:72px minmax(0,1fr)}.activity-details{padding:7px}.activity-details h3{margin-bottom:4px;white-space:normal;line-height:1.2}.activity-details>div{flex-direction:row;justify-content:space-between;flex-wrap:wrap}.weekday-filter{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  @media(max-width:430px){
+    .dashboard-kpis{grid-template-columns:minmax(0,1fr)}.dashboard-kpi{min-height:96px}.dashboard-kpi__hint{margin-top:7px}
+    .live-operation-row{grid-template-columns:minmax(0,1fr)}.activity-grid{grid-template-columns:minmax(0,1fr)}.activity-card{height:118px;grid-template-columns:38% minmax(0,1fr);grid-template-rows:1fr}
+    .dashboard-alert{grid-template-columns:32px minmax(0,1fr)}.dashboard-alert>b{grid-column:1/-1;text-align:left}.recent-event{grid-template-columns:32px minmax(0,1fr)}.recent-event time{grid-column:1/-1;text-align:left}
+  }
 </style>
 <script>
   (function(){
@@ -259,9 +275,12 @@
       const chartRect = chart.getBoundingClientRect();
       const svgRect = chartSvg.getBoundingClientRect();
       tooltip.innerHTML = `<strong>${data.labels[index]}</strong><span>إيراد الحجز اليومي: <b>${numberFormatter.format(bookingRevenue[index] || 0)} جنيه</b></span><span>إيراد الكافيتريا: <b>${numberFormatter.format(cafeteriaRevenue[index] || 0)} جنيه</b></span>`;
-      tooltip.style.left = `${(svgRect.left - chartRect.left) + ((point.x / 760) * svgRect.width)}px`;
+      const desiredLeft = (svgRect.left - chartRect.left) + ((point.x / 760) * svgRect.width);
       tooltip.style.top = `${(svgRect.top - chartRect.top) + ((point.y / 245) * svgRect.height)}px`;
       tooltip.classList.add('is-visible');
+      const tooltipHalfWidth = tooltip.offsetWidth / 2;
+      const safeLeft = Math.max(tooltipHalfWidth + 4, Math.min(chartRect.width - tooltipHalfWidth - 4, desiredLeft));
+      tooltip.style.left = `${safeLeft}px`;
     };
     const hideTooltip = function(){ tooltip?.classList.remove('is-visible'); };
     const renderPoints = function(containerId, points, className){
