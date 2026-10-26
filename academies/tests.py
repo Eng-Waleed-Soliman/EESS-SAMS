@@ -71,6 +71,16 @@ class ApplicationFlowsTests(TestCase):
         self.user = User.objects.create_user(username='tester', password='test-password')
         self.client.force_login(self.user)
 
+    def test_sidebar_modules_use_uniform_rounded_hover_cards(self):
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '.sidebar-nav{display:flex;flex-direction:column;gap:8px;padding:12px 10px 18px}')
+        self.assertContains(response, '.sidebar-nav a{width:100%;height:52px;')
+        self.assertContains(response, 'border-radius:14px;background:rgba(255,255,255,.62)')
+        self.assertContains(response, '.sidebar-nav a:hover,.sidebar-nav a:focus-visible{')
+        self.assertContains(response, 'transform:translateY(-2px) scale(1.015)')
+
     def test_create_independent_user_with_selected_permissions_and_login(self):
         self.user.is_superuser = True
         self.user.save(update_fields=['is_superuser'])
