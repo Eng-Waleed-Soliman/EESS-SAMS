@@ -2478,6 +2478,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(page, '<th>اسم اللاعب</th>', html=True)
         self.assertContains(page, '<th>مبلغ الاشتراك</th>', html=True)
         self.assertContains(page, '<th>المبلغ المسدد</th>', html=True)
+        self.assertNotContains(page, 'class="subscription-screen-share-summary"')
         self.assertNotContains(page, 'class="subscription-pdf-share-table"')
         response = self.client.post(subscriptions_url, {
             'year': str(today.year),
@@ -2638,11 +2639,14 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(subscriptions_page, '60%')
         self.assertContains(subscriptions_page, 'نسبة الأكاديمية')
         self.assertContains(subscriptions_page, '40%')
+        self.assertContains(subscriptions_page, 'class="card p-3 mt-3 subscription-screen-share-summary"')
+        self.assertContains(subscriptions_page, 'class="subscription-share-table"')
         self.assertContains(subscriptions_page, 'class="subscription-pdf-share-table"')
-        self.assertContains(subscriptions_page, 'القيمة المالية لنسبة الشركة')
-        self.assertContains(subscriptions_page, 'القيمة المالية لنسبة الأكاديمية')
+        self.assertContains(subscriptions_page, '<tr><th>البيان</th><th>النسبة</th><th>القيمة المالية</th></tr>', count=2, html=True)
+        self.assertContains(subscriptions_page, '<tr><th>نسبة الشركة</th><td>60%</td><td>2130 جنيه</td></tr>', count=2, html=True)
+        self.assertContains(subscriptions_page, '<tr><th>نسبة الأكاديمية</th><td>40%</td><td>1420 جنيه</td></tr>', count=2, html=True)
         self.assertContains(subscriptions_page, 'مبلغ التوريد:')
-        self.assertContains(subscriptions_page, '<strong>2130 جنيه</strong>', html=True)
+        self.assertContains(subscriptions_page, '<strong>2130 جنيه</strong>', count=2, html=True)
 
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_reports = True

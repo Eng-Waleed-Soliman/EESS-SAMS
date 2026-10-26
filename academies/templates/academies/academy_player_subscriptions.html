@@ -114,6 +114,20 @@
   </div>
 </form>
 
+{% if is_revenue_share %}
+<section class="card p-3 mt-3 subscription-screen-share-summary" aria-labelledby="subscriptionShareSummaryTitle">
+  <h4 id="subscriptionShareSummaryTitle">ملخص نسب المشاركة</h4>
+  <table class="subscription-share-table">
+    <thead><tr><th>البيان</th><th>النسبة</th><th>القيمة المالية</th></tr></thead>
+    <tbody>
+      <tr><th>نسبة الشركة</th><td>{{ company_share_percentage }}%</td><td>{{ company_share_amount }} جنيه</td></tr>
+      <tr><th>نسبة الأكاديمية</th><td>{{ academy_share_percentage }}%</td><td>{{ academy_share_amount }} جنيه</td></tr>
+    </tbody>
+  </table>
+  <p class="subscription-supply-amount">مبلغ التوريد: <strong>{{ company_share_amount }} جنيه</strong></p>
+</section>
+{% endif %}
+
 <section id="subscriptionPdfReport" class="subscription-pdf-report" dir="rtl" aria-hidden="true">
   <header class="subscription-pdf-header">
     <h1>اشتراكات أكاديمية {{ academy.name }}{% if subscription_group %} — {{ subscription_group.name }}{% endif %}</h1>
@@ -131,20 +145,11 @@
   <div class="subscription-pdf-share-summary">
     <table class="subscription-pdf-share-table">
       <thead>
-        <tr>
-          <th>نسبة الشركة</th>
-          <th>القيمة المالية لنسبة الشركة</th>
-          <th>نسبة الأكاديمية</th>
-          <th>القيمة المالية لنسبة الأكاديمية</th>
-        </tr>
+        <tr><th>البيان</th><th>النسبة</th><th>القيمة المالية</th></tr>
       </thead>
       <tbody>
-        <tr>
-          <td>{{ company_share_percentage }}%</td>
-          <td>{{ company_share_amount }} جنيه</td>
-          <td>{{ academy_share_percentage }}%</td>
-          <td>{{ academy_share_amount }} جنيه</td>
-        </tr>
+        <tr><th>نسبة الشركة</th><td>{{ company_share_percentage }}%</td><td>{{ company_share_amount }} جنيه</td></tr>
+        <tr><th>نسبة الأكاديمية</th><td>{{ academy_share_percentage }}%</td><td>{{ academy_share_amount }} جنيه</td></tr>
       </tbody>
     </table>
     <p class="subscription-pdf-supply-amount">مبلغ التوريد: <strong>{{ company_share_amount }} جنيه</strong></p>
@@ -162,6 +167,7 @@
 .subscription-summary-card.supplied{background:linear-gradient(135deg,#0f766e,#14b8a6)}
 .subscription-summary-card.academy-share{background:linear-gradient(135deg,#6f42c1,#8d63d2)}
 .subscription-summary-card.remaining{background:linear-gradient(135deg,#b56b00,#df931d)}
+.subscription-screen-share-summary{break-inside:avoid}.subscription-screen-share-summary h4{font-weight:900;margin:0 0 14px;text-align:center}.subscription-share-table{width:100%;border-collapse:collapse;table-layout:fixed}.subscription-share-table th,.subscription-share-table td{border:1px solid #b6dff2;padding:13px 10px;text-align:center;font-weight:800}.subscription-share-table thead th{background:#dbeafe;color:#0c4a6e}.subscription-share-table tbody th{background:#f0f9ff;color:#075985}.subscription-supply-amount{margin:14px 0 0;padding:14px 18px;border:1px solid #38bdf8;border-radius:14px;background:linear-gradient(135deg,#e0f7ff,#bae6fd);color:#0c4a6e;text-align:center;font-size:21px;font-weight:900;box-shadow:0 8px 20px rgba(14,165,233,.13)}.subscription-supply-amount strong{font-size:23px}
 .subscription-table input[type=number]{min-width:145px}.subscription-actions{display:flex;gap:9px;align-items:stretch}.subscription-actions .btn{flex:1 1 0;min-width:135px!important}.subscription-pdf-report{display:none}@media print{@page{size:A4 portrait;margin:14mm}body.subscription-pdf-mode{background:#fff!important}body.subscription-pdf-mode main>*:not(.subscription-pdf-report){display:none!important}body.subscription-pdf-mode .subscription-pdf-report{display:block!important;width:100%;color:#111;font-family:"Times New Roman",Times,serif}body.subscription-pdf-mode .subscription-pdf-header{text-align:center;margin:0 0 24px}body.subscription-pdf-mode .subscription-pdf-header h1{display:inline-block;margin:0;padding:0 8px 7px;border-bottom:3px solid #111;font-size:25px;font-weight:900}body.subscription-pdf-mode .subscription-pdf-header h2{margin:11px 0 0;font-size:20px;font-weight:900;text-decoration:underline;text-underline-offset:6px}body.subscription-pdf-mode .subscription-pdf-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:16px}body.subscription-pdf-mode .subscription-pdf-table th,body.subscription-pdf-mode .subscription-pdf-table td{border:1px solid #222;padding:10px 8px;text-align:center;vertical-align:middle}body.subscription-pdf-mode .subscription-pdf-table thead th{background:#dbeafe!important;font-weight:900;-webkit-print-color-adjust:exact;print-color-adjust:exact}body.subscription-pdf-mode .subscription-pdf-table th:first-child,body.subscription-pdf-mode .subscription-pdf-table td:first-child{width:9%}body.subscription-pdf-mode .subscription-pdf-table th:nth-child(2),body.subscription-pdf-mode .subscription-pdf-table td:nth-child(2){width:43%}body.subscription-pdf-mode .subscription-pdf-total-row th{background:#e2e8f0!important;font-size:18px;font-weight:900;-webkit-print-color-adjust:exact;print-color-adjust:exact}body.subscription-pdf-mode .subscription-pdf-table tr{break-inside:avoid;page-break-inside:avoid}body.subscription-pdf-mode .subscription-pdf-share-summary{margin-top:18px;break-inside:avoid;page-break-inside:avoid}body.subscription-pdf-mode .subscription-pdf-share-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:16px}body.subscription-pdf-mode .subscription-pdf-share-table th,body.subscription-pdf-mode .subscription-pdf-share-table td{border:1px solid #222;padding:11px 7px;text-align:center;vertical-align:middle}body.subscription-pdf-mode .subscription-pdf-share-table th{background:#dbeafe!important;font-weight:900;-webkit-print-color-adjust:exact;print-color-adjust:exact}body.subscription-pdf-mode .subscription-pdf-share-table td{font-size:17px;font-weight:800}body.subscription-pdf-mode .subscription-pdf-supply-amount{margin:12px 0 0;padding:12px 15px;border:2px solid #111;background:#e2e8f0!important;text-align:center;font-size:20px;font-weight:900;-webkit-print-color-adjust:exact;print-color-adjust:exact}body.subscription-pdf-mode .subscription-pdf-supply-amount strong{font-size:22px}}
 @media(max-width:760px){.subscription-summary-grid,.subscription-player-counts{grid-template-columns:1fr}}
 </style>
