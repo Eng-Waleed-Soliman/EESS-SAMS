@@ -5,8 +5,54 @@
   <a class="btn btn-primary" href="{% url 'employee_create' %}">إضافة موظف</a>
 </div>
 <form class="mb-3"><input class="form-control search-box w-half" name="q" value="{{ q }}" placeholder="بحث باسم الموظف أو الوظيفة أو الهاتف أو الرقم القومي"></form>
-<div class="card p-3"><table class="table table-hover align-middle">
+<div class="card p-3"><div class="table-responsive employee-table-responsive"><table class="table table-hover align-middle employee-list-table">
 <tr><th>الاسم</th><th>الوظيفة</th><th>الهاتف</th><th>الرقم القومي</th><th>الراتب</th><th></th></tr>
-{% for e in employees %}<tr><td>{{ e.name }}</td><td>{{ e.job_title }}</td><td>{{ e.phone }}</td><td>{{ e.national_id }}</td><td>{{ e.salary }}</td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'employee_update' e.pk %}">تعديل</a> <a class="btn btn-sm btn-outline-danger" href="{% url 'employee_delete' e.pk %}">حذف</a></td></tr>{% empty %}<tr><td colspan="6">لا توجد بيانات</td></tr>{% endfor %}
-</table></div>
+{% for e in employees %}
+<tr>
+  <td>{{ e.name }}</td><td>{{ e.job_title }}</td><td>{{ e.phone }}</td><td>{{ e.national_id }}</td><td>{{ e.salary }}</td>
+  <td class="employee-actions-cell">
+    <details class="employee-row-menu">
+      <summary aria-label="فتح إجراءات الموظف {{ e.name }}" title="إجراءات الموظف"><span aria-hidden="true">⚙️</span></summary>
+      <div class="employee-row-dropdown">
+        <a href="{% url 'employee_update' e.pk %}">تعديل</a>
+        <a class="employee-delete-action" href="{% url 'employee_delete' e.pk %}">حذف</a>
+      </div>
+    </details>
+  </td>
+</tr>
+{% empty %}<tr><td colspan="6">لا توجد بيانات</td></tr>{% endfor %}
+</table></div></div>
+<style>
+.employee-table-responsive,.employee-list-table{overflow:visible!important}.employee-actions-cell{width:94px;text-align:center;overflow:visible!important}
+.employee-row-menu{position:relative;display:inline-block;z-index:1}.employee-row-menu[open]{z-index:80}.employee-row-menu summary{list-style:none;width:56px;height:42px;border:1px solid #7dd3fc;border-radius:11px;background:#e0f7ff;color:#075985;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:21px;box-shadow:0 5px 14px rgba(14,116,144,.12);transition:background .15s ease,border-color .15s ease,color .15s ease,transform .15s ease}.employee-row-menu summary::-webkit-details-marker{display:none}.employee-row-menu summary:hover,.employee-row-menu[open] summary{background:#2563eb;border-color:#2563eb;color:#fff;transform:translateY(-1px)}
+.employee-row-dropdown{position:absolute;top:49px;left:50%;transform:translateX(-50%);width:180px;padding:9px;border:1px solid #bae6fd;border-radius:13px;background:#fff;box-shadow:0 16px 38px rgba(15,23,42,.2);display:grid;gap:7px;text-align:center;z-index:90}.employee-row-menu.drop-up .employee-row-dropdown{top:auto;bottom:49px}.employee-row-dropdown a{min-height:40px;padding:8px 11px;border:1px solid #7dd3fc;border-radius:9px;background:#e0f7ff;color:#0f172a;text-decoration:none;font-weight:800;display:flex;align-items:center;justify-content:center}.employee-row-dropdown a:hover{background:#2563eb;border-color:#2563eb;color:#fff}.employee-row-dropdown .employee-delete-action{border-color:#fecaca;background:#fff1f2;color:#991b1b}.employee-row-dropdown .employee-delete-action:hover{background:#dc2626;border-color:#dc2626;color:#fff}
+@media(max-width:768px){.employee-table-responsive{overflow-x:auto!important}.employee-list-table{min-width:850px}}
+</style>
+<script>
+(() => {
+  const menus = Array.from(document.querySelectorAll('.employee-row-menu'));
+  const placeMenu = (menu) => {
+    menu.classList.remove('drop-up');
+    const dropdown = menu.querySelector('.employee-row-dropdown');
+    if(!dropdown) return;
+    const availableBottom = Math.min(window.innerHeight, document.documentElement.clientHeight);
+    if(dropdown.getBoundingClientRect().bottom > availableBottom - 8){ menu.classList.add('drop-up'); }
+  };
+  menus.forEach((menu) => menu.addEventListener('toggle', () => {
+    if(menu.open){
+      menus.forEach((other) => { if(other !== menu) other.removeAttribute('open'); });
+      window.requestAnimationFrame(() => placeMenu(menu));
+    }else{
+      menu.classList.remove('drop-up');
+    }
+  }));
+  document.addEventListener('click', (event) => {
+    menus.forEach((menu) => { if(!menu.contains(event.target)) menu.removeAttribute('open'); });
+  });
+  document.addEventListener('keydown', (event) => {
+    if(event.key === 'Escape') menus.forEach((menu) => menu.removeAttribute('open'));
+  });
+  window.addEventListener('resize', () => menus.filter((menu) => menu.open).forEach(placeMenu));
+})();
+</script>
 {% endblock %}

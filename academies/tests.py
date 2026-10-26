@@ -82,6 +82,23 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'background:linear-gradient(135deg,#e0f7ff 0%,#b9e9ff 52%,#dff8ff 100%)')
         self.assertContains(response, 'transform:translateY(-2px) scale(1.01)')
 
+    def test_employee_rows_use_gear_action_dropdown(self):
+        employee = Employee.objects.create(
+            name='موظف قائمة الترس', job_title='إداري', phone='01000000000',
+            national_id='29001010123456', salary=5000,
+        )
+
+        response = self.client.get(reverse('employee_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="employee-row-menu"')
+        self.assertContains(response, f'فتح إجراءات الموظف {employee.name}')
+        self.assertContains(response, reverse('employee_update', args=[employee.pk]))
+        self.assertContains(response, reverse('employee_delete', args=[employee.pk]))
+        self.assertContains(response, 'class="employee-delete-action"')
+        self.assertNotContains(response, 'btn btn-sm btn-outline-primary')
+        self.assertContains(response, "if(event.key === 'Escape')")
+
     def test_create_independent_user_with_selected_permissions_and_login(self):
         self.user.is_superuser = True
         self.user.save(update_fields=['is_superuser'])
