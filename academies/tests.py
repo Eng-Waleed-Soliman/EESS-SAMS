@@ -77,9 +77,10 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '.sidebar-nav{display:flex;flex-direction:column;gap:8px;padding:12px 10px 18px}')
         self.assertContains(response, '.sidebar-nav a{width:100%;height:52px;')
-        self.assertContains(response, 'border-radius:14px;background:rgba(255,255,255,.62)')
+        self.assertContains(response, 'border-radius:14px;background:#effaff')
         self.assertContains(response, '.sidebar-nav a:hover,.sidebar-nav a:focus-visible{')
-        self.assertContains(response, 'transform:translateY(-2px) scale(1.015)')
+        self.assertContains(response, 'background:linear-gradient(135deg,#e0f7ff 0%,#b9e9ff 52%,#dff8ff 100%)')
+        self.assertContains(response, 'transform:translateY(-2px) scale(1.01)')
 
     def test_create_independent_user_with_selected_permissions_and_login(self):
         self.user.is_superuser = True
