@@ -2769,9 +2769,10 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'class="academy-summary-row"')
         self.assertContains(response, 'class="academy-hover-cloud"')
-        self.assertContains(response, '<b>2</b> مدرب وإداري مسجل', html=True)
-        self.assertContains(response, '<b>1</b> لاعب مسجل', html=True)
-        self.assertContains(response, '<b>700</b> جنيه متبقي للإيجار الشهري', html=True)
+        self.assertContains(response, '<span><em>مدرب وإداري مسجل</em><b>2</b></span>', html=True)
+        self.assertContains(response, '<span><em>لاعب مسجل</em><b>1</b></span>', html=True)
+        self.assertContains(response, '<span><em>جنيه متبقي للإيجار الشهري</em><b>700</b></span>', html=True)
+        self.assertContains(response, '.academy-hover-cloud em{flex:1;text-align:right;font-style:normal}')
 
     def test_training_year_selector_and_portrait_identity_cards(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
