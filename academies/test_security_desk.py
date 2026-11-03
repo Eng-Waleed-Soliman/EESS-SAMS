@@ -60,7 +60,8 @@ class SecurityDeskTests(TestCase):
         self.assertNotContains(page, outsider.name)
         self.assertFalse(SecurityMovement.objects.exists())
 
-    def test_registration_opens_with_academy_cards_then_sections_and_rosters(self):
+    def test_registration_shows_today_academies_and_combined_daily_rosters(self):
+        self.training_group(start='00:00', end='23:59')
         coach = AcademyMember.objects.create(
             academy=self.academy, role=AcademyMember.ROLE_COACH,
             name='مدرب الأكاديمية', job_title='مدرب سباحة',
@@ -71,28 +72,52 @@ class SecurityDeskTests(TestCase):
         )
         page = self.client.get(reverse('security_home'))
         self.assertEqual(page.context['tab'], 'register')
-        self.assertContains(page, 'اختر الأكاديمية')
+        self.assertContains(page, 'أكاديميات مسموح لها بالدخول اليوم')
         self.assertContains(page, self.academy.name)
         page = self.client.get(reverse('security_home'), {'tab':'register', 'academy_id':self.academy.pk})
-        self.assertContains(page, 'المدربين والإداريين')
-        self.assertContains(page, 'اللاعبين')
-        self.assertContains(page, 'academies/images/academy-players-card.webp')
-        self.assertContains(page, 'academies/images/academy-staff-card-v2.webp')
-        self.assertContains(page, 'class="security-section-card"', count=2)
-        page = self.client.get(reverse('security_home'), {'tab':'register', 'academy_id':self.academy.pk, 'roster':'staff'})
+        self.assertContains(page, 'المدربون والإداريون')
+        self.assertContains(page, 'اللاعبون المسموح لهم بالدخول الآن')
         self.assertContains(page, coach.name)
         self.assertContains(page, administrator.name)
         self.assertContains(page, coach.job_title)
-        self.assertNotIn(self.player, list(page.context['roster_members']))
-        players = self.client.get(reverse('security_home'), {'tab':'register', 'academy_id':self.academy.pk, 'roster':'players'})
-        self.assertContains(players, self.player.name)
-        self.assertNotIn(coach, list(players.context['roster_members']))
+        self.assertContains(page, self.player.name)
+        self.assertIn(coach, list(page.context['staff_roster']))
+        self.assertEqual([row['person'] for row in page.context['player_rows']], [self.player])
+        self.assertNotContains(page, '<a class="security-section-card"')
         response = self.movement(action='record_member', member_id=coach.pk, source='manual')
         self.assertEqual(response.status_code, 302)
         movement = SecurityMovement.objects.get(member=coach)
         self.assertEqual(movement.person_name, coach.name)
         self.assertEqual(movement.person_type, SecurityMovement.PERSON_STAFF)
         self.assertEqual(timezone.localdate(movement.recorded_at), timezone.localdate())
+
+    def test_registration_hides_academies_without_training_today(self):
+        hidden = Academy.objects.create(
+            branch=self.branch, name='أكاديمية بدون تدريب اليوم', sport_activity='Football',
+            company_name='Company', manager_name='Manager', manager_phone='01000000000',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=timezone.localdate() - timedelta(days=30),
+            contract_end_date=timezone.localdate() + timedelta(days=30),
+        )
+        self.training_group(start='17:00', end='18:00')
+        page = self.client.get(reverse('security_home'))
+        self.assertContains(page, f'academy_id={self.academy.pk}')
+        self.assertNotContains(page, f'academy_id={hidden.pk}')
+
+    def test_selected_academy_players_appear_from_thirty_minutes_before_training(self):
+        self.training_group(start='17:00', end='18:00')
+        tz = timezone.get_current_timezone()
+        today = timezone.localdate()
+        before_window = timezone.make_aware(datetime.combine(today, datetime.min.time()), tz) + timedelta(hours=16, minutes=29)
+        window_start = before_window + timedelta(minutes=1)
+        with self.settings(USE_TZ=True):
+            from unittest.mock import patch
+            with patch('academies.security_views.timezone.now', return_value=before_window):
+                page = self.client.get(reverse('security_home'), {'tab': 'register', 'academy_id': self.academy.pk})
+                self.assertEqual(page.context['player_rows'], [])
+            with patch('academies.security_views.timezone.now', return_value=window_start):
+                page = self.client.get(reverse('security_home'), {'tab': 'register', 'academy_id': self.academy.pk})
+                self.assertEqual([row['person'] for row in page.context['player_rows']], [self.player])
 
     def test_academy_cards_obey_group_window_and_show_staff_for_whole_day(self):
         group = self.training_group(start='17:00', end='18:00')
@@ -116,8 +141,7 @@ class SecurityDeskTests(TestCase):
         self.assertEqual(card_at(8, 0)['staff'], [coach])
 
         page = self.client.get(reverse('security_home'))
-        self.assertContains(page, 'المدربون والإداريون اليوم')
-        self.assertContains(page, coach.name)
+        self.assertContains(page, 'مسموح بالدخول اليوم')
 
     def test_arrival_lead_setting_and_exact_hour_boundaries(self):
         self.training_group(start='17:00', end='19:00')

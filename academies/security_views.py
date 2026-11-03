@@ -280,12 +280,18 @@ def academy_security_cards(academies, now=None):
         staff_day = contract_active_today and (
             today_has_group or WEEKDAY_AR[today.weekday()] in registered_days
         )
-        cards.append({
-            'academy': academy,
-            'active_groups': active_groups,
-            'staff': academy.security_staff if staff_day else [],
-            'staff_day': staff_day,
-        })
+        # The security landing page is a daily gate list, not an academy
+        # directory.  Keep an academy only when it has a registered training
+        # day today (or an overnight session that is still in its entry
+        # window).  Players remain hidden until 30 minutes before their
+        # group's start time.
+        if staff_day or active_groups:
+            cards.append({
+                'academy': academy,
+                'active_groups': active_groups,
+                'staff': academy.security_staff if staff_day else [],
+                'staff_day': staff_day,
+            })
     return cards
 
 
@@ -415,6 +421,7 @@ def desk(request, movement_type):
         members = members.filter(Q(name__icontains=q) | Q(phone__icontains=q))
         employees = employees.filter(name__icontains=q)
     category_filter = request.GET.get('category', 'all')
+    academy_cards = academy_security_cards(academies)
     selected_academy = None
     roster_kind = request.GET.get('roster', '')
     if request.GET.get('academy_id'):
@@ -429,6 +436,28 @@ def desk(request, movement_type):
         roster_members = members.filter(
             academy=selected_academy, role=AcademyMember.ROLE_PLAYER,
         ).order_by('name')
+    staff_roster = members.none()
+    player_rows = []
+    if selected_academy:
+        staff_roster = members.filter(
+            academy=selected_academy,
+            role__in=(AcademyMember.ROLE_COACH, AcademyMember.ROLE_ADMIN),
+        ).order_by('role', 'name')
+        selected_card = next(
+            (item for item in academy_cards if item['academy'].pk == selected_academy.pk),
+            None,
+        )
+        player_map = {}
+        for session in (selected_card or {}).get('active_groups', []):
+            session_label = {
+                'group': session['group'].name,
+                'start': session['start'],
+                'end': session['end'],
+            }
+            for player in session['players']:
+                row = player_map.setdefault(player.pk, {'person': player, 'sessions': []})
+                row['sessions'].append(session_label)
+        player_rows = sorted(player_map.values(), key=lambda row: row['person'].name)
     today = timezone.localdate()
     try:
         day = timezone.datetime.strptime(request.GET.get('day', str(today)), '%Y-%m-%d').date()
@@ -492,8 +521,9 @@ def desk(request, movement_type):
         'card_source': 'qr' if source.get('action') == 'lookup_qr' else 'manual',
         'expected': expected, 'tab': tab, 'selected_hour': selected_hour, 'hours': range(24),
         'employee_inside': employee_inside, 'today': today,
-        'academy_cards': academy_security_cards(academies), 'selected_academy': selected_academy,
+        'academy_cards': academy_cards, 'selected_academy': selected_academy,
         'roster_kind': roster_kind, 'roster_members': roster_members,
+        'staff_roster': staff_roster, 'player_rows': player_rows,
         'inside_member_ids': {item.member_id for item in open_entries(branch, all_branches) if item.member_id},
     })
 
