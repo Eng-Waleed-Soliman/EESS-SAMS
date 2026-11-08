@@ -4309,11 +4309,13 @@ def _month_financial_summary(year, month, start, end, branch=None):
         reward = adjustments.get(PayrollAdjustment.REWARD, 0)
         deduction = adjustments.get(PayrollAdjustment.DEDUCTION, 0)
         advance = adjustments.get(PayrollAdjustment.ADVANCE, 0)
-        total = int(employee.salary or 0) + bonus + reward - deduction - advance
+        gross_total = int(employee.salary or 0) + bonus
+        total = gross_total + reward - deduction - advance
         payroll_total += total
         payroll_advances += advance
         payroll_rows.append({
             'employee': employee, 'salary': employee.salary, 'bonus': bonus,
+            'gross_total': gross_total,
             'reward': reward, 'deduction': deduction, 'advance': advance, 'total': total,
         })
     # Academy income is already included in full here, so gross income must add

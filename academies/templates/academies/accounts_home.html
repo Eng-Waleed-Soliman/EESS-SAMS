@@ -88,13 +88,14 @@
         <a class="btn" href="{% url 'payroll_adjustments' 'reward' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">المكافآت</a>
         <a class="btn" href="{% url 'payroll_adjustments' 'deduction' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">الخصومات</a>
         <a class="btn" href="{% url 'payroll_adjustments' 'advance' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">السلف</a>
+        {% if can_export_accounts %}<button type="button" class="btn" onclick="printPayrollReport()">تصدير PDF لمرتبات الموظفين</button>{% endif %}
       </div>
     </details>
     {% endif %}
   </div>
   <p class="text-muted no-print">صافي المرتب = الأساسي + البونص + المكافآت − الخصومات − السلف.</p>
   <div class="table-responsive payroll-table-wrap"><table class="table table-striped text-center payroll-table">
-    <thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب الأساسي</th><th>البونص</th><th>المكافآت</th><th>الخصومات</th><th>السلف</th><th>صافي المرتب</th></tr></thead>
+    <thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب الأساسي</th><th>البونص</th><th class="payroll-export-only">إجمالي المرتب</th><th>المكافآت</th><th>الخصومات</th><th>السلف</th><th>صافي المرتب</th></tr></thead>
     <tbody>
       {% for row in summary.payroll_rows %}
       <tr class="payroll-row" data-receipt-url="{% url 'payroll_receipt' row.employee.pk %}?month={{ month_value }}{% if active_branch_is_all %}&amp;branch_id=all{% elif active_branch %}&amp;branch_id={{ active_branch.pk }}{% endif %}" title="دبل كليك لفتح إقرار استلام المرتب">
@@ -102,10 +103,11 @@
         <td>{{ row.employee.job_title }}</td>
         <td>{{ row.salary }}</td>
         <td>{{ row.bonus }}</td>
+        <td class="payroll-export-only">{{ row.gross_total }}</td>
         <td>{{ row.reward }}</td><td>{{ row.deduction }}</td><td>{{ row.advance }}</td>
         <td class="{% if row.total < 0 %}text-danger{% endif %}">{{ row.total }}</td>
       </tr>
-      {% empty %}<tr><td colspan="8">لا توجد بيانات موظفين</td></tr>{% endfor %}
+      {% empty %}<tr><td colspan="9">لا توجد بيانات موظفين</td></tr>{% endfor %}
     </tbody>
   </table></div>
 </div>
@@ -133,6 +135,7 @@
 .payroll-actions-dropdown .btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #7dd3fc;background:#e0f7ff;color:#0f172a;font-weight:800}.payroll-actions-dropdown .btn:hover{background:#2563eb;border-color:#2563eb;color:#fff}
 .payroll-row{cursor:pointer}
 .payroll-row:hover{--bs-table-accent-bg:#e0f2fe}
+.payroll-export-only{display:none}
 @media(max-width:576px){.payroll-actions-dropdown{width:min(220px,78vw)}}
 @media print{
   @page{size:A4 portrait;margin:10mm}
@@ -151,6 +154,12 @@
   .payroll-table-wrap{overflow:visible!important}
   .payroll-table{width:100%!important;min-width:0!important;font-size:11px}
   .payroll-table th,.payroll-table td{padding:5px!important;white-space:normal!important}
+  body.payroll-print-mode .accounts-summary-cards{display:none!important}
+  body.payroll-print-mode .payroll-card{display:block!important;margin:0!important;border:1px solid #94a3b8!important}
+  body.payroll-print-mode .payroll-table{font-size:10px!important}
+  body.payroll-print-mode .payroll-table thead{display:table-header-group}
+  body.payroll-print-mode .payroll-export-only{display:table-cell!important}
+  body.payroll-print-mode .payroll-table tr{break-inside:avoid;page-break-inside:avoid}
 }
 </style>
 <script>
@@ -175,6 +184,27 @@ function printAccounts(asPdf){
   if(asPdf){document.title='تقرير الحسابات - {{ month_value|escapejs }}';}
   window.print();
   window.setTimeout(function(){document.title=oldTitle;},500);
+}
+function printPayrollReport(){
+  const oldDocumentTitle=document.title;
+  const heading=document.getElementById('accountsPrintTitle');
+  const subtitle=document.getElementById('accountsPrintSubtitle');
+  const oldHeading=heading.textContent;
+  const oldSubtitle=subtitle.textContent;
+  const reportTitle='تقرير مرتبات الموظفين';
+  const reportSubtitle='عن شهر {{ month_value|escapejs }} — {% if active_branch_is_all %}كل الفروع{% elif active_branch %}{{ active_branch.display_name|escapejs }}{% endif %}';
+  function cleanupPayrollPrint(){
+    document.body.classList.remove('payroll-print-mode');
+    heading.textContent=oldHeading;
+    subtitle.textContent=oldSubtitle;
+    document.title=oldDocumentTitle;
+  }
+  document.body.classList.add('payroll-print-mode');
+  heading.textContent=reportTitle;
+  subtitle.textContent=reportSubtitle;
+  document.title=reportTitle+' - {{ month_value|escapejs }}';
+  window.addEventListener('afterprint',cleanupPayrollPrint,{once:true});
+  window.print();
 }
 </script>
 {% endif %}

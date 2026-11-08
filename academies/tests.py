@@ -3139,6 +3139,11 @@ class ApplicationFlowsTests(TestCase):
             job_title='مسئول إداري أول',
             salary=8500,
         )
+        branding = AppSetting.current()
+        branding.company_logo_data = b'payroll-logo'
+        branding.company_logo_content_type = 'image/png'
+        branding.company_logo_name = 'payroll-logo.png'
+        branding.save()
 
         response = self.client.get(reverse('accounts_home'), {'month': '2026-08'})
         self.assertEqual(response.status_code, 200)
@@ -3148,6 +3153,13 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'المكافآت')
         self.assertContains(response, 'الخصومات')
         self.assertContains(response, 'السلف')
+        self.assertContains(response, 'تصدير PDF لمرتبات الموظفين')
+        self.assertContains(response, 'onclick="printPayrollReport()"')
+        self.assertContains(response, 'function printPayrollReport()')
+        self.assertContains(response, 'تقرير مرتبات الموظفين')
+        self.assertContains(response, 'class="payroll-export-only">إجمالي المرتب</th>')
+        self.assertContains(response, reverse('persistent_media', args=['branding', branding.pk, 'company_logo']))
+        self.assertEqual(response.context['summary']['payroll_rows'][0]['gross_total'], 8500)
         self.assertNotContains(response, 'payroll-employee-checkbox')
         self.assertNotContains(response, 'تحديد كل الموظفين')
         self.assertNotContains(response, 'تصدير PDF للمحدد')
