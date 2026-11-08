@@ -4203,7 +4203,10 @@ def _month_financial_summary(year, month, start, end, branch=None):
     monthly_qs = MonthlyExpense.objects.filter(expense_month__range=(start, end))
     daily_qs = DailyExpense.objects.filter(expense_date__range=(start, end))
     operating_qs = OperatingExpense.objects.filter(expense_date__range=(start, end))
-    employee_qs = Employee.objects.all()
+    # The payroll screen and its totals contain only employees who have an
+    # actual base salary.  Zero-salary employee records remain available in
+    # the employees module, but do not create empty payroll rows.
+    employee_qs = Employee.objects.filter(salary__gt=0)
     if branch is not None:
         checkout_qs = checkout_qs.filter(booking__branch=branch)
         sale_qs = sale_qs.filter(item__branch=branch)

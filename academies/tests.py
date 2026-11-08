@@ -2985,10 +2985,15 @@ class ApplicationFlowsTests(TestCase):
         employee = Employee.objects.create(
             name='موظف المرتبات', job_title='محاسب', salary=7000,
         )
+        zero_salary_employee = Employee.objects.create(
+            name='موظف بدون مرتب', job_title='متطوع', salary=0,
+        )
         response = self.client.get(reverse('accounts_home'), {'month': '2026-08'})
         payroll_names = [row['employee'].name for row in response.context['summary']['payroll_rows']]
         self.assertIn(employee.name, payroll_names)
         self.assertNotIn(shareholder.name, payroll_names)
+        self.assertNotIn(zero_salary_employee.name, payroll_names)
+        self.assertEqual(response.context['summary']['payroll_total'], 7000)
         self.assertContains(response, 'مرتبات الموظفين والبونص')
         self.assertContains(response, 'هذا الجزء خاص بالموظفين المسجلين فقط')
 
