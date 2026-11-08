@@ -1172,6 +1172,13 @@ class UserPermission(models.Model):
 
 
 class Shareholder(models.Model):
+    SALARY_FIXED = 'fixed'
+    SALARY_VARIABLE = 'variable'
+    SALARY_TYPE_CHOICES = [
+        (SALARY_FIXED, 'مرتب ثابت'),
+        (SALARY_VARIABLE, 'مرتب متغير'),
+    ]
+
     name = models.CharField(max_length=200, verbose_name='اسم المساهم')
     name_en = models.CharField(max_length=200, blank=True, verbose_name='الاسم بالإنجليزية للموقع')
     national_id = models.CharField(max_length=50, blank=True, verbose_name='الرقم القومي')
@@ -1181,6 +1188,13 @@ class Shareholder(models.Model):
     address = models.TextField(blank=True, verbose_name='العنوان')
     job_title = models.CharField(max_length=200, blank=True, verbose_name='الوظيفة / الصفة بمجلس الإدارة')
     job_title_en = models.CharField(max_length=200, blank=True, verbose_name='الوظيفة / الصفة بالإنجليزية للموقع')
+    has_monthly_salary = models.BooleanField(default=False, verbose_name='مرتب شهري')
+    monthly_salary_type = models.CharField(
+        max_length=10, blank=True, choices=SALARY_TYPE_CHOICES, verbose_name='نوع المرتب الشهري',
+    )
+    fixed_monthly_salary = models.PositiveIntegerField(
+        default=0, verbose_name='قيمة المرتب الشهري الثابت',
+    )
     website_bio = models.TextField(blank=True, verbose_name='نبذة عضو مجلس الإدارة')
     website_bio_en = models.TextField(blank=True, verbose_name='نبذة عضو مجلس الإدارة بالإنجليزية')
     photo_data = models.BinaryField(null=True, blank=True, editable=False, verbose_name='بيانات الصورة')

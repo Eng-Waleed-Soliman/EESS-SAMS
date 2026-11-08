@@ -1634,6 +1634,14 @@ class DailyBookingForm(forms.ModelForm):
 
 
 class ShareholderForm(forms.ModelForm):
+    fixed_salary = forms.BooleanField(
+        label='مرتب ثابت', required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+    variable_salary = forms.BooleanField(
+        label='مرتب متغير', required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
     photo = forms.FileField(
         label='صورة عضو مجلس الإدارة',
         required=False,
@@ -1642,7 +1650,12 @@ class ShareholderForm(forms.ModelForm):
 
     class Meta:
         model = Shareholder
-        fields = ['name', 'name_en', 'national_id', 'phone', 'email', 'share_percentage', 'address', 'job_title', 'job_title_en', 'photo', 'website_bio', 'website_bio_en', 'is_published_on_website', 'notes']
+        fields = [
+            'name', 'name_en', 'national_id', 'phone', 'email', 'share_percentage',
+            'address', 'job_title', 'job_title_en', 'has_monthly_salary',
+            'fixed_salary', 'variable_salary', 'fixed_monthly_salary', 'photo',
+            'website_bio', 'website_bio_en', 'is_published_on_website', 'notes',
+        ]
         widgets = {
             'address': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
             'website_bio': forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
@@ -1650,18 +1663,50 @@ class ShareholderForm(forms.ModelForm):
             'is_published_on_website': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'notes': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
             'share_percentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+            'has_monthly_salary': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'fixed_monthly_salary': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': '1', 'min': '1', 'inputmode': 'numeric',
+            }),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['fixed_monthly_salary'].required = False
         for name, field in self.fields.items():
-            if name == 'is_published_on_website':
+            if isinstance(field.widget, forms.CheckboxInput):
                 continue
             css = field.widget.attrs.get('class', '')
             if 'form-control' not in css and 'form-select' not in css:
                 field.widget.attrs['class'] = (css + ' form-control').strip()
         if self.instance and self.instance.pk and self.instance.photo_data:
             self.fields['photo'].help_text = 'الصورة الحالية محفوظة؛ اختر ملفًا فقط لاستبدالها.'
+        if self.instance and self.instance.pk:
+            self.fields['fixed_salary'].initial = (
+                self.instance.monthly_salary_type == Shareholder.SALARY_FIXED
+            )
+            self.fields['variable_salary'].initial = (
+                self.instance.monthly_salary_type == Shareholder.SALARY_VARIABLE
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        has_salary = cleaned.get('has_monthly_salary', False)
+        fixed_salary = cleaned.get('fixed_salary', False)
+        variable_salary = cleaned.get('variable_salary', False)
+        fixed_amount = cleaned.get('fixed_monthly_salary') or 0
+        if has_salary and fixed_salary == variable_salary:
+            raise forms.ValidationError(
+                'عند تفعيل مرتب شهري يجب اختيار نوع واحد فقط: مرتب ثابت أو مرتب متغير.'
+            )
+        if has_salary and fixed_salary and fixed_amount <= 0:
+            self.add_error('fixed_monthly_salary', 'أدخل قيمة المرتب الشهري الثابت.')
+        if not has_salary:
+            cleaned['fixed_salary'] = False
+            cleaned['variable_salary'] = False
+            cleaned['fixed_monthly_salary'] = 0
+        elif variable_salary:
+            cleaned['fixed_monthly_salary'] = 0
+        return cleaned
 
     def clean_photo(self):
         photo = self.cleaned_data.get('photo')
@@ -1671,6 +1716,14 @@ class ShareholderForm(forms.ModelForm):
 
     def save(self, commit=True):
         shareholder = super().save(commit=False)
+        if not shareholder.has_monthly_salary:
+            shareholder.monthly_salary_type = ''
+            shareholder.fixed_monthly_salary = 0
+        elif self.cleaned_data.get('fixed_salary'):
+            shareholder.monthly_salary_type = Shareholder.SALARY_FIXED
+        else:
+            shareholder.monthly_salary_type = Shareholder.SALARY_VARIABLE
+            shareholder.fixed_monthly_salary = 0
         photo = self.cleaned_data.get('photo')
         if photo:
             shareholder.photo_data = photo.read()

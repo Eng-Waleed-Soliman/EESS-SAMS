@@ -273,6 +273,7 @@ class ApplicationFlowsTests(TestCase):
             arabic_response,
             reverse('persistent_media', args=['shareholder', chairman.pk, 'photo']),
         )
+
         self.assertContains(arabic_response, '<html lang="ar" dir="rtl">')
 
         english_response = self.client.get(reverse('public_website'), {'lang': 'en'})
@@ -286,6 +287,55 @@ class ApplicationFlowsTests(TestCase):
             reverse('persistent_media', args=['shareholder', chairman.pk, 'photo']),
         )
         self.assertContains(english_response, '<html lang="en" dir="ltr">')
+
+    def test_shareholder_monthly_salary_type_and_fixed_amount(self):
+        create_url = reverse('shareholder_create')
+        page = self.client.get(create_url)
+        for field_id in (
+            'id_has_monthly_salary', 'id_fixed_salary',
+            'id_variable_salary', 'id_fixed_monthly_salary',
+        ):
+            self.assertContains(page, field_id)
+        self.assertContains(page, 'syncSalaryFields')
+
+        invalid = self.client.post(create_url, {
+            'name': 'مساهم بدون نوع مرتب',
+            'share_percentage': 10,
+            'has_monthly_salary': 'on',
+        })
+        self.assertEqual(invalid.status_code, 200)
+        self.assertContains(
+            invalid,
+            'عند تفعيل مرتب شهري يجب اختيار نوع واحد فقط: مرتب ثابت أو مرتب متغير.',
+        )
+        self.assertFalse(Shareholder.objects.filter(name='مساهم بدون نوع مرتب').exists())
+
+        response = self.client.post(create_url, {
+            'name': 'مساهم بمرتب ثابت',
+            'share_percentage': 10,
+            'has_monthly_salary': 'on',
+            'fixed_salary': 'on',
+            'fixed_monthly_salary': 12000,
+        })
+        self.assertRedirects(response, reverse('shareholder_list'))
+        shareholder = Shareholder.objects.get(name='مساهم بمرتب ثابت')
+        self.assertTrue(shareholder.has_monthly_salary)
+        self.assertEqual(shareholder.monthly_salary_type, Shareholder.SALARY_FIXED)
+        self.assertEqual(shareholder.fixed_monthly_salary, 12000)
+
+        edit_page = self.client.get(reverse('shareholder_update', args=[shareholder.pk]))
+        self.assertContains(edit_page, 'id="id_fixed_salary" checked', html=False)
+        response = self.client.post(reverse('shareholder_update', args=[shareholder.pk]), {
+            'name': shareholder.name,
+            'share_percentage': 10,
+            'has_monthly_salary': 'on',
+            'variable_salary': 'on',
+            'fixed_monthly_salary': 12000,
+        })
+        self.assertRedirects(response, reverse('shareholder_list'))
+        shareholder.refresh_from_db()
+        self.assertEqual(shareholder.monthly_salary_type, Shareholder.SALARY_VARIABLE)
+        self.assertEqual(shareholder.fixed_monthly_salary, 0)
 
     def test_public_website_does_not_load_persistent_image_blobs_into_page_context(self):
         branding = AppSetting.current()

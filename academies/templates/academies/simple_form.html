@@ -13,8 +13,8 @@
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
     <div class="row">
       {% for field in form %}
-      <div class="col-md-6 mb-3">
-        {% if field.name == 'show_in_sales' %}
+      <div class="col-md-6 mb-3" data-form-field="{{ field.name }}">
+        {% if field.field.widget.input_type == 'checkbox' %}
         <div class="form-check border rounded p-3 d-flex align-items-center gap-2">
           {{ field }}
           <label class="form-check-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -39,4 +39,38 @@
     {% endif %}
   </form>
 </div>
+{% if form.has_monthly_salary %}
+<script>
+(function(){
+  const monthly = document.getElementById('id_has_monthly_salary');
+  const fixed = document.getElementById('id_fixed_salary');
+  const variable = document.getElementById('id_variable_salary');
+  const fixedTypeWrap = document.querySelector('[data-form-field="fixed_salary"]');
+  const variableTypeWrap = document.querySelector('[data-form-field="variable_salary"]');
+  const fixedAmountWrap = document.querySelector('[data-form-field="fixed_monthly_salary"]');
+  const fixedAmount = document.getElementById('id_fixed_monthly_salary');
+  if(!monthly || !fixed || !variable || !fixedAmount) return;
+  function syncSalaryFields(changed){
+    if(changed === fixed && fixed.checked) variable.checked = false;
+    if(changed === variable && variable.checked) fixed.checked = false;
+    const enabled = monthly.checked;
+    fixedTypeWrap.hidden = !enabled;
+    variableTypeWrap.hidden = !enabled;
+    fixedAmountWrap.hidden = !(enabled && fixed.checked);
+    fixedAmount.required = enabled && fixed.checked;
+    if(!enabled){
+      fixed.checked = false;
+      variable.checked = false;
+      fixedAmount.value = '';
+    } else if(variable.checked){
+      fixedAmount.value = '';
+    }
+  }
+  monthly.addEventListener('change', function(){ syncSalaryFields(monthly); });
+  fixed.addEventListener('change', function(){ syncSalaryFields(fixed); });
+  variable.addEventListener('change', function(){ syncSalaryFields(variable); });
+  syncSalaryFields(null);
+})();
+</script>
+{% endif %}
 {% endblock %}
