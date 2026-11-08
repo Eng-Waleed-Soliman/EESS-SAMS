@@ -2048,7 +2048,74 @@ def shareholder_list(request):
                         Shareholder.objects.filter(phone__icontains=q) |
                         Shareholder.objects.filter(national_id__icontains=q) |
                         Shareholder.objects.filter(job_title__icontains=q))
-    return render(request, 'academies/shareholder_list.html', {'shareholders': shareholders, 'q': q})
+    today = timezone.localdate()
+    financial_years = {today.year}
+    financial_date_sources = (
+        (AcademyMonthlyRentPayment.objects.all(), 'month'),
+        (DailyBookingCheckout.objects.all(), 'income_date'),
+        (CafeteriaSale.objects.all(), 'sale_date'),
+        (CafeteriaPurchase.objects.all(), 'purchase_date'),
+        (CafeteriaOperatingExpense.objects.all(), 'expense_date'),
+        (MonthlyExpense.objects.all(), 'expense_month'),
+        (DailyExpense.objects.all(), 'expense_date'),
+    )
+    for queryset, field_name in financial_date_sources:
+        financial_years.update(value.year for value in queryset.dates(field_name, 'year'))
+    financial_year_choices = sorted(financial_years, reverse=True)
+    try:
+        profit_year = int(request.GET.get('profit_year', today.year))
+    except (TypeError, ValueError):
+        profit_year = today.year
+    if profit_year not in financial_years:
+        profit_year = financial_year_choices[0]
+    try:
+        profit_month = int(request.GET.get('profit_month', today.month))
+    except (TypeError, ValueError):
+        profit_month = today.month
+    if profit_month not in range(1, 13):
+        profit_month = today.month
+    profit_scope = request.GET.get('profit_scope', 'month')
+    if profit_scope not in {'month', 'year', 'all'}:
+        profit_scope = 'month'
+    if profit_scope == 'all':
+        profit_periods = [
+            (year, month) for year in sorted(financial_years) for month in range(1, 13)
+        ]
+        profit_period_label = 'الإجمالي العام لكل السنوات'
+    elif profit_scope == 'year':
+        profit_periods = [(profit_year, month) for month in range(1, 13)]
+        profit_period_label = f'إجمالي سنة {profit_year}'
+    else:
+        profit_periods = [(profit_year, profit_month)]
+        profit_period_label = f'{ARABIC_MONTH_NAMES[profit_month]} {profit_year}'
+    shareholder_profit_total = 0
+    for year, month in profit_periods:
+        period_start = date(year, month, 1)
+        period_end = date(year, month, monthrange(year, month)[1])
+        shareholder_profit_total += int(
+            _month_financial_summary(year, month, period_start, period_end)['net_profit'] or 0
+        )
+    shareholder_profit_rows = [
+        {
+            'shareholder': shareholder,
+            'profit_share': int(
+                shareholder_profit_total * shareholder.share_percentage / 100
+            ),
+        }
+        for shareholder in Shareholder.objects.all()
+    ]
+    return render(request, 'academies/shareholder_list.html', {
+        'shareholders': shareholders,
+        'q': q,
+        'profit_scope': profit_scope,
+        'profit_year': profit_year,
+        'profit_month': profit_month,
+        'profit_year_choices': financial_year_choices,
+        'profit_month_choices': list(ARABIC_MONTH_NAMES.items()),
+        'profit_period_label': profit_period_label,
+        'shareholder_profit_total': shareholder_profit_total,
+        'shareholder_profit_rows': shareholder_profit_rows,
+    })
 
 @login_required
 def shareholder_create(request):
@@ -5536,12 +5603,6 @@ def accounts_home(request):
     summary = _month_financial_summary(
         year, month, start, end, None if all_branches else active_branch
     ) if can_view_financial_summary else None
-    shareholder_rows = []
-    if summary:
-        shareholder_rows = [
-            {'shareholder': sh, 'profit_share': int(summary['net_profit'] * sh.share_percentage / 100)}
-            for sh in Shareholder.objects.all()
-        ]
     signature_titles = _voucher_signature_titles()
     requested_signature = request.GET.get('signature_title', '').strip()
     signature_title = requested_signature if requested_signature in signature_titles else (
@@ -5553,8 +5614,6 @@ def accounts_home(request):
     return render(request, 'academies/accounts_home.html', {
         'month_value': month_value,
         'summary': summary,
-        'shareholders': Shareholder.objects.all(),
-        'shareholder_rows': shareholder_rows,
         'can_view_financial_summary': can_view_financial_summary,
         'can_view_expenses': can_view_expenses,
         'can_manage_vouchers': can_manage_vouchers,

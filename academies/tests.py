@@ -2997,16 +2997,43 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'مرتبات الموظفين والبونص')
         self.assertContains(response, 'هذا الجزء خاص بالموظفين المسجلين فقط')
 
-    def test_accounts_profit_distribution_header_shows_net_income_and_month(self):
+    def test_shareholder_screen_contains_profit_distribution_filters(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_accounts = True
+        profile.can_shareholders = True
         profile.save()
-        response = self.client.get(reverse('accounts_home'), {'month': '2026-07'})
+        shareholder = Shareholder.objects.create(
+            name='مساهم أرباح', share_percentage=10,
+        )
+        MonthlyExpense.objects.create(
+            title='مصروف أرباح المساهمين', expense_month=date(2026, 7, 1), amount=1000,
+        )
+        MonthlyExpense.objects.create(
+            title='مصروف أرباح الشهر التالي', expense_month=date(2026, 8, 1), amount=500,
+        )
+        response = self.client.get(reverse('shareholder_list'), {
+            'profit_scope': 'month', 'profit_year': 2026, 'profit_month': 7,
+        })
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'profit-distribution-header')
-        self.assertContains(response, 'إجمالي الربح القابل للتوزيع (صافي الدخل)')
-        self.assertContains(response, 'شهر 2026-07')
-        self.assertContains(response, f'<strong>{response.context["summary"]["net_profit"]}</strong>', html=True)
+        self.assertContains(response, 'توزيع الأرباح على المساهمين')
+        self.assertContains(response, 'name="profit_scope"')
+        self.assertContains(response, 'إجمالي السنة')
+        self.assertContains(response, 'الإجمالي العام')
+        self.assertContains(response, 'يوليو 2026')
+        self.assertEqual(response.context['shareholder_profit_total'], -1000)
+        self.assertEqual(response.context['shareholder_profit_rows'][0]['shareholder'], shareholder)
+        self.assertEqual(response.context['shareholder_profit_rows'][0]['profit_share'], -100)
+
+        yearly_response = self.client.get(reverse('shareholder_list'), {
+            'profit_scope': 'year', 'profit_year': 2026,
+        })
+        self.assertEqual(yearly_response.context['shareholder_profit_total'], -1500)
+        self.assertEqual(yearly_response.context['shareholder_profit_rows'][0]['profit_share'], -150)
+        total_response = self.client.get(reverse('shareholder_list'), {'profit_scope': 'all'})
+        self.assertEqual(total_response.context['shareholder_profit_total'], -1500)
+
+        accounts_response = self.client.get(reverse('accounts_home'), {'month': '2026-07'})
+        self.assertNotContains(accounts_response, 'توزيع الأرباح على المساهمين')
 
     def test_accounts_distributable_profit_matches_monthly_income_net_total(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
@@ -3028,18 +3055,23 @@ class ApplicationFlowsTests(TestCase):
         accounts_response = self.client.get(reverse('accounts_home'), {
             'month': '2026-08', 'branch_id': 'all',
         })
+        shareholder_response = self.client.get(reverse('shareholder_list'), {
+            'profit_scope': 'month', 'profit_year': 2026, 'profit_month': 8,
+        })
         report_response = self.client.get(reverse('reports_home'), {
             'report_type': 'monthly_income', 'range_mode': 'month',
             'month': '2026-08', 'branch_id': 'all',
         })
 
         self.assertEqual(accounts_response.status_code, 200)
+        self.assertEqual(shareholder_response.status_code, 200)
         self.assertEqual(report_response.status_code, 200)
         self.assertEqual(
             accounts_response.context['summary']['net_profit'],
             report_response.context['income_net_total'],
         )
         self.assertEqual(accounts_response.context['summary']['net_profit'], -1000)
+        self.assertEqual(shareholder_response.context['shareholder_profit_total'], -1000)
         self.assertEqual(accounts_response.context['summary']['payroll_total'], 62500)
 
     def test_sports_manager_signature_is_used_across_reports_and_new_vouchers(self):

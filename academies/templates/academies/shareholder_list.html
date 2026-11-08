@@ -4,10 +4,60 @@
   <h3>المساهمين</h3>
   <a class="btn btn-primary" href="{% url 'shareholder_create' %}">إضافة مساهم</a>
 </div>
-<form class="mb-3"><input class="form-control search-box w-half" name="q" value="{{ q }}" placeholder="بحث باسم المساهم أو الوظيفة أو الهاتف أو الرقم القومي"></form>
+<form class="mb-3">
+  <input type="hidden" name="profit_scope" value="{{ profit_scope }}">
+  <input type="hidden" name="profit_year" value="{{ profit_year }}">
+  <input type="hidden" name="profit_month" value="{{ profit_month }}">
+  <input class="form-control search-box w-half" name="q" value="{{ q }}" placeholder="بحث باسم المساهم أو الوظيفة أو الهاتف أو الرقم القومي">
+</form>
 <div class="card p-3"><div class="table-responsive"><table class="table table-hover align-middle">
 <tr><th>الاسم</th><th>الوظيفة</th><th>الهاتف</th><th>الرقم القومي</th><th>النسبة</th><th></th></tr>
 {% for s in shareholders %}<tr><td>{{ s.name }}</td><td>{{ s.job_title|default:'-' }}</td><td>{{ s.phone|default:'-' }}</td><td>{{ s.national_id|default:'-' }}</td><td>{{ s.share_percentage }}%</td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'shareholder_update' s.pk %}">تعديل</a> <a class="btn btn-sm btn-outline-danger" href="{% url 'shareholder_delete' s.pk %}">حذف</a></td></tr>{% empty %}<tr><td colspan="6">لا توجد بيانات</td></tr>{% endfor %}
 </table></div>
 </div>
+<section class="card p-3 mt-4 shareholder-profit-card">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h4 class="mb-0">توزيع الأرباح على المساهمين</h4>
+    <div class="badge text-bg-primary fs-6 p-2">
+      إجمالي الربح القابل للتوزيع: <strong>{{ shareholder_profit_total }}</strong>
+      <span class="ms-1">— {{ profit_period_label }}</span>
+    </div>
+  </div>
+  <form method="get" class="row g-3 align-items-end mb-3 shareholder-profit-filter">
+    {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+    <div class="col-md-4">
+      <label class="form-label fw-bold">نوع الفترة</label>
+      <select id="profitScope" name="profit_scope" class="form-select" onchange="syncProfitFilter();this.form.submit()">
+        <option value="month" {% if profit_scope == 'month' %}selected{% endif %}>شهر محدد</option>
+        <option value="year" {% if profit_scope == 'year' %}selected{% endif %}>إجمالي السنة</option>
+        <option value="all" {% if profit_scope == 'all' %}selected{% endif %}>الإجمالي العام</option>
+      </select>
+    </div>
+    <div id="profitYearField" class="col-md-3">
+      <label class="form-label fw-bold">السنة</label>
+      <select name="profit_year" class="form-select" onchange="this.form.submit()">
+        {% for year in profit_year_choices %}<option value="{{ year }}" {% if profit_year == year %}selected{% endif %}>{{ year }}</option>{% endfor %}
+      </select>
+    </div>
+    <div id="profitMonthField" class="col-md-3">
+      <label class="form-label fw-bold">الشهر</label>
+      <select name="profit_month" class="form-select" onchange="this.form.submit()">
+        {% for value,label in profit_month_choices %}<option value="{{ value }}" {% if profit_month == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-primary w-100">عرض</button></div>
+  </form>
+  <div class="table-responsive"><table class="table table-striped text-center mb-0">
+    <thead><tr><th>المساهم</th><th>النسبة</th><th>النصيب من صافي الربح</th></tr></thead>
+    <tbody>{% for row in shareholder_profit_rows %}<tr><td>{{ row.shareholder.name }}</td><td>{{ row.shareholder.share_percentage }}%</td><td>{{ row.profit_share }}</td></tr>{% empty %}<tr><td colspan="3">لا توجد بيانات مساهمين</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<script>
+function syncProfitFilter(){
+  const scope=document.getElementById('profitScope').value;
+  document.getElementById('profitYearField').hidden=scope==='all';
+  document.getElementById('profitMonthField').hidden=scope!=='month';
+}
+syncProfitFilter();
+</script>
 {% endblock %}
