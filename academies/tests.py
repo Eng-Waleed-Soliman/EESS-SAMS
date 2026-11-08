@@ -2995,7 +2995,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertNotIn(zero_salary_employee.name, payroll_names)
         self.assertEqual(response.context['summary']['payroll_total'], 7000)
         self.assertContains(response, 'مرتبات الموظفين والبونص')
-        self.assertContains(response, 'هذا الجزء خاص بالموظفين المسجلين فقط')
+        self.assertNotContains(response, 'هذا الجزء خاص بالموظفين المسجلين فقط')
+        self.assertNotContains(response, 'صافي المرتب = الأساسي + البونص + المكافآت − الخصومات − السلف')
 
     def test_shareholder_screen_contains_profit_distribution_filters(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)

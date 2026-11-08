@@ -77,7 +77,6 @@
   <div class="payroll-section-heading d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <div>
       <h4 class="mb-1">مرتبات الموظفين والبونص</h4>
-      <small class="text-muted no-print">هذا الجزء خاص بالموظفين المسجلين فقط. دبل كليك على صف الموظف لفتح إقرار استلام المرتب.</small>
     </div>
     {% if can_manage_vouchers %}
     <details class="payroll-actions-menu no-print">
@@ -93,7 +92,6 @@
     </details>
     {% endif %}
   </div>
-  <p class="text-muted no-print">صافي المرتب = الأساسي + البونص + المكافآت − الخصومات − السلف.</p>
   <div class="table-responsive payroll-table-wrap"><table class="table table-striped text-center payroll-table">
     <thead><tr><th>الموظف</th><th>الوظيفة</th><th>المرتب الأساسي</th><th>البونص</th><th class="payroll-export-only">إجمالي المرتب</th><th>المكافآت</th><th>الخصومات</th><th>السلف</th><th>صافي المرتب</th></tr></thead>
     <tbody>
