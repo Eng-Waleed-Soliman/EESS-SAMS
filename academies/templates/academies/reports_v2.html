@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 no-print">
   <h3>{{ report_title }}</h3>
   <div class="d-flex gap-2 flex-wrap no-print">
-    <button type="button" class="btn btn-danger" onclick="printReport(true)">تصدير PDF</button>
+    <button type="button" class="btn btn-danger" onclick="printReport(true)">{% if report_type == 'statistical_analysis' %}تصدير PDF للرسم البياني{% else %}تصدير PDF{% endif %}</button>
     <button type="button" class="btn btn-outline-primary" onclick="printReport(false)">طباعة</button>
   </div>
 </div>
@@ -46,7 +46,7 @@
     <div class="print-company-en">{% if app_settings %}{{ app_settings.company_name }}{% else %}Egyptian English Sports Services{% endif %}</div>
     <div class="print-company-ar">{% if app_settings and app_settings.company_name_ar %}{{ app_settings.company_name_ar }}{% else %}الخدمات الرياضية الإنجليزية المصرية{% endif %}</div>
   </div>
-  <div class="print-report-heading"><h1>{{ report_title }}</h1><div>{{ period_label }}</div></div>
+  <div class="print-report-heading"><h1>{{ print_report_title|default:report_title }}</h1><div>{{ period_label }}</div></div>
 </header>
 
 <main class="report-print-content">
@@ -362,6 +362,9 @@
     .print-report-heading h1{font-size:25px;margin:0 0 8px;font-weight:800}
     .report-print-content{display:block!important;margin:0!important;padding:0!important}
     .report-print-content .card{box-shadow:none!important;border:1px solid #94a3b8!important;border-radius:6px!important;break-inside:avoid}
+    .statistical-analysis-report .analysis-chart-grid{display:block!important}
+    .statistical-analysis-report .analysis-chart-card{margin-bottom:8mm!important;break-inside:avoid!important;page-break-inside:avoid!important}
+    .statistical-analysis-report .analysis-canvas-wrap{height:92mm!important}
     .report-print-content .row.g-3{display:none!important}
     .report-print-content .table-responsive{overflow:visible!important}
     .report-print-content table{width:100%!important;min-width:0!important;font-size:10px!important}
@@ -442,7 +445,7 @@ function updateReportSignature(){
 function printReport(asPdf){
   updateReportSignature();
   const oldTitle = document.title;
-  if(asPdf){ document.title = '{{ report_title|escapejs }} - {{ period_label|escapejs }}'; }
+  if(asPdf){ document.title = '{{ print_report_title|default:report_title|escapejs }} - {{ period_label|escapejs }}'; }
   window.print();
   window.setTimeout(function(){ document.title = oldTitle; }, 500);
 }

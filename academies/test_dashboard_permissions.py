@@ -55,8 +55,9 @@ class DashboardPermissionTests(TestCase):
         self.assertTemplateUsed(response, 'academies/dashboard.html')
         for label in ['لوحة التحكم', 'الأكاديميات', 'الحجز اليومي', 'إيجارات الأكاديميات',
                       'التشغيل', 'الأمن', 'إدارة الشركة', 'الحسابات', 'الكافيتريا',
-                      'التقارير', 'الإعدادات', 'لوحة الإدارة']:
+                      'التقارير', 'الإعدادات']:
             self.assertContains(response, label)
+        self.assertNotContains(response, 'لوحة الإدارة')
 
     def test_superuser_ignores_academy_only_restriction(self):
         self.user.is_staff = False

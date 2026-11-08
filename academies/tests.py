@@ -1870,6 +1870,25 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(analysis_response, 'id="chart-total_income"')
         self.assertContains(analysis_response, 'chart.js@4.4.7')
 
+        financial_overview = self.client.get(reverse('reports_home'), {
+            'report_type': 'statistical_analysis',
+            'analysis_metric': 'financial_overview',
+            'training_year': training_year,
+        })
+        self.assertEqual(financial_overview.context['analysis_metric'], 'financial_overview')
+        self.assertEqual(len(financial_overview.context['analysis_charts']), 3)
+        financial_charts = {
+            chart['key']: chart for chart in financial_overview.context['analysis_charts']
+        }
+        self.assertEqual(financial_charts['financial_income']['values'][analysis_month_index], 860)
+        self.assertEqual(financial_charts['financial_expenses']['values'][analysis_month_index], 350)
+        self.assertEqual(financial_charts['financial_profit']['values'][analysis_month_index], 510)
+        self.assertTrue(all(chart['wide'] for chart in financial_charts.values()))
+        self.assertContains(financial_overview, 'تصدير PDF للرسم البياني')
+        self.assertContains(financial_overview, 'التحليل المالي — الدخل والمصروفات وصافي الربح')
+        for chart_key in ('financial_income', 'financial_expenses', 'financial_profit'):
+            self.assertContains(financial_overview, f'id="chart-{chart_key}"')
+
         expected_analysis_values = {
             'net_profit': 510,
             'academies': 500,
@@ -2886,18 +2905,42 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, player.name)
         self.assertNotContains(response, coach.name)
 
-    def test_company_management_and_expenses_are_nested_in_parent_modules(self):
+    def test_company_management_opens_shareholders_directly_and_expenses_remain_in_accounts(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_shareholders = True
         profile.can_employees = True
         profile.can_general_expenses = True
         profile.save()
         response = self.client.get(reverse('company_management_home'))
-        self.assertContains(response, 'فتح المساهمين')
-        self.assertContains(response, 'فتح الموظفين')
+        self.assertRedirects(response, reverse('shareholder_list'))
+        shareholder = Shareholder.objects.create(
+            name='مساهم الإدارة', job_title='رئيس مجلس الإدارة', share_percentage=100,
+        )
+        response = self.client.get(reverse('shareholder_list'))
+        self.assertContains(response, shareholder.name)
+        self.assertContains(response, shareholder.job_title)
+        self.assertContains(response, '<th>الوظيفة</th>', html=True)
+        self.assertNotContains(response, 'فتح الموظفين')
         response = self.client.get(reverse('accounts_home'))
         self.assertContains(response, 'المصروفات العامة')
         self.assertNotContains(response, 'إجمالي الدخل الشهري')
+
+    def test_accounts_payroll_rows_are_built_from_employees_only(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_accounts = True
+        profile.save()
+        shareholder = Shareholder.objects.create(
+            name='مساهم غير موظف', job_title='عضو مجلس إدارة', share_percentage=10,
+        )
+        employee = Employee.objects.create(
+            name='موظف المرتبات', job_title='محاسب', salary=7000,
+        )
+        response = self.client.get(reverse('accounts_home'), {'month': '2026-08'})
+        payroll_names = [row['employee'].name for row in response.context['summary']['payroll_rows']]
+        self.assertIn(employee.name, payroll_names)
+        self.assertNotIn(shareholder.name, payroll_names)
+        self.assertContains(response, 'مرتبات الموظفين والبونص')
+        self.assertContains(response, 'هذا الجزء خاص بالموظفين المسجلين فقط')
 
     def test_accounts_profit_distribution_header_shows_net_income_and_month(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)

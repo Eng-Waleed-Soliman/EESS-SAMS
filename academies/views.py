@@ -2046,7 +2046,8 @@ def shareholder_list(request):
     if q:
         shareholders = (Shareholder.objects.filter(name__icontains=q) |
                         Shareholder.objects.filter(phone__icontains=q) |
-                        Shareholder.objects.filter(national_id__icontains=q))
+                        Shareholder.objects.filter(national_id__icontains=q) |
+                        Shareholder.objects.filter(job_title__icontains=q))
     return render(request, 'academies/shareholder_list.html', {'shareholders': shareholders, 'q': q})
 
 @login_required
@@ -4899,6 +4900,7 @@ def reports_home_v2(request):
 
     elif report_type == 'statistical_analysis':
         analysis_metric_options = [
+            ('financial_overview', 'الدخل والمصروفات والربح'),
             ('total_income', 'إجمالي الدخل'),
             ('net_profit', 'إجمالي الربح'),
             ('academies', 'الأكاديميات الرياضية'),
@@ -4907,7 +4909,7 @@ def reports_home_v2(request):
             ('daily_income_averages', 'متوسطات الدخل اليومي'),
         ]
         valid_metrics = {value for value, _ in analysis_metric_options}
-        analysis_metric = request.GET.get('analysis_metric', 'total_income')
+        analysis_metric = request.GET.get('analysis_metric', 'financial_overview')
         if analysis_metric not in valid_metrics:
             analysis_metric = 'total_income'
         training_year = _selected_training_year(request)
@@ -4995,8 +4997,12 @@ def reports_home_v2(request):
             series['academies'][index] + series['daily_booking'][index] + series['cafeteria_income'][index]
             for index in range(12)
         ]
+        series['total_expenses'] = [
+            series['general_expenses'][index] + series['cafeteria_expenses'][index]
+            for index in range(12)
+        ]
         series['net_profit'] = [
-            series['total_income'][index] - series['general_expenses'][index] - series['cafeteria_expenses'][index]
+            series['total_income'][index] - series['total_expenses'][index]
             for index in range(12)
         ]
         series['cafeteria_profit'] = [
@@ -5004,6 +5010,23 @@ def reports_home_v2(request):
             for index in range(12)
         ]
         chart_catalog = {
+            'financial_overview': [
+                {
+                    'key': 'financial_income', 'title': 'إجمالي الدخل في كل شهر',
+                    'values': series['total_income'], 'color': '#1d4ed8',
+                    'background': 'rgba(37,99,235,.68)', 'wide': True,
+                },
+                {
+                    'key': 'financial_expenses', 'title': 'إجمالي المصروفات في كل شهر',
+                    'values': series['total_expenses'], 'color': '#b91c1c',
+                    'background': 'rgba(239,68,68,.68)', 'wide': True,
+                },
+                {
+                    'key': 'financial_profit', 'title': 'صافي الربح في كل شهر',
+                    'values': series['net_profit'], 'color': '#15803d',
+                    'background': 'rgba(34,197,94,.68)', 'wide': True,
+                },
+            ],
             'total_income': [{
                 'key': 'total_income', 'title': 'إجمالي الدخل في كل شهر',
                 'values': series['total_income'], 'color': '#1d4ed8', 'background': 'rgba(37,99,235,.68)',
@@ -5131,6 +5154,10 @@ def reports_home_v2(request):
             chart['script_id'] = f"analysis-{chart['key']}-values"
         context.update({
             'period_label': f'العام التدريبي {training_year}',
+            'print_report_title': (
+                'التحليل المالي — الدخل والمصروفات وصافي الربح'
+                if analysis_metric == 'financial_overview' else report_titles[report_type]
+            ),
             'analysis_metric': analysis_metric,
             'analysis_metric_options': analysis_metric_options,
             'analysis_training_year': training_year,
@@ -5460,13 +5487,10 @@ def settings_home(request):
 def company_management_home(request):
     if not (request.user.is_superuser or request.user.is_staff):
         profile = _ensure_user_profile(request.user)
-        if not (profile.can_shareholders or profile.can_employees):
-            messages.error(request, 'ليس لديك صلاحية إدارة الشركة.')
+        if not profile.can_shareholders:
+            messages.error(request, 'ليس لديك صلاحية عرض المساهمين.')
             return redirect('dashboard')
-    return render(request, 'academies/company_management_home.html', {
-        'shareholders_count': Shareholder.objects.count(),
-        'employees_count': Employee.objects.count(),
-    })
+    return redirect('shareholder_list')
 
 
 @login_required
