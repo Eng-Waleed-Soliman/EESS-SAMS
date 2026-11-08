@@ -33,6 +33,7 @@
 .accounts-actions-toggle span{display:block;height:4px;border-radius:4px;background:#0369a1}.accounts-actions-menu[open] .accounts-actions-toggle{background:#2563eb;border-color:#2563eb}.accounts-actions-menu[open] .accounts-actions-toggle span{background:#fff}
 .accounts-actions-dropdown{position:absolute;top:58px;left:0;width:270px;padding:12px;border:1px solid #bae6fd;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.22);display:grid;gap:8px;z-index:90}
 .accounts-actions-dropdown .btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #7dd3fc;background:#e0f7ff;color:#0f172a;font-weight:800}.accounts-actions-dropdown .btn:hover{background:#2563eb;border-color:#2563eb;color:#fff}
+.accounts-summary-cards>div{display:flex}.accounts-summary-cards .card{width:100%;height:132px;display:flex;flex-direction:column;justify-content:center}.accounts-summary-cards .card h3{margin-bottom:0}
 @media(max-width:576px){.accounts-actions-dropdown{width:min(270px,86vw)}}
 </style>
 {% if can_view_financial_summary %}
@@ -65,9 +66,9 @@
 <div class="row g-3 mb-4 accounts-summary-cards">
   <div class="col-md-3"><div class="card p-3"><b>إجمالي الدخل الشهري</b><h3>{{ summary.gross_income }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>دخل الأكاديميات</b><h3>{{ summary.academy_income }}</h3></div></div>
-  <div class="col-md-3"><div class="card p-3"><b>الدخل اليومي المعتمد للبونص</b><h3>{{ summary.daily_income_total }}</h3><small class="text-muted">الحجز اليومي: {{ summary.daily_booking_income }} + أكاديميات ملاعب الكرة والباسكت: {{ summary.ball_field_academy_income }}</small></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>الدخل اليومي المعتمد للبونص</b><h3>{{ summary.daily_income_total }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>إجمالي المصروفات</b><h3>{{ summary.total_expenses }}</h3></div></div>
-  <div class="col-md-3"><div class="card p-3"><b>صافي المرتبات</b><h3>{{ summary.payroll_total }}</h3><small>السلف: {{ summary.payroll_advances }} — تكلفة الأجور شاملة السلف: {{ summary.payroll_expense_total }}</small></div></div>
+  <div class="col-md-3"><div class="card p-3"><b>صافي المرتبات</b><h3>{{ summary.payroll_total }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>المصروفات الشهرية</b><h3>{{ summary.monthly_expenses }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>مصروفات التشغيل</b><h3>{{ summary.operating_expenses }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>صافي الربح</b><h3>{{ summary.net_profit }}</h3></div></div>

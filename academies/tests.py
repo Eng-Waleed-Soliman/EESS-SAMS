@@ -3233,7 +3233,9 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(summary['gross_income'], 400)
         self.assertEqual(summary['payroll_rows'][0]['bonus'], 300)
         self.assertContains(response, 'الدخل اليومي المعتمد للبونص')
-        self.assertContains(response, 'الحجز اليومي: 400 + أكاديميات ملاعب الكرة والباسكت: 700')
+        self.assertNotContains(response, 'الحجز اليومي: 400 + أكاديميات ملاعب الكرة والباسكت: 700')
+        self.assertNotContains(response, 'تكلفة الأجور شاملة السلف')
+        self.assertContains(response, '.accounts-summary-cards .card{width:100%;height:132px')
 
     def test_cafeteria_specialist_is_limited_to_sales_menu_and_inventory(self):
         specialist = User.objects.create_user(username='Cafeteria_Specialist', password='test-password')
