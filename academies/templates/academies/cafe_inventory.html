@@ -24,9 +24,16 @@
       <label class="form-label fw-bold">إلى تاريخ</label>
       <input type="date" class="form-control" name="date_to" value="{{ date_to|date:'Y-m-d' }}">
     </div>
-    <div class="col-md-6 d-flex gap-2 flex-wrap">
-      <a class="btn btn-outline-primary" href="?preset=today">اليوم</a>
-      <a class="btn btn-outline-primary" href="?preset=month">الشهر الحالي</a>
+    <div class="col-md-3">
+      <label class="form-label fw-bold" for="inventorySort">ترتيب حسب</label>
+      <select class="form-select" id="inventorySort" name="sort">
+        <option value="best_selling" {% if sort_by == 'best_selling' %}selected{% endif %}>الأكثر مبيعًا</option>
+        <option value="category" {% if sort_by == 'category' %}selected{% endif %}>الفئة</option>
+      </select>
+    </div>
+    <div class="col-md-3 d-flex gap-2 flex-wrap">
+      <a class="btn btn-outline-primary" href="?preset=today&amp;sort={{ sort_by }}">اليوم</a>
+      <a class="btn btn-outline-primary" href="?preset=month&amp;sort={{ sort_by }}">الشهر الحالي</a>
       <a class="btn btn-secondary" href="{% url 'cafe_sale_list' %}">رجوع للكافيتريا</a>
     </div>
   </div>
@@ -39,19 +46,20 @@
 <div class="card p-3 table-responsive">
   <table class="table table-striped align-middle text-center">
     <thead>
-      <tr><th>كود الصنف</th><th>الصنف</th><th>رصيد أول الفترة</th><th>كمية الشراء</th><th>كمية البيع</th><th>المخزون المتاح</th></tr>
+      <tr><th>كود الصنف</th><th>الفئة</th><th>الصنف</th><th>رصيد أول الفترة</th><th>كمية الشراء</th><th>كمية البيع</th><th>المخزون المتاح</th></tr>
     </thead>
     <tbody>
       {% for row in rows %}
       <tr class="{% if row.available_stock < 0 %}table-danger{% endif %}">
         <td>{{ row.item.code }}</td>
+        <td>{{ row.item.category.name|default:"-" }}</td>
         <td>{{ row.item.name }}</td>
         <td>{{ row.opening_balance }}</td>
         <td>{{ row.purchased_quantity }}</td>
         <td>{{ row.sold_quantity }}</td>
         <td class="fw-bold">{{ row.available_stock }}</td>
       </tr>
-      {% empty %}<tr><td colspan="6">لا توجد أصناف مسجلة</td></tr>{% endfor %}
+      {% empty %}<tr><td colspan="7">لا توجد أصناف مسجلة</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>
@@ -109,6 +117,9 @@ setupTimedActionsMenu('inventoryActionsMenu');
 const inventoryFilterForm = document.getElementById('inventoryFilterForm');
 inventoryFilterForm?.querySelectorAll('input[type="date"]').forEach(function(field){
   field.addEventListener('change', function(){ inventoryFilterForm.submit(); });
+});
+document.getElementById('inventorySort')?.addEventListener('change', function(){
+  inventoryFilterForm?.submit();
 });
 </script>
 {% endblock %}

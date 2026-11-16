@@ -1207,11 +1207,48 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, 'const minimumMenuVisibilityMs = 1000')
         self.assertContains(response, "setupTimedActionsMenu('inventoryActionsMenu')")
         self.assertContains(response, 'id="inventoryFilterForm"')
+        self.assertContains(response, 'id="inventorySort"')
+        self.assertContains(response, 'الأكثر مبيعًا')
+        self.assertContains(response, '<th>الفئة</th>', html=True)
         self.assertContains(response, 'inventoryFilterForm.submit()')
         self.assertNotContains(response, 'عرض الفترة')
         self.assertContains(response, '<td>8</td>', html=True)
         self.assertContains(response, '<td>3</td>', html=True)
         self.assertContains(response, '<td class="fw-bold">7</td>', html=True)
+
+    def test_cafeteria_inventory_can_sort_by_best_selling_or_category(self):
+        drinks = CafeteriaCategory.objects.create(code=901, name='مشروبات')
+        food = CafeteriaCategory.objects.create(code=902, name='مأكولات')
+        water = CafeteriaItem.objects.create(
+            category=drinks, code=901, name='مياه', opening_quantity=20,
+            purchase_price=5, sale_price=10,
+        )
+        sandwich = CafeteriaItem.objects.create(
+            category=food, code=902, name='ساندوتش', opening_quantity=20,
+            purchase_price=10, sale_price=20,
+        )
+        CafeteriaSale.objects.create(
+            item=water, sale_date=date.today(), quantity=2, unit_price=10,
+        )
+        CafeteriaSale.objects.create(
+            item=sandwich, sale_date=date.today(), quantity=7, unit_price=20,
+        )
+
+        response = self.client.get(reverse('cafe_inventory'), {
+            'preset': 'today',
+            'sort': 'best_selling',
+        })
+        self.assertEqual(response.context['sort_by'], 'best_selling')
+        sorted_items = [row['item'] for row in response.context['rows']]
+        self.assertLess(sorted_items.index(sandwich), sorted_items.index(water))
+
+        response = self.client.get(reverse('cafe_inventory'), {
+            'preset': 'today',
+            'sort': 'category',
+        })
+        self.assertEqual(response.context['sort_by'], 'category')
+        sorted_items = [row['item'] for row in response.context['rows']]
+        self.assertLess(sorted_items.index(water), sorted_items.index(sandwich))
 
     def test_cafeteria_staff_prices_are_saved_and_used_for_staff_orders(self):
         category = CafeteriaCategory.objects.create(code=813, name='Staff prices')

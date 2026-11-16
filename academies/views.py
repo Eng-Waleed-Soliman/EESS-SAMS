@@ -2499,6 +2499,9 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
 def cafe_inventory(request):
     today = date.today()
     preset = request.GET.get('preset', '').strip()
+    sort_by = request.GET.get('sort', 'category').strip()
+    if sort_by not in {'best_selling', 'category'}:
+        sort_by = 'category'
     if preset == 'today':
         date_from = date_to = today
     elif preset == 'month':
@@ -2587,6 +2590,21 @@ def cafe_inventory(request):
             'available_stock': live_stock.get(item.id, 0),
         })
 
+    if sort_by == 'best_selling':
+        rows.sort(key=lambda row: (
+            -row['sold_quantity'],
+            row['item'].category.code if row['item'].category else 0,
+            row['item'].code,
+            row['item'].name,
+        ))
+    else:
+        rows.sort(key=lambda row: (
+            row['item'].category.code if row['item'].category else 0,
+            row['item'].category.name if row['item'].category else '',
+            row['item'].code,
+            row['item'].name,
+        ))
+
     cafeteria_cash = _cafeteria_cash_balance(active_branch, all_branches)
 
     return render(request, 'academies/cafe_inventory.html', {
@@ -2594,6 +2612,7 @@ def cafe_inventory(request):
         'date_from': date_from,
         'date_to': date_to,
         'preset': preset,
+        'sort_by': sort_by,
         'cafeteria_cash': cafeteria_cash,
     })
 
