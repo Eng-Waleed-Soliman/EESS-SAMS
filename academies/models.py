@@ -1330,8 +1330,23 @@ class FoundingExpense(models.Model):
         return f'{self.title} - {self.amount}'
 
 
+class ExpenseCategory(models.Model):
+    name = models.CharField(max_length=200, unique=True, verbose_name='اسم فئة المصروف')
+    notes = models.TextField(blank=True, verbose_name='ملاحظات')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'فئة مصروف'
+        verbose_name_plural = 'فئات المصاريف'
+
+    def __str__(self):
+        return self.name
+
+
 class MonthlyExpense(models.Model):
     branch = models.ForeignKey(Branch, null=True, blank=True, on_delete=models.SET_NULL, related_name='monthly_expenses', verbose_name='الفرع')
+    category = models.ForeignKey(ExpenseCategory, null=True, blank=True, on_delete=models.PROTECT, related_name='expenses', verbose_name='فئة المصروف')
     title = models.CharField(max_length=200, verbose_name='بيان المصروف الشهري')
     expense_month = models.DateField(verbose_name='شهر المصروف')
     amount = models.PositiveIntegerField(default=0, verbose_name='القيمة')

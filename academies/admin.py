@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Academy, Customer, DailyBooking, Shareholder, Employee,
-    FoundingExpense, MonthlyExpense, DailyExpense,
+    FoundingExpense, ExpenseCategory, MonthlyExpense, DailyExpense,
     CafeteriaCategory, CafeteriaItem, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale,
     OperationDayCancellation, AcademyOperationOverride, UserPermission, DailyBookingCheckout,
     DailyIncomeSupply, AppSetting, WebsiteSetting, Branch, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry,
@@ -142,8 +142,14 @@ class FoundingExpenseAdmin(admin.ModelAdmin):
 
 @admin.register(MonthlyExpense)
 class MonthlyExpenseAdmin(admin.ModelAdmin):
-    list_display = ('title', 'expense_month', 'amount')
-    search_fields = ('title', 'notes')
+    list_display = ('title', 'category', 'expense_month', 'amount')
+    search_fields = ('title', 'category__name', 'notes')
+
+
+@admin.register(ExpenseCategory)
+class ExpenseCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'created_at')
+    search_fields = ('name', 'notes')
 
 
 @admin.register(DailyExpense)

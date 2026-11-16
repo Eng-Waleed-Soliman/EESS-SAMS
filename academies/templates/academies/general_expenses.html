@@ -1,15 +1,40 @@
 {% extends 'academies/base.html' %}
 {% block content %}
-<h3 class="mb-4">المصروفات العامة</h3>
-<div class="row g-3">
-  <div class="col-md-6">
-    <div class="card p-4 h-100">
-      <h4>مصروفات شهرية</h4>
-      <p class="text-muted">إجمالي المصروفات الشهرية: <strong>{{ monthly_total }}</strong></p>
-      <a class="btn btn-primary" href="{% url 'monthly_expense_list' %}">فتح المصروفات الشهرية</a>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3>المصروفات</h3>
+  <a class="btn btn-success" href="{% url 'monthly_expense_create' %}">إضافة مصروف</a>
+</div>
+<div class="card p-3 mb-3">
+  <form method="get" class="row g-3 align-items-end">
+    <div class="col-md-5">
+      <label class="form-label fw-bold" for="expensesMonth">الشهر</label>
+      <input class="form-control" id="expensesMonth" type="month" name="month" value="{{ month_value }}">
     </div>
+    <div class="col-md-3"><button class="btn btn-primary w-100">عرض</button></div>
+  </form>
+</div>
+<div class="card p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-center">
+    <b>إجمالي مصروفات الشهر</b><strong class="fs-4">{{ total }}</strong>
   </div>
-  <div class="col-md-3"><a class="stat-link" href="{% url 'daily_expense_list' %}"><div class="card stat-card p-3"><b>المصروفات اليومية</b><h2>{{ daily_total }}</h2></div></a></div>
-  <div class="col-md-3"><a class="stat-link" href="{% url 'operating_expense_list' %}"><div class="card stat-card p-3"><b>مصروفات التشغيل</b><h2>{{ operating_total }}</h2></div></a></div>
+</div>
+<div class="card p-3 table-responsive">
+  <table class="table table-striped align-middle text-center">
+    <thead><tr><th>التاريخ</th><th>فئة المصروف</th><th>القيمة</th><th>ملاحظات</th><th>الإجراء</th></tr></thead>
+    <tbody>
+      {% for expense in expenses %}
+      <tr>
+        <td>{{ expense.expense_month|date:"Y-m-d" }}</td>
+        <td>{{ expense.category.name|default:expense.title }}</td>
+        <td class="fw-bold">{{ expense.amount }}</td>
+        <td>{{ expense.notes|default:"-" }}</td>
+        <td>
+          <a class="btn btn-sm btn-primary" href="{% url 'monthly_expense_update' expense.pk %}">تعديل</a>
+          <a class="btn btn-sm btn-danger" href="{% url 'monthly_expense_delete' expense.pk %}">حذف</a>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="5">لا توجد مصروفات في الشهر المختار</td></tr>{% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endblock %}

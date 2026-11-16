@@ -54,6 +54,7 @@ from .models import (
     DailyExpense,
     DailyIncomeSupply,
     Employee,
+    ExpenseCategory,
     FinancialVoucher,
     JobTitle,
     MonthlyExpense,
@@ -133,7 +134,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(permission_page.status_code, 200)
         for button_label in [
             'أمر صرف مبلغ مالي', 'أمر توريد مبلغ مالي',
-            'سجل أوامر الصرف والتوريد', 'المصروفات العامة',
+            'سجل أوامر الصرف والتوريد', 'المصروفات',
             'تصدير PDF', 'طباعة',
         ]:
             self.assertContains(permission_page, f'value="{button_label}"')
@@ -154,7 +155,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(accounts_page, "actionsMenu.addEventListener('mouseenter'")
         self.assertContains(accounts_page, "actionsMenu.addEventListener('mouseleave'")
         self.assertNotContains(accounts_page, 'أمر صرف مبلغ مالي')
-        self.assertNotContains(accounts_page, 'المصروفات العامة')
+        self.assertNotContains(accounts_page, '>المصروفات</a>', html=False)
         self.assertNotContains(accounts_page, 'onclick="printAccounts(true)"')
 
     def test_public_website_uses_published_management_data(self):
@@ -3009,8 +3010,57 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(response, '<th>الوظيفة</th>', html=True)
         self.assertNotContains(response, 'فتح الموظفين')
         response = self.client.get(reverse('accounts_home'))
-        self.assertContains(response, 'المصروفات العامة')
+        self.assertContains(response, '>المصروفات</a>', html=False)
+        self.assertNotContains(response, 'المصروفات العامة')
         self.assertNotContains(response, 'إجمالي الدخل الشهري')
+
+    def test_monthly_expenses_use_registered_categories_and_month_filter(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_general_expenses = True
+        profile.save(update_fields=['can_general_expenses'])
+        category = ExpenseCategory.objects.create(name='صيانة', notes='مصروفات الصيانة')
+
+        response = self.client.post(reverse('monthly_expense_create'), {
+            'expense_month': '2026-11-10',
+            'category': category.pk,
+            'amount': 750,
+            'notes': 'صيانة شهر نوفمبر',
+        })
+        self.assertRedirects(response, reverse('general_expenses_home'))
+        expense = MonthlyExpense.objects.get(category=category)
+        self.assertEqual(expense.title, category.name)
+        self.assertEqual(expense.amount, 750)
+
+        MonthlyExpense.objects.create(
+            category=category,
+            title=category.name,
+            expense_month=date(2026, 10, 15),
+            amount=200,
+            notes='مصروف شهر آخر',
+        )
+        response = self.client.get(reverse('general_expenses_home'), {'month': '2026-11'})
+        self.assertContains(response, 'إضافة مصروف')
+        self.assertContains(response, 'صيانة شهر نوفمبر')
+        self.assertNotContains(response, 'مصروف شهر آخر')
+        self.assertEqual(response.context['total'], 750)
+        self.assertContains(response, '<th>فئة المصروف</th>', html=True)
+
+    def test_settings_has_expense_categories_management(self):
+        self.user.is_staff = True
+        self.user.save(update_fields=['is_staff'])
+        response = self.client.get(reverse('settings_home'))
+        self.assertContains(response, 'فئات المصاريف')
+        self.assertContains(response, reverse('expense_category_list'))
+
+        response = self.client.post(reverse('expense_category_create'), {
+            'name': 'مرافق',
+            'notes': 'كهرباء ومياه',
+        })
+        self.assertRedirects(response, reverse('expense_category_list'))
+        category = ExpenseCategory.objects.get(name='مرافق')
+        response = self.client.get(reverse('expense_category_list'))
+        self.assertContains(response, category.name)
+        self.assertContains(response, 'إضافة فئة مصروف')
 
     def test_accounts_payroll_rows_are_built_from_employees_only(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)

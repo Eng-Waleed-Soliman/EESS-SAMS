@@ -16,7 +16,7 @@
     {% if can_view_voucher_register %}
     <a class="btn" href="{% url 'financial_voucher_list' %}">سجل أوامر الصرف والتوريد</a>
     {% endif %}
-    {% if can_view_expenses %}<a class="btn" href="{% url 'general_expenses_home' %}">المصروفات العامة</a>{% endif %}
+    {% if can_view_expenses %}<a class="btn" href="{% url 'general_expenses_home' %}">المصروفات</a>{% endif %}
     {% if can_export_accounts %}
     <button type="button" class="btn" onclick="printAccounts(true)">تصدير PDF</button>
     {% endif %}

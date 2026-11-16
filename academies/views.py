@@ -23,8 +23,8 @@ from django.http import HttpResponse, Http404, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaRecipeComponentFormSet, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, ExpenseCategory, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, ExpenseCategoryForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaRecipeComponentFormSet, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .models import AcademyPlayerMonthlySubscription
 from .models import FacilityGalleryImage
@@ -525,7 +525,7 @@ SIDEBAR_PERMISSION_MODULES = [
     {'key': 'security', 'field': 'can_security', 'label': 'الأمن', 'buttons': ['الدخول', 'الخروج', 'مسح QR Code', 'تسجيل زائر']},
     {'key': 'shareholders', 'field': 'can_shareholders', 'label': 'المساهمين', 'buttons': ['إضافة مساهم', 'تعديل مساهم', 'حذف مساهم']},
     {'key': 'employees', 'field': 'can_employees', 'label': 'الموظفين', 'buttons': ['إضافة موظف', 'تعديل موظف', 'حذف موظف']},
-    {'key': 'general_expenses', 'field': 'can_general_expenses', 'label': 'المصروفات العامة', 'buttons': ['مصروف شهري', 'مصروف يومي', 'مصروف تشغيل', 'تعديل', 'حذف']},
+    {'key': 'general_expenses', 'field': 'can_general_expenses', 'label': 'المصروفات', 'buttons': ['إضافة مصروف', 'تعديل', 'حذف']},
     {
         'key': 'accounts',
         'field': 'can_accounts',
@@ -534,14 +534,14 @@ SIDEBAR_PERMISSION_MODULES = [
             'أمر صرف مبلغ مالي',
             'أمر توريد مبلغ مالي',
             'سجل أوامر الصرف والتوريد',
-            'المصروفات العامة',
+            'المصروفات',
             'تصدير PDF',
             'طباعة',
         ],
     },
     {'key': 'cafeteria', 'field': 'can_cafeteria', 'label': 'الكافيتريا', 'buttons': ['إضافة صنف', 'فئات الأصناف', 'الشراء', 'إضافة للأوردر', 'Checkout', 'تعديل حركة بيع', 'حذف حركة بيع']},
     {'key': 'reports', 'field': 'can_reports', 'label': 'التقارير', 'buttons': ['عرض التقرير', 'تصدير PDF']},
-    {'key': 'settings', 'field': 'can_settings', 'label': 'الإعدادات', 'buttons': ['المستخدمين والصلاحيات', 'الوظائف والمرتبات', 'شرائح البونص', 'هوية البرنامج', 'الأفرع', 'الملاعب والصالات', 'صور الرياضات والأنشطة']},
+    {'key': 'settings', 'field': 'can_settings', 'label': 'الإعدادات', 'buttons': ['المستخدمين والصلاحيات', 'الوظائف والمرتبات', 'شرائح البونص', 'فئات المصاريف', 'هوية البرنامج', 'الأفرع', 'الملاعب والصالات', 'صور الرياضات والأنشطة']},
 ]
 
 REPORT_TYPE_OPTIONS = [
@@ -2242,13 +2242,17 @@ def _generic_delete(request, obj, title, back_url):
 
 @login_required
 def general_expenses_home(request):
-    monthly_total = MonthlyExpense.objects.aggregate(total=Sum('amount'))['total'] or 0
-    daily_total = DailyExpense.objects.aggregate(total=Sum('amount'))['total'] or 0
-    operating_total = OperatingExpense.objects.aggregate(total=Sum('amount'))['total'] or 0
+    year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
+    expenses = MonthlyExpense.objects.select_related('category', 'branch').filter(
+        expense_month__range=(start, end),
+    )
+    active_branch, all_branches = selected_branch(request)
+    if not all_branches:
+        expenses = expenses.filter(branch=active_branch)
     return render(request, 'academies/general_expenses.html', {
-        'monthly_total': monthly_total,
-        'daily_total': daily_total,
-        'operating_total': operating_total,
+        'expenses': expenses,
+        'month_value': month_value,
+        'total': expenses.aggregate(total=Sum('amount'))['total'] or 0,
     })
 
 @login_required
@@ -2269,19 +2273,19 @@ def founding_expense_delete(request, pk):
 
 @login_required
 def monthly_expense_list(request):
-    return _generic_crud_list(request, MonthlyExpense, 'academies/monthly_expense_list.html', 'expenses', ['title', 'notes'])
+    return general_expenses_home(request)
 
 @login_required
 def monthly_expense_create(request):
-    return _generic_form(request, MonthlyExpenseForm, 'إضافة مصروف شهري', 'monthly_expense_list')
+    return _generic_form(request, MonthlyExpenseForm, 'إضافة مصروف', 'general_expenses_home')
 
 @login_required
 def monthly_expense_update(request, pk):
-    return _generic_form(request, MonthlyExpenseForm, 'تعديل مصروف شهري', 'monthly_expense_list', get_object_or_404(MonthlyExpense, pk=pk))
+    return _generic_form(request, MonthlyExpenseForm, 'تعديل مصروف', 'general_expenses_home', get_object_or_404(MonthlyExpense, pk=pk))
 
 @login_required
 def monthly_expense_delete(request, pk):
-    return _generic_delete(request, get_object_or_404(MonthlyExpense, pk=pk), 'حذف مصروف شهري', 'monthly_expense_list')
+    return _generic_delete(request, get_object_or_404(MonthlyExpense, pk=pk), 'حذف مصروف', 'general_expenses_home')
 
 
 @login_required
@@ -5571,7 +5575,40 @@ def settings_home(request):
         'facilities_count': Facility.objects.count(),
         'sports_media_count': SportActivityMedia.objects.count(),
         'activities_count': Activity.objects.count(),
+        'expense_categories_count': ExpenseCategory.objects.count(),
     })
+
+
+@login_required
+def expense_category_list(request):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return render(request, 'academies/expense_category_list.html', {
+        'categories': ExpenseCategory.objects.all(),
+    })
+
+
+@login_required
+def expense_category_create(request):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_form(request, ExpenseCategoryForm, 'إضافة فئة مصروف', 'expense_category_list')
+
+
+@login_required
+def expense_category_update(request, pk):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    return _generic_form(
+        request,
+        ExpenseCategoryForm,
+        'تعديل فئة مصروف',
+        'expense_category_list',
+        get_object_or_404(ExpenseCategory, pk=pk),
+    )
 
 
 @login_required
@@ -5611,6 +5648,7 @@ def accounts_home(request):
     )
     can_view_expenses = bool(
         is_accounts_admin or profile.can_general_expenses or
+        accounts_button_allowed('المصروفات') or
         accounts_button_allowed('المصروفات العامة')
     )
     can_manage_vouchers = bool(
