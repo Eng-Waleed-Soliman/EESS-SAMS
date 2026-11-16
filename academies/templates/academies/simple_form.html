@@ -22,6 +22,9 @@
         {% else %}
         <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
+        {% if field.name == 'amount' and form.category and form.expense_month %}
+        <div id="amountInWords" class="form-text fw-bold text-primary mt-2" aria-live="polite"></div>
+        {% endif %}
         {% if field.name == 'image' and form.instance.image_data_uri %}
         <div class="mt-2"><img src="{{ form.instance.image_data_uri }}" alt="الصورة الحالية" style="width:110px;height:110px;object-fit:cover;border-radius:12px;border:1px solid #cbd5e1"></div>
         {% endif %}
@@ -70,6 +73,63 @@
   fixed.addEventListener('change', function(){ syncSalaryFields(fixed); });
   variable.addEventListener('change', function(){ syncSalaryFields(variable); });
   syncSalaryFields(null);
+})();
+</script>
+{% endif %}
+{% if form.amount and form.category and form.expense_month %}
+<script>
+(function(){
+  const amountInput = document.getElementById('id_amount');
+  const wordsOutput = document.getElementById('amountInWords');
+  if(!amountInput || !wordsOutput) return;
+  const ones = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة'];
+  const teens = ['عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
+  const tens = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
+  const hundreds = ['', 'مائة', 'مائتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة', 'سبعمائة', 'ثمانمائة', 'تسعمائة'];
+  function joinParts(parts){ return parts.filter(Boolean).join(' و'); }
+  function tripletToWords(value){
+    const parts = [];
+    const hundred = Math.floor(value / 100);
+    const remainder = value % 100;
+    if(hundred) parts.push(hundreds[hundred]);
+    if(remainder >= 10 && remainder < 20){
+      parts.push(teens[remainder - 10]);
+    }else{
+      const unit = remainder % 10;
+      const ten = Math.floor(remainder / 10);
+      if(unit) parts.push(ones[unit]);
+      if(ten) parts.push(tens[ten]);
+    }
+    return joinParts(parts);
+  }
+  function scaledWords(value, singular, dual, plural){
+    if(!value) return '';
+    if(value === 1) return singular;
+    if(value === 2) return dual;
+    const amountWords = tripletToWords(value);
+    return amountWords + ' ' + (value >= 3 && value <= 10 ? plural : singular);
+  }
+  function numberToArabicWords(value){
+    if(value === 0) return 'صفر';
+    const parts = [];
+    const millions = Math.floor(value / 1000000);
+    const thousands = Math.floor((value % 1000000) / 1000);
+    const remainder = value % 1000;
+    if(millions) parts.push(scaledWords(millions, 'مليون', 'مليونان', 'ملايين'));
+    if(thousands) parts.push(scaledWords(thousands, 'ألف', 'ألفان', 'آلاف'));
+    if(remainder) parts.push(tripletToWords(remainder));
+    return joinParts(parts);
+  }
+  function updateAmountWords(){
+    const value = Number.parseInt(amountInput.value, 10);
+    if(!Number.isFinite(value) || value < 0){
+      wordsOutput.textContent = '';
+      return;
+    }
+    wordsOutput.textContent = numberToArabicWords(value) + ' جنيه مصري فقط لا غير';
+  }
+  amountInput.addEventListener('input', updateAmountWords);
+  updateAmountWords();
 })();
 </script>
 {% endif %}

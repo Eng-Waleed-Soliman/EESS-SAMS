@@ -5341,10 +5341,13 @@ def reports_home_v2(request):
             for sale_date, amount in sorted(cafeteria_income_by_date.items())
         ]
         expense_rows = []
-        for expense in monthly_expense_qs.filter(expense_month__range=(start, end)):
+        for expense in monthly_expense_qs.filter(
+            expense_month__range=(start, end)
+        ).select_related('category'):
             expense_rows.append({
                 'type': 'مصروف شهري', 'date': expense.expense_month,
-                'title': expense.title, 'amount': expense.amount, 'notes': expense.notes,
+                'title': expense.category.name if expense.category_id else expense.title,
+                'amount': expense.amount, 'notes': expense.notes,
             })
         for expense in daily_expense_qs.filter(expense_date__range=(start, end)):
             expense_rows.append({
@@ -5397,7 +5400,9 @@ def reports_home_v2(request):
         })
 
     elif report_type == 'expenses':
-        monthly_rows = monthly_expense_qs.filter(expense_month__range=(start, end))
+        monthly_rows = monthly_expense_qs.filter(
+            expense_month__range=(start, end)
+        ).select_related('category')
         daily_rows = daily_expense_qs.filter(expense_date__range=(start, end)).select_related('created_by')
         monthly_total = monthly_rows.aggregate(total=Sum('amount'))['total'] or 0
         daily_total = daily_rows.aggregate(total=Sum('amount'))['total'] or 0

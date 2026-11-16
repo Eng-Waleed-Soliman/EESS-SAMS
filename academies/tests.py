@@ -3017,8 +3017,19 @@ class ApplicationFlowsTests(TestCase):
     def test_monthly_expenses_use_registered_categories_and_month_filter(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)
         profile.can_general_expenses = True
-        profile.save(update_fields=['can_general_expenses'])
+        profile.can_reports = True
+        profile.can_report_income = True
+        profile.can_report_expenses = True
+        profile.save(update_fields=[
+            'can_general_expenses', 'can_reports',
+            'can_report_income', 'can_report_expenses',
+        ])
         category = ExpenseCategory.objects.create(name='صيانة', notes='مصروفات الصيانة')
+
+        form_response = self.client.get(reverse('monthly_expense_create'))
+        self.assertContains(form_response, 'id="amountInWords"')
+        self.assertContains(form_response, 'function numberToArabicWords(value)')
+        self.assertContains(form_response, "amountInput.addEventListener('input', updateAmountWords)")
 
         response = self.client.post(reverse('monthly_expense_create'), {
             'expense_month': '2026-11-10',
@@ -3044,6 +3055,26 @@ class ApplicationFlowsTests(TestCase):
         self.assertNotContains(response, 'مصروف شهر آخر')
         self.assertEqual(response.context['total'], 750)
         self.assertContains(response, '<th>فئة المصروف</th>', html=True)
+
+        expense_report = self.client.get(reverse('reports_home'), {
+            'report_type': 'expenses',
+            'month': '2026-11',
+            'section': 'monthly',
+            'branch_id': 'all',
+        })
+        self.assertEqual(expense_report.context['monthly_expenses_total'], 750)
+        self.assertEqual(expense_report.context['all_expenses_total'], 750)
+        self.assertContains(expense_report, category.name)
+        self.assertContains(expense_report, 'صيانة شهر نوفمبر')
+
+        income_report = self.client.get(reverse('reports_home'), {
+            'report_type': 'monthly_income',
+            'month': '2026-11',
+            'branch_id': 'all',
+        })
+        self.assertEqual(income_report.context['income_expenses_total'], 750)
+        self.assertEqual(income_report.context['income_net_total'], -750)
+        self.assertEqual(income_report.context['income_expense_rows'][0]['title'], category.name)
 
     def test_settings_has_expense_categories_management(self):
         self.user.is_staff = True
