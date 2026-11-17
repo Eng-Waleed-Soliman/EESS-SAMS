@@ -539,7 +539,7 @@ SIDEBAR_PERMISSION_MODULES = [
             'طباعة',
         ],
     },
-    {'key': 'cafeteria', 'field': 'can_cafeteria', 'label': 'الكافيتريا', 'buttons': ['إضافة صنف', 'فئات الأصناف', 'الشراء', 'إضافة للأوردر', 'Checkout', 'تعديل حركة بيع', 'حذف حركة بيع']},
+    {'key': 'cafeteria', 'field': 'can_cafeteria', 'label': 'الكافيتريا', 'buttons': ['إضافة صنف', 'فئات الأصناف', 'مشتروات أصناف الكافيتريا', 'إضافة للأوردر', 'Checkout', 'تعديل حركة بيع', 'حذف حركة بيع']},
     {'key': 'reports', 'field': 'can_reports', 'label': 'التقارير', 'buttons': ['عرض التقرير', 'تصدير PDF']},
     {'key': 'settings', 'field': 'can_settings', 'label': 'الإعدادات', 'buttons': ['المستخدمين والصلاحيات', 'الوظائف والمرتبات', 'شرائح البونص', 'فئات المصاريف', 'هوية البرنامج', 'الأفرع', 'الملاعب والصالات', 'صور الرياضات والأنشطة']},
 ]
@@ -3437,7 +3437,7 @@ def _cafeteria_purchase_form(request, instance=None):
     )
     return render(request, 'academies/cafe_purchase_form.html', {
         'form': form,
-        'title': 'تعديل حركة شراء كافيتريا' if instance else 'إضافة حركة شراء كافيتريا',
+        'title': 'تعديل مشتريات أصناف الكافيتريا' if instance else 'إضافة مشتريات أصناف الكافيتريا',
         'item_units': item_units,
     })
 
@@ -4432,7 +4432,7 @@ def reports_home(request):
         'operating_expenses': 'تقرير مصروفات التشغيل',
         'cafeteria_inventory': 'تقرير مخزون الكافيتريا',
         'cafeteria_sales': 'تقرير مبيعات الكافيتريا',
-        'cafeteria_purchases': 'تقرير مشتريات الكافيتريا',
+        'cafeteria_purchases': 'تقرير مشتروات أصناف الكافيتريا',
     }
     if report_type not in report_titles or report_type not in allowed_report_types:
         report_type = allowed_report_types[0]

@@ -2160,10 +2160,13 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(response.context['cafeteria_statistics'][0]['profit_percentage'], 50.0)
 
         response = self.client.get(reverse('cafe_purchase_list'))
+        self.assertContains(response, 'إجمالي مشتروات أصناف الكافيتريا')
         self.assertNotContains(response, reverse('operating_expense_list'))
         response = self.client.get(reverse('cafe_item_list'))
-        self.assertContains(response, 'مشتروات الكافيتريا')
+        self.assertContains(response, 'مشتروات أصناف الكافيتريا')
         self.assertNotContains(response, reverse('operating_expense_list'))
+        response = self.client.get(reverse('cafe_sale_list'))
+        self.assertContains(response, 'مشتروات أصناف الكافيتريا')
 
     def test_dashboard_shows_activity_cards_instead_of_financial_cards(self):
         UserPermission.objects.update_or_create(user=self.user, defaults={'can_dashboard': True})
