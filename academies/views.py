@@ -2490,9 +2490,7 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
     items = CafeteriaItem.objects.all()
     supplies = CafeteriaCashSupply.objects.all()
     operating_expenses = CafeteriaOperatingExpense.objects.all()
-    categorized_expenses = MonthlyExpense.objects.filter(
-        category__name__in=CAFETERIA_EXPENSE_CATEGORY_NAMES,
-    )
+    categorized_expenses = MonthlyExpense.objects.select_related('category')
     if not all_branches:
         items = items.filter(branch=active_branch)
         supplies = supplies.filter(branch=active_branch)
@@ -2511,11 +2509,27 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
     )
     supplied_cash_total = supplies.aggregate(total=Sum('amount'))['total'] or 0
     operating_expense_total = operating_expenses.aggregate(total=Sum('amount'))['total'] or 0
-    categorized_expense_total = categorized_expenses.aggregate(total=Sum('amount'))['total'] or 0
+    categorized_expense_total = sum(
+        row.amount for row in categorized_expenses
+        if row.category_id and _is_cafeteria_cash_expense_category(row.category.name)
+    )
     return (
         sales_cash_total - purchase_cash_total - supplied_cash_total
         - operating_expense_total - categorized_expense_total
     )
+
+
+def _is_cafeteria_cash_expense_category(category_name):
+    """Recognize cafeteria purchase/operation categories despite common spelling variants."""
+    normalized = _norm(category_name)
+    if normalized in {_norm(name) for name in CAFETERIA_EXPENSE_CATEGORY_NAMES}:
+        return True
+    is_cafeteria = 'كافيتريا' in normalized or 'كافتيريا' in normalized
+    is_purchase = 'مشتروات' in normalized or 'مشتريات' in normalized
+    is_operating = 'تشغيل' in normalized and (
+        'مصروفات' in normalized or 'مصاريف' in normalized
+    )
+    return is_cafeteria and (is_purchase or is_operating)
 
 
 @login_required

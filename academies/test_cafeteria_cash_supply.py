@@ -142,6 +142,20 @@ class CafeteriaCashSupplyTests(TestCase):
         self.assertContains(income_report, purchase_category.name)
         self.assertContains(income_report, operation_category.name)
 
+    def test_cafeteria_operating_expense_category_with_prefix_reduces_cash(self):
+        category = ExpenseCategory.objects.create(name='مصروفات تشغيل للكافيتريا')
+        response = self.client.post(reverse('monthly_expense_create'), {
+            'expense_month': date.today().isoformat(),
+            'category': category.pk,
+            'amount': 4,
+            'notes': 'صيغة الاسم المستخدمة في شاشة المصروفات',
+        })
+
+        self.assertRedirects(response, reverse('general_expenses_home'))
+        self.assertEqual(MonthlyExpense.objects.get().amount, 4)
+        inventory = self.client.get(reverse('cafe_inventory'))
+        self.assertEqual(inventory.context['cafeteria_cash'], 46)
+
     def test_cash_supply_form_shows_newest_supplies_first(self):
         older = CafeteriaCashSupply.objects.create(
             branch=self.branch,
