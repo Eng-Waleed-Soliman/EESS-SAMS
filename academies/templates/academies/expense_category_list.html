@@ -7,18 +7,54 @@
     <a class="btn btn-success" href="{% url 'expense_category_create' %}">إضافة فئة مصروف</a>
   </div>
 </div>
-<div class="card p-3 table-responsive">
-  <table class="table table-striped align-middle text-center">
+<div class="card p-3 expense-category-table-wrap">
+  <table class="table table-striped align-middle text-center expense-category-table">
     <thead><tr><th>فئة المصروف</th><th>ملاحظات</th><th>الإجراء</th></tr></thead>
     <tbody>
       {% for category in categories %}
       <tr>
         <td class="fw-bold">{{ category.name }}</td>
         <td>{{ category.notes|default:"-" }}</td>
-        <td><a class="btn btn-sm btn-primary" href="{% url 'expense_category_update' category.pk %}">تعديل</a></td>
+        <td class="expense-category-actions-cell">
+          <details class="expense-category-row-menu">
+            <summary aria-label="فتح إجراءات فئة {{ category.name }}" title="إجراءات الفئة"><span aria-hidden="true">⚙️</span></summary>
+            <div class="expense-category-row-dropdown">
+              <a href="{% url 'expense_category_update' category.pk %}">تعديل</a>
+              <a class="expense-category-delete-action" href="{% url 'expense_category_delete' category.pk %}">حذف</a>
+            </div>
+          </details>
+        </td>
       </tr>
       {% empty %}<tr><td colspan="3">لا توجد فئات مصاريف مسجلة</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>
+<style>
+.expense-category-table-wrap,.expense-category-table{overflow:visible!important}.expense-category-actions-cell{width:94px;overflow:visible!important}
+.expense-category-row-menu{position:relative;display:inline-block;z-index:1}.expense-category-row-menu[open]{z-index:80}.expense-category-row-menu summary{list-style:none;width:56px;height:42px;border:1px solid #7dd3fc;border-radius:11px;background:#e0f7ff;color:#075985;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:21px;box-shadow:0 5px 14px rgba(14,116,144,.12);transition:.15s}.expense-category-row-menu summary::-webkit-details-marker{display:none}.expense-category-row-menu summary:hover,.expense-category-row-menu[open] summary{background:#2563eb;border-color:#2563eb;color:#fff;transform:translateY(-1px)}
+.expense-category-row-dropdown{position:absolute;top:49px;left:50%;transform:translateX(-50%);width:180px;padding:9px;border:1px solid #bae6fd;border-radius:13px;background:#fff;box-shadow:0 16px 38px rgba(15,23,42,.2);display:grid;gap:7px;z-index:90}.expense-category-row-menu.drop-up .expense-category-row-dropdown{top:auto;bottom:49px}.expense-category-row-dropdown a{min-height:40px;padding:8px 11px;border:1px solid #7dd3fc;border-radius:9px;background:#e0f7ff;color:#0f172a;text-decoration:none;font-weight:800;display:flex;align-items:center;justify-content:center}.expense-category-row-dropdown a:hover{background:#2563eb;border-color:#2563eb;color:#fff}.expense-category-row-dropdown .expense-category-delete-action{border-color:#fecaca;background:#fff1f2;color:#991b1b}.expense-category-row-dropdown .expense-category-delete-action:hover{background:#dc2626;border-color:#dc2626;color:#fff}
+@media(max-width:768px){.expense-category-table-wrap{overflow-x:auto!important}.expense-category-table{min-width:680px}}
+</style>
+<script>
+(() => {
+  const menus = Array.from(document.querySelectorAll('.expense-category-row-menu'));
+  const placeMenu = (menu) => {
+    menu.classList.remove('drop-up');
+    const dropdown = menu.querySelector('.expense-category-row-dropdown');
+    if(dropdown && dropdown.getBoundingClientRect().bottom > window.innerHeight - 8){ menu.classList.add('drop-up'); }
+  };
+  menus.forEach((menu) => menu.addEventListener('toggle', () => {
+    if(menu.open){
+      menus.forEach((other) => { if(other !== menu) other.removeAttribute('open'); });
+      window.requestAnimationFrame(() => placeMenu(menu));
+    }else{ menu.classList.remove('drop-up'); }
+  }));
+  document.addEventListener('click', (event) => menus.forEach((menu) => {
+    if(!menu.contains(event.target)) menu.removeAttribute('open');
+  }));
+  document.addEventListener('keydown', (event) => {
+    if(event.key === 'Escape') menus.forEach((menu) => menu.removeAttribute('open'));
+  });
+})();
+</script>
 {% endblock %}

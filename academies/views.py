@@ -554,6 +554,17 @@ REPORT_TYPE_OPTIONS = [
     ('security_log', 'سجل الأمن'),
 ]
 
+CAFETERIA_EXPENSE_CATEGORY_NAMES = {
+    'مشتروات أصناف الكافيتريا',
+    'مشتروات أصناف الكافتيريا',
+    'مشتريات أصناف الكافيتريا',
+    'مشتريات أصناف الكافتيريا',
+    'مصاريف تشغيل الكافيتريا',
+    'مصاريف تشغيل الكافتيريا',
+    'مصروفات تشغيل الكافيتريا',
+    'مصروفات تشغيل الكافتيريا',
+}
+
 ARABIC_MONTH_NAMES = {
     1: 'يناير',
     2: 'فبراير',
@@ -2479,10 +2490,14 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
     items = CafeteriaItem.objects.all()
     supplies = CafeteriaCashSupply.objects.all()
     operating_expenses = CafeteriaOperatingExpense.objects.all()
+    categorized_expenses = MonthlyExpense.objects.filter(
+        category__name__in=CAFETERIA_EXPENSE_CATEGORY_NAMES,
+    )
     if not all_branches:
         items = items.filter(branch=active_branch)
         supplies = supplies.filter(branch=active_branch)
         operating_expenses = operating_expenses.filter(branch=active_branch)
+        categorized_expenses = categorized_expenses.filter(branch=active_branch)
 
     purchases = CafeteriaPurchase.objects.filter(item__in=items)
     sales = CafeteriaSale.objects.filter(item__in=items).select_related('item')
@@ -2496,7 +2511,11 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
     )
     supplied_cash_total = supplies.aggregate(total=Sum('amount'))['total'] or 0
     operating_expense_total = operating_expenses.aggregate(total=Sum('amount'))['total'] or 0
-    return sales_cash_total - purchase_cash_total - supplied_cash_total - operating_expense_total
+    categorized_expense_total = categorized_expenses.aggregate(total=Sum('amount'))['total'] or 0
+    return (
+        sales_cash_total - purchase_cash_total - supplied_cash_total
+        - operating_expense_total - categorized_expense_total
+    )
 
 
 @login_required
@@ -2728,6 +2747,9 @@ def cafe_cash_supply_create(request):
         request.POST or None,
         initial={'supply_date': date.today()},
     )
+    supplies = CafeteriaCashSupply.objects.select_related('branch', 'created_by')
+    if not all_branches:
+        supplies = supplies.filter(branch=active_branch)
     if request.method == 'POST' and form.is_valid():
         available_cash = _cafeteria_cash_balance(active_branch, all_branches)
         if form.cleaned_data['amount'] > available_cash:
@@ -2746,6 +2768,7 @@ def cafe_cash_supply_create(request):
         'form': form,
         'return_to_sales': return_to_sales,
         'back_url': 'cafe_sale_list' if return_to_sales else 'cafe_inventory',
+        'supplies': supplies.order_by('-supply_date', '-id'),
     })
 
 
@@ -5614,6 +5637,26 @@ def expense_category_update(request, pk):
         'expense_category_list',
         get_object_or_404(ExpenseCategory, pk=pk),
     )
+
+
+@login_required
+def expense_category_delete(request, pk):
+    if not _can_manage_users(request.user):
+        messages.error(request, 'ليس لديك صلاحية الإعدادات.')
+        return redirect('dashboard')
+    category = get_object_or_404(ExpenseCategory, pk=pk)
+    if request.method == 'POST':
+        if category.expenses.exists():
+            messages.error(request, 'لا يمكن حذف الفئة لأنها مستخدمة في مصروفات مسجلة.')
+        else:
+            category.delete()
+            messages.success(request, 'تم حذف فئة المصروف بنجاح.')
+        return redirect('expense_category_list')
+    return render(request, 'academies/simple_confirm_delete.html', {
+        'object': category,
+        'title': 'حذف فئة مصروف',
+        'back_url': 'expense_category_list',
+    })
 
 
 @login_required

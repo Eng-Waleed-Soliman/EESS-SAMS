@@ -5,7 +5,7 @@
   <a class="btn btn-secondary" href="{% url back_url %}">{% if return_to_sales %}رجوع إلى البيع{% else %}رجوع للجرد{% endif %}</a>
 </div>
 
-<form method="post" class="card p-4">
+<form method="post" class="card p-4 mb-4">
   {% csrf_token %}
   {% if return_to_sales %}<input type="hidden" name="next" value="sales">{% endif %}
   {% if form.non_field_errors %}
@@ -28,4 +28,20 @@
     <a class="btn btn-outline-secondary" href="{% url back_url %}">رجوع</a>
   </div>
 </form>
+<div class="card p-3 table-responsive">
+  <h4 class="mb-3">سجل توريدات المبالغ المالية</h4>
+  <table class="table table-striped align-middle text-center">
+    <thead><tr><th>تاريخ التوريد</th><th>مبلغ التوريد</th><th>سجل بواسطة</th><th>الفرع</th></tr></thead>
+    <tbody>
+      {% for supply in supplies %}
+      <tr>
+        <td>{{ supply.supply_date|date:"Y-m-d" }}</td>
+        <td class="fw-bold">{{ supply.amount }}</td>
+        <td>{{ supply.created_by.get_full_name|default:supply.created_by.username|default:"-" }}</td>
+        <td>{{ supply.branch.display_name|default:"كل الفروع" }}</td>
+      </tr>
+      {% empty %}<tr><td colspan="4">لا توجد توريدات مالية مسجلة</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

@@ -124,6 +124,7 @@ urlpatterns = [
     path('settings/expense-categories/', views.expense_category_list, name='expense_category_list'),
     path('settings/expense-categories/add/', views.expense_category_create, name='expense_category_create'),
     path('settings/expense-categories/<int:pk>/edit/', views.expense_category_update, name='expense_category_update'),
+    path('settings/expense-categories/<int:pk>/delete/', views.expense_category_delete, name='expense_category_delete'),
     path('settings/branding/', views.branding_settings, name='branding_settings'),
     path('settings/website/', views.website_settings, name='website_settings'),
     path('settings/branches/', views.branch_list, name='branch_list'),

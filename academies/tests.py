@@ -3092,6 +3092,13 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.get(reverse('expense_category_list'))
         self.assertContains(response, category.name)
         self.assertContains(response, 'إضافة فئة مصروف')
+        self.assertContains(response, 'class="expense-category-row-menu"')
+        self.assertContains(response, reverse('expense_category_update', args=[category.pk]))
+        self.assertContains(response, reverse('expense_category_delete', args=[category.pk]))
+
+        response = self.client.post(reverse('expense_category_delete', args=[category.pk]))
+        self.assertRedirects(response, reverse('expense_category_list'))
+        self.assertFalse(ExpenseCategory.objects.filter(pk=category.pk).exists())
 
     def test_accounts_payroll_rows_are_built_from_employees_only(self):
         profile, _ = UserPermission.objects.get_or_create(user=self.user)

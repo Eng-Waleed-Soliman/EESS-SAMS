@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
@@ -11,6 +11,8 @@ from .models import (
     CafeteriaItem,
     CafeteriaPurchase,
     CafeteriaSale,
+    ExpenseCategory,
+    MonthlyExpense,
 )
 
 
@@ -106,3 +108,55 @@ class CafeteriaCashSupplyTests(TestCase):
         })
         self.assertRedirects(response, reverse('cafe_sale_list'))
         self.assertEqual(CafeteriaCashSupply.objects.get().amount, 45)
+
+    def test_cafeteria_expense_categories_reduce_cash_and_enter_reports_once(self):
+        purchase_category = ExpenseCategory.objects.create(name='مشتروات أصناف الكافيتريا')
+        operation_category = ExpenseCategory.objects.create(name='مصاريف تشغيل الكافيتريا')
+        for category, amount in ((purchase_category, 15), (operation_category, 5)):
+            response = self.client.post(reverse('monthly_expense_create'), {
+                'expense_month': date.today().isoformat(),
+                'category': category.pk,
+                'amount': amount,
+                'notes': f'اختبار {category.name}',
+            })
+            self.assertRedirects(response, reverse('general_expenses_home'))
+
+        expenses = MonthlyExpense.objects.order_by('amount')
+        self.assertEqual(expenses.count(), 2)
+        self.assertTrue(all(expense.branch == self.branch for expense in expenses))
+        inventory = self.client.get(reverse('cafe_inventory'))
+        self.assertEqual(inventory.context['cafeteria_cash'], 30)
+
+        month_value = date.today().strftime('%Y-%m')
+        expense_report = self.client.get(reverse('reports_home'), {
+            'report_type': 'expenses', 'month': month_value,
+        })
+        self.assertEqual(expense_report.context['monthly_expenses_total'], 20)
+        self.assertEqual(expense_report.context['all_expenses_total'], 20)
+
+        income_report = self.client.get(reverse('reports_home'), {
+            'report_type': 'monthly_income', 'month': month_value,
+        })
+        self.assertEqual(income_report.context['income_expenses_total'], 70)
+        self.assertEqual(income_report.context['income_net_total'], 30)
+        self.assertContains(income_report, purchase_category.name)
+        self.assertContains(income_report, operation_category.name)
+
+    def test_cash_supply_form_shows_newest_supplies_first(self):
+        older = CafeteriaCashSupply.objects.create(
+            branch=self.branch,
+            supply_date=date.today() - timedelta(days=1),
+            amount=10,
+            created_by=self.user,
+        )
+        newer = CafeteriaCashSupply.objects.create(
+            branch=self.branch,
+            supply_date=date.today(),
+            amount=20,
+            created_by=self.user,
+        )
+
+        response = self.client.get(reverse('cafe_cash_supply_create'))
+        self.assertContains(response, 'سجل توريدات المبالغ المالية')
+        self.assertContains(response, '<th>تاريخ التوريد</th>', html=True)
+        self.assertEqual(list(response.context['supplies']), [newer, older])
