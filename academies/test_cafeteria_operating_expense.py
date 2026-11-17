@@ -68,13 +68,26 @@ class CafeteriaOperatingExpenseTests(TestCase):
             'title': 'صيانة ماكينة القهوة',
             'amount': 20,
         })
-        self.assertRedirects(response, reverse('cafe_operating_expense_list'))
+        expected_month = date.today().strftime('%Y-%m')
+        self.assertRedirects(
+            response,
+            f"{reverse('cafe_operating_expense_create')}?month={expected_month}",
+        )
         expense = CafeteriaOperatingExpense.objects.get()
         self.assertEqual(expense.branch, self.branch)
         self.assertEqual(expense.created_by, self.user)
 
         inventory = self.client.get(reverse('cafe_inventory'))
         self.assertEqual(inventory.context['cafeteria_cash'], 30)
+
+        create_page = self.client.get(reverse('cafe_operating_expense_create'), {
+            'month': expected_month,
+        })
+        self.assertContains(create_page, 'سجل مصروفات الكافيتريا عن الشهر')
+        self.assertContains(create_page, expense.title)
+        self.assertContains(create_page, reverse('cafe_operating_expense_update', args=[expense.pk]))
+        self.assertContains(create_page, reverse('cafe_operating_expense_delete', args=[expense.pk]))
+        self.assertEqual(create_page.context['expenses_total'], 20)
 
     def test_expense_can_be_edited_deleted_and_appears_in_month_or_custom_income_report(self):
         expense = CafeteriaOperatingExpense.objects.create(

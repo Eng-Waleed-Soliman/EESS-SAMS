@@ -4,6 +4,7 @@
 <div class="card p-4">
   <form method="post">
     {% csrf_token %}
+    {% if month_value %}<input type="hidden" name="month" value="{{ month_value }}">{% endif %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
     <div class="row g-3">
       {% for field in form %}
@@ -20,4 +21,38 @@
     </div>
   </form>
 </div>
+{% if month_value %}
+<div class="card p-3 mt-4 mb-3">
+  <form method="get" class="row g-3 align-items-end">
+    <div class="col-md-5">
+      <label class="form-label fw-bold" for="cafeteriaExpenseMonth">شهر المصروفات</label>
+      <input class="form-control" id="cafeteriaExpenseMonth" type="month" name="month" value="{{ month_value }}">
+    </div>
+    <div class="col-md-3"><button class="btn btn-primary w-100">عرض</button></div>
+  </form>
+</div>
+<div class="card p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-center"><b>إجمالي مصروفات الكافيتريا عن الشهر</b><strong class="fs-4">{{ expenses_total }}</strong></div>
+</div>
+<div class="card p-3 table-responsive">
+  <h4 class="mb-3">سجل مصروفات الكافيتريا عن الشهر</h4>
+  <table class="table table-striped align-middle text-center">
+    <thead><tr><th>التاريخ</th><th>بيان المصروف</th><th>قيمة المصروفات</th><th>سُجل بواسطة</th><th>الإجراءات</th></tr></thead>
+    <tbody>
+      {% for expense in expenses %}
+      <tr>
+        <td>{{ expense.expense_date|date:"Y-m-d" }}</td>
+        <td>{{ expense.title }}</td>
+        <td class="fw-bold">{{ expense.amount }}</td>
+        <td>{% if expense.created_by %}{{ expense.created_by.get_full_name|default:expense.created_by.username }}{% else %}-{% endif %}</td>
+        <td class="text-nowrap">
+          <a class="btn btn-sm btn-primary" href="{% url 'cafe_operating_expense_update' expense.pk %}">تعديل</a>
+          <a class="btn btn-sm btn-danger" href="{% url 'cafe_operating_expense_delete' expense.pk %}">حذف</a>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="5">لا توجد مصروفات كافيتريا في الشهر المختار</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 {% endblock %}

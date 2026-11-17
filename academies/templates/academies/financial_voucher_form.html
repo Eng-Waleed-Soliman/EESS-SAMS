@@ -24,7 +24,21 @@
     سيتم إنشاء مستند A5 يظهر فيه المبلغ بالأرقام والحروف واسم اليوم والتاريخ ومسمى التوقيع واسم الموظف.
   </div>
   <div class="row g-3">
-    <div class="col-md-6"><label class="form-label fw-bold">{{ form.amount.label }}</label>{{ form.amount }}<div class="text-danger small">{{ form.amount.errors }}</div></div>
+    {% if voucher_type == 'supply' %}
+    <div class="col-12"><label class="form-label fw-bold">{{ form.income_source.label }}</label>{{ form.income_source }}<div class="text-danger small">{{ form.income_source.errors }}</div></div>
+    <div class="col-12" id="academyIncomeSection" hidden>
+      <div class="academy-income-box">
+        <label class="form-label fw-bold">{{ form.academies.label }}</label>
+        {{ form.academies }}
+        <div class="form-text">يمكن اختيار أكثر من أكاديمية باستخدام Ctrl أثناء الاختيار.</div>
+        <div class="text-danger small">{{ form.academies.errors }}</div>
+        {{ form.academy_allocations }}
+        <div class="text-danger small">{{ form.academy_allocations.errors }}</div>
+        <div id="academyAllocationRows" class="mt-3"></div>
+      </div>
+    </div>
+    {% endif %}
+    <div class="col-md-6"><label class="form-label fw-bold">{{ form.amount.label }}</label>{{ form.amount }}<div id="voucherAmountInWords" class="form-text fw-bold text-primary mt-2" aria-live="polite"></div><div class="text-danger small">{{ form.amount.errors }}</div></div>
     <div class="col-md-6"><label class="form-label fw-bold">{{ form.voucher_date.label }}</label>{{ form.voucher_date }}<div class="text-danger small">{{ form.voucher_date.errors }}</div></div>
     <div class="col-md-6"><label class="form-label fw-bold">{{ form.signature_title.label }}</label>{{ form.signature_title }}<div class="text-danger small">{{ form.signature_title.errors }}</div></div>
     <div class="col-md-6"><label class="form-label fw-bold">{{ form.signature_name.label }}</label>{{ form.signature_name }}<div class="form-text">يظهر تلقائيًا من بيانات الموظفين حسب الوظيفة المختارة.</div><div class="text-danger small">{{ form.signature_name.errors }}</div></div>
@@ -38,7 +52,9 @@
 .voucher-form-header h2{font-size:30px;font-weight:900;text-align:center;margin:0;padding:0 210px}
 .voucher-form-brand{position:absolute;left:0;top:0;width:205px;text-align:center;direction:ltr;font-size:12px;line-height:1.45;font-weight:700}
 .voucher-form-brand img{display:block;max-width:72px;max-height:65px;object-fit:contain;margin:0 auto 5px}.voucher-form-brand .brand-ar{direction:rtl}
+.academy-income-box{padding:16px;border:1px solid #bae6fd;border-radius:14px;background:#f0f9ff}.academy-allocation-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,240px);gap:12px;align-items:start;padding:12px;margin-top:9px;border:1px solid #dbeafe;border-radius:12px;background:#fff}.academy-allocation-name{font-weight:800;padding-top:10px}.academy-allocation-words{font-size:12px;font-weight:700;color:#1d4ed8;margin-top:5px}.academy-allocation-row input{width:100%}
 @media(max-width:767px){.voucher-form-header{padding-top:105px}.voucher-form-header h2{padding:0}.voucher-form-brand{left:50%;transform:translateX(-50%)}}
+@media(max-width:575px){.academy-allocation-row{grid-template-columns:1fr}}
 </style>
 {{ form.employee_names_by_title|json_script:"voucherEmployeeNames" }}
 <script>
@@ -52,6 +68,88 @@
   }
   titleField.addEventListener('change', function(){ updateSignerName(true); });
   updateSignerName(false);
+})();
+</script>
+<script>
+(function(){
+  const amountInput = document.getElementById('id_amount');
+  const totalWords = document.getElementById('voucherAmountInWords');
+  const sourceField = document.getElementById('id_income_source');
+  const academySection = document.getElementById('academyIncomeSection');
+  const academySelect = document.getElementById('id_academies');
+  const allocationsField = document.getElementById('id_academy_allocations');
+  const rowsContainer = document.getElementById('academyAllocationRows');
+  const ones=['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة'];
+  const teens=['عشرة','أحد عشر','اثنا عشر','ثلاثة عشر','أربعة عشر','خمسة عشر','ستة عشر','سبعة عشر','ثمانية عشر','تسعة عشر'];
+  const tens=['','','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
+  const hundreds=['','مائة','مائتان','ثلاثمائة','أربعمائة','خمسمائة','ستمائة','سبعمائة','ثمانمائة','تسعمائة'];
+  const join=(parts)=>parts.filter(Boolean).join(' و');
+  function triplet(value){
+    const parts=[], hundred=Math.floor(value/100), remainder=value%100;
+    if(hundred) parts.push(hundreds[hundred]);
+    if(remainder>=10&&remainder<20){parts.push(teens[remainder-10]);}
+    else{const unit=remainder%10,ten=Math.floor(remainder/10);if(unit)parts.push(ones[unit]);if(ten)parts.push(tens[ten]);}
+    return join(parts);
+  }
+  function scale(value,singular,dual,plural){
+    if(!value)return '';if(value===1)return singular;if(value===2)return dual;
+    return triplet(value)+' '+(value>=3&&value<=10?plural:singular);
+  }
+  function words(value){
+    value=Number.parseInt(value,10);if(!Number.isFinite(value)||value<0)return '';
+    if(value===0)return 'صفر جنيه مصري فقط لا غير';
+    const parts=[],millions=Math.floor(value/1000000),thousands=Math.floor((value%1000000)/1000),rest=value%1000;
+    if(millions)parts.push(scale(millions,'مليون','مليونان','ملايين'));
+    if(thousands)parts.push(scale(thousands,'ألف','ألفان','آلاف'));
+    if(rest)parts.push(triplet(rest));
+    return join(parts)+' جنيه مصري فقط لا غير';
+  }
+  function updateTotalWords(){if(totalWords&&amountInput)totalWords.textContent=words(amountInput.value);}
+  function initialAllocationMap(){
+    if(!allocationsField)return {};
+    try{return JSON.parse(allocationsField.value||'[]').reduce((map,row)=>{map[String(row.academy_id)]=row.amount;return map;},{});}catch(error){return {};}
+  }
+  let allocationValues=initialAllocationMap();
+  function syncAcademyTotals(){
+    if(!rowsContainer||!allocationsField||!amountInput)return;
+    const allocations=[];let total=0;
+    rowsContainer.querySelectorAll('.academy-allocation-amount').forEach((input)=>{
+      const amount=Math.max(0,Number.parseInt(input.value,10)||0);
+      allocationValues[input.dataset.academyId]=amount;
+      allocations.push({academy_id:Number(input.dataset.academyId),amount:amount});
+      total+=amount;
+      const output=input.parentElement.querySelector('.academy-allocation-words');
+      if(output)output.textContent=amount?words(amount):'';
+    });
+    allocationsField.value=JSON.stringify(allocations);
+    amountInput.value=total||0;
+    updateTotalWords();
+  }
+  function renderAcademyRows(){
+    if(!academySelect||!rowsContainer)return;
+    rowsContainer.innerHTML='';
+    Array.from(academySelect.selectedOptions).forEach((option)=>{
+      const row=document.createElement('div');row.className='academy-allocation-row';
+      const name=document.createElement('div');name.className='academy-allocation-name';name.textContent=option.textContent;
+      const fieldWrap=document.createElement('div');
+      const input=document.createElement('input');input.type='number';input.min='1';input.step='1';input.className='form-control academy-allocation-amount';input.dataset.academyId=option.value;input.value=allocationValues[option.value]||'';input.placeholder='المبلغ المالي بالأرقام';
+      const wordOutput=document.createElement('div');wordOutput.className='academy-allocation-words';
+      input.addEventListener('input',syncAcademyTotals);fieldWrap.append(input,wordOutput);row.append(name,fieldWrap);rowsContainer.append(row);
+    });
+    syncAcademyTotals();
+  }
+  function syncSource(){
+    if(!sourceField||!academySection||!amountInput)return;
+    const isAcademies=sourceField.value==='sports_academies';
+    academySection.hidden=!isAcademies;
+    amountInput.readOnly=isAcademies;
+    if(isAcademies){renderAcademyRows();}
+    else if(allocationsField){allocationsField.value='[]';updateTotalWords();}
+  }
+  amountInput?.addEventListener('input',updateTotalWords);
+  academySelect?.addEventListener('change',renderAcademyRows);
+  sourceField?.addEventListener('change',syncSource);
+  syncSource();updateTotalWords();
 })();
 </script>
 {% endblock %}

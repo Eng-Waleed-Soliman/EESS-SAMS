@@ -864,10 +864,24 @@ class FinancialVoucher(models.Model):
         (TYPE_DISBURSEMENT, 'أمر صرف مبلغ مالي'),
         (TYPE_SUPPLY, 'أمر توريد مبلغ مالي'),
     ]
+    SOURCE_SPORTS_ACADEMIES = 'sports_academies'
+    SOURCE_DAILY_BOOKING = 'daily_booking'
+    SOURCE_CAFETERIA = 'cafeteria'
+    INCOME_SOURCE_CHOICES = [
+        (SOURCE_SPORTS_ACADEMIES, 'الأكاديميات الرياضية'),
+        (SOURCE_DAILY_BOOKING, 'الحجز اليومي'),
+        (SOURCE_CAFETERIA, 'دخل الكافيتريا'),
+    ]
 
     voucher_type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name='نوع الأمر')
     sequence_number = models.PositiveIntegerField(editable=False, verbose_name='المسلسل حسب نوع الأمر')
     amount = models.PositiveIntegerField(verbose_name='قيمة المبلغ')
+    income_source = models.CharField(
+        max_length=30,
+        choices=INCOME_SOURCE_CHOICES,
+        blank=True,
+        verbose_name='مصدر الدخل',
+    )
     statement = models.TextField(verbose_name='السبب / البيان')
     voucher_date = models.DateField(verbose_name='التاريخ')
     signature_title = models.CharField(max_length=150, verbose_name='مسمى وظيفة التوقيع')
@@ -923,6 +937,41 @@ class FinancialVoucher(models.Model):
 
     def __str__(self):
         return f'{self.get_voucher_type_display()} - {self.voucher_number}'
+
+
+class FinancialVoucherAcademyAllocation(models.Model):
+    voucher = models.ForeignKey(
+        FinancialVoucher,
+        on_delete=models.CASCADE,
+        related_name='academy_allocations',
+        verbose_name='أمر التوريد',
+    )
+    academy = models.ForeignKey(
+        Academy,
+        on_delete=models.PROTECT,
+        related_name='financial_voucher_allocations',
+        verbose_name='الأكاديمية',
+    )
+    amount = models.PositiveIntegerField(verbose_name='المبلغ المالي')
+
+    class Meta:
+        ordering = ['academy__name', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['voucher', 'academy'],
+                name='unique_academy_per_financial_voucher',
+            ),
+        ]
+        verbose_name = 'تفصيل أكاديمية في أمر توريد'
+        verbose_name_plural = 'تفاصيل الأكاديميات في أوامر التوريد'
+
+    @property
+    def amount_in_words(self):
+        from .number_words import egyptian_pounds_in_words
+        return egyptian_pounds_in_words(self.amount)
+
+    def __str__(self):
+        return f'{self.academy.name} - {self.amount}'
 
 
 class AcademyMonthlyRentPayment(models.Model):

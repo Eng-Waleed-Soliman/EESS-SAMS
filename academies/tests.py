@@ -1033,6 +1033,7 @@ class ApplicationFlowsTests(TestCase):
 
         supply_url = reverse('financial_voucher_create', args=['supply'])
         response = self.client.post(supply_url, {
+            'income_source': FinancialVoucher.SOURCE_DAILY_BOOKING,
             'amount': 2000,
             'statement': 'توريد إيراد يومي',
             'voucher_date': today.isoformat(),
@@ -1071,6 +1072,67 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(print_detail, "printVoucher(true)")
         self.assertNotContains(print_detail, 'تم تحديث الأمر المالي بنجاح')
         self.assertContains(print_detail, '@media print{.global-messages{display:none!important')
+
+    def test_supply_voucher_supports_multiple_academies_and_calculates_total(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_accounts = True
+        profile.save(update_fields=['can_accounts'])
+        JobTitle.objects.create(name='مدير التوريدات')
+        Employee.objects.create(name='موظف التوريدات', job_title='مدير التوريدات')
+        academy_one = Academy.objects.create(
+            name='أكاديمية النجوم', sport_activity='كرة قدم', company_name='شركة النجوم',
+            manager_name='مدير النجوم', manager_phone='01000000101',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=365),
+        )
+        academy_two = Academy.objects.create(
+            name='أكاديمية الأبطال', sport_activity='سباحة', company_name='شركة الأبطال',
+            manager_name='مدير الأبطال', manager_phone='01000000102',
+            operation_place=OPERATION_PLACE_CHOICES[0][0],
+            contract_start_date=date.today(), contract_end_date=date.today() + timedelta(days=365),
+        )
+        supply_url = reverse('financial_voucher_create', args=['supply'])
+        create_screen = self.client.get(supply_url)
+        self.assertContains(create_screen, 'مصدر الدخل')
+        self.assertContains(create_screen, 'الأكاديميات الرياضية')
+        self.assertContains(create_screen, 'الحجز اليومي')
+        self.assertContains(create_screen, 'دخل الكافيتريا')
+        self.assertContains(create_screen, 'id="academyIncomeSection"')
+        self.assertContains(create_screen, academy_one.name)
+        self.assertContains(create_screen, academy_two.name)
+
+        allocations = [
+            {'academy_id': academy_one.pk, 'amount': 1250},
+            {'academy_id': academy_two.pk, 'amount': 2000},
+        ]
+        response = self.client.post(supply_url, {
+            'income_source': FinancialVoucher.SOURCE_SPORTS_ACADEMIES,
+            'academies': [academy_one.pk, academy_two.pk],
+            'academy_allocations': json.dumps(allocations),
+            'amount': 0,
+            'statement': 'توريد إيرادات أكاديميات رياضية',
+            'voucher_date': date.today().isoformat(),
+            'signature_title': 'مدير التوريدات',
+        })
+        voucher = FinancialVoucher.objects.get(voucher_type=FinancialVoucher.TYPE_SUPPLY)
+        self.assertRedirects(response, reverse('financial_voucher_detail', args=[voucher.pk]))
+        self.assertEqual(voucher.income_source, FinancialVoucher.SOURCE_SPORTS_ACADEMIES)
+        self.assertEqual(voucher.amount, 3250)
+        saved_allocations = list(voucher.academy_allocations.order_by('amount'))
+        self.assertEqual(
+            [(row.academy_id, row.amount) for row in saved_allocations],
+            [(academy_one.pk, 1250), (academy_two.pk, 2000)],
+        )
+
+        detail = self.client.get(reverse('financial_voucher_detail', args=[voucher.pk]))
+        self.assertContains(detail, academy_one.name)
+        self.assertContains(detail, academy_two.name)
+        self.assertContains(detail, '1250 جنيه')
+        self.assertContains(detail, '2000 جنيه')
+        self.assertContains(detail, '3250 جنيه مصري')
+        self.assertContains(detail, voucher.amount_in_words)
+        self.assertContains(detail, saved_allocations[0].amount_in_words)
+        self.assertContains(detail, saved_allocations[1].amount_in_words)
 
     def test_login_uses_typed_username_without_exposing_user_list(self):
         hidden_user = User.objects.create_user(username='private_operator', password='operator-password')

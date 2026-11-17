@@ -2791,7 +2791,10 @@ def cafe_operating_expense_list(request):
 
 @login_required
 def cafe_operating_expense_create(request):
-    _, active_branch, all_branches = _cafeteria_operating_expense_queryset(request)
+    expenses, active_branch, all_branches = _cafeteria_operating_expense_queryset(request)
+    selected_month = request.GET.get('month') or request.POST.get('month')
+    _, _, month_start, month_end, month_value = _month_bounds(selected_month)
+    monthly_expenses = expenses.filter(expense_date__range=(month_start, month_end))
     form = CafeteriaOperatingExpenseForm(
         request.POST or None,
         initial={'expense_date': date.today()},
@@ -2802,11 +2805,14 @@ def cafe_operating_expense_create(request):
         expense.created_by = request.user
         expense.save()
         messages.success(request, 'تم حفظ مصروف تشغيل الكافيتريا بنجاح.')
-        return redirect('cafe_operating_expense_list')
+        return redirect(f"{reverse('cafe_operating_expense_create')}?month={month_value}")
     return render(request, 'academies/cafe_operating_expense_form.html', {
         'form': form,
         'title': 'إضافة مصروف تشغيل الكافيتريا',
         'cancel_url': reverse('cafe_inventory'),
+        'expenses': monthly_expenses,
+        'expenses_total': monthly_expenses.aggregate(total=Sum('amount'))['total'] or 0,
+        'month_value': month_value,
     })
 
 
@@ -4797,6 +4803,7 @@ def financial_voucher_create(request, voucher_type):
     form = FinancialVoucherForm(
         request.POST or None, initial={'voucher_date': date.today()},
         fixed_signature=_sports_manager_signature(request),
+        voucher_type=voucher_type,
     )
     if form.is_valid():
         voucher = form.save(commit=False)
@@ -4806,6 +4813,7 @@ def financial_voucher_create(request, voucher_type):
         if not all_branches:
             voucher.branch = active_branch
         voucher.save()
+        form.save_academy_allocations(voucher)
         destination = reverse('financial_voucher_detail', kwargs={'pk': voucher.pk})
         submit_action = request.POST.get('submit_action', 'save')
         if submit_action in {'print', 'pdf'}:
@@ -4824,9 +4832,14 @@ def financial_voucher_update(request, pk):
     if denied:
         return denied
     voucher = get_object_or_404(FinancialVoucher, pk=pk)
-    form = FinancialVoucherForm(request.POST or None, instance=voucher)
+    form = FinancialVoucherForm(
+        request.POST or None,
+        instance=voucher,
+        voucher_type=voucher.voucher_type,
+    )
     if form.is_valid():
-        form.save()
+        voucher = form.save()
+        form.save_academy_allocations(voucher)
         destination = reverse('financial_voucher_detail', kwargs={'pk': voucher.pk})
         submit_action = request.POST.get('submit_action', 'save')
         if submit_action in {'print', 'pdf'}:
@@ -4860,7 +4873,12 @@ def financial_voucher_detail(request, pk):
     denied = _voucher_access_or_redirect(request)
     if denied:
         return denied
-    voucher = get_object_or_404(FinancialVoucher.objects.select_related('created_by'), pk=pk)
+    voucher = get_object_or_404(
+        FinancialVoucher.objects.select_related('created_by').prefetch_related(
+            'academy_allocations__academy'
+        ),
+        pk=pk,
+    )
     return render(request, 'academies/financial_voucher_detail.html', {
         'voucher': voucher,
         'signature_display_name': _aligned_signature_name(voucher.signature_title, voucher.signer_name),
