@@ -12,6 +12,7 @@ from .models import (
     CafeteriaPurchase,
     CafeteriaSale,
     ExpenseCategory,
+    FinancialVoucher,
     MonthlyExpense,
 )
 
@@ -108,6 +109,25 @@ class CafeteriaCashSupplyTests(TestCase):
         })
         self.assertRedirects(response, reverse('cafe_sale_list'))
         self.assertEqual(CafeteriaCashSupply.objects.get().amount, 45)
+
+    def test_cafeteria_income_financial_voucher_reduces_cafeteria_cash(self):
+        create_url = reverse('financial_voucher_create', args=['supply'])
+        response = self.client.post(create_url, {
+            'income_source': FinancialVoucher.SOURCE_CAFETERIA,
+            'amount': 31,
+            'voucher_date': date.today().isoformat(),
+        })
+
+        voucher = FinancialVoucher.objects.get(
+            voucher_type=FinancialVoucher.TYPE_SUPPLY,
+            income_source=FinancialVoucher.SOURCE_CAFETERIA,
+        )
+        self.assertRedirects(response, reverse('financial_voucher_detail', args=[voucher.pk]))
+        self.assertEqual(voucher.branch, self.branch)
+        self.assertEqual(self.client.get(reverse('cafe_inventory')).context['cafeteria_cash'], 19)
+
+        voucher.delete()
+        self.assertEqual(self.client.get(reverse('cafe_inventory')).context['cafeteria_cash'], 50)
 
     def test_cafeteria_expense_categories_reduce_cash_and_enter_reports_once(self):
         purchase_category = ExpenseCategory.objects.create(name='مشتروات أصناف الكافيتريا')

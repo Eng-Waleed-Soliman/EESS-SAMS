@@ -2489,11 +2489,16 @@ def cafe_sale_prices(request):
 def _cafeteria_cash_balance(active_branch=None, all_branches=False):
     items = CafeteriaItem.objects.all()
     supplies = CafeteriaCashSupply.objects.all()
+    voucher_supplies = FinancialVoucher.objects.filter(
+        voucher_type=FinancialVoucher.TYPE_SUPPLY,
+        income_source=FinancialVoucher.SOURCE_CAFETERIA,
+    )
     operating_expenses = CafeteriaOperatingExpense.objects.all()
     categorized_expenses = MonthlyExpense.objects.select_related('category')
     if not all_branches:
         items = items.filter(branch=active_branch)
         supplies = supplies.filter(branch=active_branch)
+        voucher_supplies = voucher_supplies.filter(branch=active_branch)
         operating_expenses = operating_expenses.filter(branch=active_branch)
         categorized_expenses = categorized_expenses.filter(branch=active_branch)
 
@@ -2508,13 +2513,14 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
         for row in sales.only('quantity', 'unit_price', 'addon_quantity', 'addon_unit_price', 'item__item_type')
     )
     supplied_cash_total = supplies.aggregate(total=Sum('amount'))['total'] or 0
+    voucher_supplied_cash_total = voucher_supplies.aggregate(total=Sum('amount'))['total'] or 0
     operating_expense_total = operating_expenses.aggregate(total=Sum('amount'))['total'] or 0
     categorized_expense_total = sum(
         row.amount for row in categorized_expenses
         if row.category_id and _is_cafeteria_cash_expense_category(row.category.name)
     )
     return (
-        sales_cash_total - purchase_cash_total - supplied_cash_total
+        sales_cash_total - purchase_cash_total - supplied_cash_total - voucher_supplied_cash_total
         - operating_expense_total - categorized_expense_total
     )
 
