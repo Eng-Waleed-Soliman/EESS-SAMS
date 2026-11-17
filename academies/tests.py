@@ -981,6 +981,8 @@ class ApplicationFlowsTests(TestCase):
         profile.save()
         JobTitle.objects.create(name='المدير المالي')
         signer = Employee.objects.create(name='أحمد محمود', job_title='المدير المالي')
+        sports_manager = Employee.objects.create(name='حسين البيسوني', job_title='المدير الرياضي')
+        operations_manager = Employee.objects.create(name='وليد سليمان', job_title='مدير التشغيل')
 
         reports_response = self.client.get(reverse('reports_home'))
         self.assertNotContains(reports_response, reverse('financial_voucher_create', args=['disbursement']))
@@ -998,9 +1000,10 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(create_screen, 'name="submit_action" value="pdf"')
         self.assertContains(create_screen, 'name="submit_action" value="print"')
         self.assertContains(create_screen, 'voucher-form-header')
-        self.assertContains(create_screen, 'اسم الموظف الموقّع')
-        self.assertContains(create_screen, 'voucherEmployeeNames')
-        self.assertContains(create_screen, 'id_signature_name')
+        self.assertContains(create_screen, 'مدير النشاط الرياضي')
+        self.assertContains(create_screen, sports_manager.name)
+        self.assertContains(create_screen, 'مدير التشغيل')
+        self.assertContains(create_screen, operations_manager.name)
         self.assertContains(create_screen, 'مستند A5')
         response = self.client.post(disbursement_url, {
             'amount': 1250,
@@ -1012,7 +1015,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertRedirects(response, reverse('financial_voucher_detail', args=[voucher.pk]))
         self.assertEqual(voucher.created_by, self.user)
         self.assertEqual(voucher.voucher_number, 'ص-00001')
-        self.assertEqual(voucher.signature_name, signer.name)
+        self.assertEqual(voucher.signature_name, sports_manager.name)
         self.assertEqual(voucher.amount_in_words, 'ألف ومائتان وخمسون جنيه مصري فقط لا غير')
 
         detail = self.client.get(reverse('financial_voucher_detail', args=[voucher.pk]))
@@ -1020,8 +1023,9 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, '1250 جنيه مصري')
         self.assertContains(detail, voucher.amount_in_words)
         self.assertContains(detail, WEEKDAY_AR[today.weekday()])
-        self.assertContains(detail, 'المدير المالي')
-        self.assertContains(detail, 'ـ')
+        self.assertContains(detail, 'مدير النشاط الرياضي')
+        self.assertContains(detail, sports_manager.name)
+        self.assertContains(detail, operations_manager.name)
         self.assertContains(detail, 'يتم صرف')
         self.assertContains(detail, 'المبلغ المالي الموضح أدناه اليوم')
         self.assertContains(detail, 'voucher-number-block')
@@ -1046,6 +1050,7 @@ class ApplicationFlowsTests(TestCase):
         supply_detail = self.client.get(reverse('financial_voucher_detail', args=[supply.pk]))
         self.assertContains(supply_detail, 'يتم استلام')
         self.assertContains(supply_detail, 'المبلغ المالي الموضح أدناه اليوم')
+        self.assertNotContains(supply_detail, '>البيان<')
         list_response = self.client.get(reverse('financial_voucher_list'))
         self.assertContains(list_response, voucher.voucher_number)
         self.assertContains(list_response, supply.voucher_number)
@@ -1057,7 +1062,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(list_response, 'voucher-register-toolbar')
         self.assertContains(list_response, 'رجوع للحسابات')
         self.assertContains(list_response, 'تصدير PDF')
-        self.assertContains(list_response, signer.name)
+        self.assertContains(list_response, 'مدير التشغيل')
 
         response = self.client.post(reverse('financial_voucher_update', args=[voucher.pk]), {
             'amount': voucher.amount,
@@ -1127,6 +1132,9 @@ class ApplicationFlowsTests(TestCase):
         detail = self.client.get(reverse('financial_voucher_detail', args=[voucher.pk]))
         self.assertContains(detail, academy_one.name)
         self.assertContains(detail, academy_two.name)
+        self.assertContains(detail, academy_one.sport_activity)
+        self.assertContains(detail, academy_two.sport_activity)
+        self.assertContains(detail, '<th>النشاط</th>', html=True)
         self.assertContains(detail, '1250 جنيه')
         self.assertContains(detail, '2000 جنيه')
         self.assertContains(detail, '3250 جنيه مصري')
@@ -3297,7 +3305,7 @@ class ApplicationFlowsTests(TestCase):
         })
         self.assertEqual(response.status_code, 302)
         voucher = FinancialVoucher.objects.get(statement='اختبار توقيع الحساب')
-        self.assertEqual(voucher.signature_title, 'المدير الرياضي')
+        self.assertEqual(voucher.signature_title, 'مدير النشاط الرياضي')
         self.assertEqual(voucher.signature_name, 'حسين البيسوني')
 
         # Viewing an existing document must not relabel its historical signer.

@@ -37,21 +37,28 @@
     {% if voucher.voucher_type == 'supply' and voucher.income_source == 'sports_academies' %}
     <div class="voucher-academies">
       <table>
-        <thead><tr><th>اسم الأكاديمية</th><th>المبلغ بالأرقام</th><th>المبلغ بالحروف</th></tr></thead>
-        <tbody>{% for allocation in voucher.academy_allocations.all %}<tr><td>{{ allocation.academy.name }}</td><td>{{ allocation.amount }} جنيه</td><td>{{ allocation.amount_in_words }}</td></tr>{% endfor %}</tbody>
+        <thead><tr><th>اسم الأكاديمية</th><th>النشاط</th><th>المبلغ بالأرقام</th><th>المبلغ بالحروف</th></tr></thead>
+        <tbody>{% for allocation in voucher.academy_allocations.all %}<tr><td>{{ allocation.academy.name }}</td><td>{{ allocation.academy.sport_activity }}</td><td>{{ allocation.amount }} جنيه</td><td>{{ allocation.amount_in_words }}</td></tr>{% endfor %}</tbody>
       </table>
     </div>
     {% endif %}
     <div class="voucher-row amount-row"><div class="voucher-label">{% if voucher.income_source == 'sports_academies' %}إجمالي المبلغ بالأرقام{% else %}المبلغ بالأرقام{% endif %}</div><div class="voucher-value amount-number">{{ voucher.amount }} جنيه مصري</div></div>
     <div class="voucher-row"><div class="voucher-label">{% if voucher.income_source == 'sports_academies' %}إجمالي المبلغ بالحروف{% else %}المبلغ بالحروف{% endif %}</div><div class="voucher-value amount-words">{{ voucher.amount_in_words }}</div></div>
-    <div class="voucher-row statement-row"><div class="voucher-label">{% if voucher.voucher_type == 'disbursement' %}سبب الصرف{% else %}البيان{% endif %}</div><div class="voucher-value">{{ voucher.statement|linebreaksbr }}</div></div>
+    {% if voucher.voucher_type == 'disbursement' %}<div class="voucher-row statement-row"><div class="voucher-label">سبب الصرف</div><div class="voucher-value">{{ voucher.statement|linebreaksbr }}</div></div>{% endif %}
   </section>
 
   <footer class="voucher-footer">
-    <div class="voucher-signature">
-      <div class="signature-title">{{ voucher.signature_title }}</div>
-      <div class="signature-name">{{ signature_display_name|default:'-' }}</div>
-      <div class="signature-space">التوقيع: ................................</div>
+    <div class="voucher-signatures">
+      <div class="voucher-signature">
+        <div class="signature-title">{{ voucher_signatories.sports_manager.title }}</div>
+        <div class="signature-name">{{ voucher_signatories.sports_manager.name|default:'-' }}</div>
+        <div class="signature-space">التوقيع: ................................</div>
+      </div>
+      <div class="voucher-signature">
+        <div class="signature-title">{{ voucher_signatories.operations_manager.title }}</div>
+        <div class="signature-name">{{ voucher_signatories.operations_manager.name|default:'-' }}</div>
+        <div class="signature-space">التوقيع: ................................</div>
+      </div>
     </div>
     <div class="voucher-meta">
       <div>أُنشئ بواسطة: {{ voucher.created_by.first_name|default:voucher.created_by.username|default:'-' }}</div>
@@ -70,10 +77,10 @@
 .voucher-date-line{text-align:center;font-size:13px;line-height:1.8;margin:6mm 0;padding:3mm 2mm;background:#f1f5f9;border-radius:6px}
 .voucher-row{display:grid;grid-template-columns:34mm 1fr;border:1px solid #cbd5e1;border-bottom:0;min-height:13mm}.voucher-row:last-child{border-bottom:1px solid #cbd5e1}.voucher-label{background:#e8eef7;font-weight:800;padding:3.5mm 3mm}.voucher-value{padding:3.5mm 3mm;font-size:12.5px}.amount-number{font-size:16px;font-weight:900}.amount-words{font-weight:800}.statement-row{min-height:28mm}
 .voucher-academies{margin:3mm 0}.voucher-academies table{width:100%;border-collapse:collapse;font-size:10px}.voucher-academies th,.voucher-academies td{border:1px solid #cbd5e1;padding:2.2mm 1.5mm;text-align:center}.voucher-academies th{background:#e8eef7;font-weight:900}
-.voucher-footer{display:flex;direction:ltr;justify-content:space-between;align-items:flex-end;margin-top:10mm}.voucher-signature{direction:rtl;width:48mm;text-align:center}.voucher-signature>div{width:100%;text-align:center;white-space:nowrap}.signature-title{font-size:13px;font-weight:900;margin-bottom:2mm}.signature-name{font-size:12px;font-weight:800;margin-bottom:6mm;min-height:5mm}.signature-space{padding-top:3mm}.voucher-meta{direction:rtl;text-align:right;font-size:9px;line-height:1.8;color:#475569}
+.voucher-footer{margin-top:10mm}.voucher-signatures{display:grid;grid-template-columns:1fr 1fr;direction:rtl;gap:20mm;align-items:start}.voucher-signature{direction:rtl;text-align:center}.voucher-signature>div{width:100%;text-align:center;white-space:nowrap}.signature-title{font-size:13px;font-weight:900;margin-bottom:2mm}.signature-name{font-size:12px;font-weight:800;margin-bottom:6mm;min-height:5mm}.signature-space{padding-top:3mm}.voucher-meta{direction:rtl;text-align:center;font-size:9px;line-height:1.8;color:#475569;margin-top:6mm}
 @media(max-width:620px){.financial-voucher-sheet{width:100%;padding:7mm}.voucher-heading h1{font-size:18px}.voucher-number{font-size:9px}}
-@page{size:A5 portrait;margin:0}
-@media print{.sidebar,.no-print,body>nav{display:none!important}html,body{width:148mm!important;min-height:208mm!important;height:auto!important;margin:0!important;background:#fff!important;overflow:visible!important}body>.container-fluid{width:148mm!important;min-height:208mm!important;height:auto!important;margin:0!important;padding:0!important;overflow:visible!important}body>.container-fluid>.row{width:148mm!important;min-height:208mm!important;height:auto!important;margin:0!important;padding:0!important}.content,main.content,main.container-fluid{margin:0!important;padding:0!important;width:148mm!important;min-height:208mm!important;height:auto!important;max-width:none!important;overflow:visible!important}.financial-voucher-sheet{width:148mm!important;max-width:none!important;min-height:207mm!important;height:auto!important;margin:0!important;padding:9mm!important;border:0!important;border-top-width:4px!important;border-top-style:solid!important;border-radius:0!important;box-shadow:none!important;overflow:visible!important}.voucher-header{min-height:42mm}.voucher-footer{margin-top:9mm}}
+@page{size:A5 portrait;margin:8mm}
+@media print{.sidebar,.no-print,body>nav{display:none!important}html,body{width:auto!important;min-height:0!important;height:auto!important;margin:0!important;padding:0!important;background:#fff!important;overflow:visible!important}body>.container-fluid,body>.container-fluid>.row{width:100%!important;min-height:0!important;height:auto!important;margin:0!important;padding:0!important;overflow:visible!important}.content,main.content,main.container-fluid{margin:0!important;padding:0!important;width:100%!important;min-height:0!important;height:auto!important;max-width:none!important;overflow:visible!important}.financial-voucher-sheet{width:100%!important;max-width:none!important;min-height:194mm!important;height:auto!important;margin:0!important;padding:5mm!important;border:0!important;border-top-width:4px!important;border-top-style:solid!important;border-radius:0!important;box-shadow:none!important;overflow:visible!important}.voucher-header{min-height:39mm}.voucher-footer{margin-top:7mm}.voucher-signatures{gap:12mm}}
 </style>
 <script>
 function printVoucher(asPdf){

@@ -1379,6 +1379,7 @@ class FinancialVoucherForm(forms.ModelForm):
             self.fields['income_source'].choices = [('', 'اختر مصدر الدخل')] + list(
                 FinancialVoucher.INCOME_SOURCE_CHOICES
             )
+            self.fields.pop('statement', None)
         else:
             self.fields.pop('income_source', None)
             self.fields.pop('academies', None)

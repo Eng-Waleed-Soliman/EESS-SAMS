@@ -4759,6 +4759,30 @@ def _voucher_aligned_employee_names_by_title():
     }
 
 
+def _financial_voucher_signatories(branch=None):
+    """Return the two fixed signatories shown on every financial voucher."""
+    roles = [
+        ('sports_manager', 'مدير النشاط الرياضي', {
+            _norm('مدير النشاط الرياضي'), _norm('المدير الرياضي'), _norm('مدير رياضي'),
+        }),
+        ('operations_manager', 'مدير التشغيل', {_norm('مدير التشغيل')}),
+    ]
+    employees = list(Employee.objects.exclude(job_title='').order_by('name'))
+    result = {}
+    for key, label, aliases in roles:
+        employee = None
+        if branch:
+            employee = next((
+                item for item in employees
+                if item.branch_id == branch.pk and _norm(item.job_title) in aliases
+            ), None)
+        employee = employee or next(
+            (item for item in employees if _norm(item.job_title) in aliases), None,
+        )
+        result[key] = {'title': label, 'name': employee.name if employee else ''}
+    return result
+
+
 @login_required
 def financial_voucher_list(request):
     denied = _voucher_access_or_redirect(request)
@@ -4800,16 +4824,21 @@ def financial_voucher_create(request, voucher_type):
     if voucher_type not in type_labels:
         messages.error(request, 'نوع الأمر المالي غير صحيح.')
         return redirect('financial_voucher_list')
+    active_branch, all_branches = selected_branch(request)
+    voucher_branch = None if all_branches else active_branch
+    signatories = _financial_voucher_signatories(voucher_branch)
     form = FinancialVoucherForm(
         request.POST or None, initial={'voucher_date': date.today()},
-        fixed_signature=_sports_manager_signature(request),
+        fixed_signature=(
+            signatories['sports_manager']['title'],
+            signatories['sports_manager']['name'],
+        ),
         voucher_type=voucher_type,
     )
     if form.is_valid():
         voucher = form.save(commit=False)
         voucher.voucher_type = voucher_type
         voucher.created_by = request.user
-        active_branch, all_branches = selected_branch(request)
         if not all_branches:
             voucher.branch = active_branch
         voucher.save()
@@ -4823,6 +4852,7 @@ def financial_voucher_create(request, voucher_type):
         'form': form,
         'voucher_type': voucher_type,
         'title': type_labels[voucher_type],
+        'voucher_signatories': signatories,
     })
 
 
@@ -4832,10 +4862,15 @@ def financial_voucher_update(request, pk):
     if denied:
         return denied
     voucher = get_object_or_404(FinancialVoucher, pk=pk)
+    signatories = _financial_voucher_signatories(voucher.branch)
     form = FinancialVoucherForm(
         request.POST or None,
         instance=voucher,
         voucher_type=voucher.voucher_type,
+        fixed_signature=(
+            signatories['sports_manager']['title'],
+            signatories['sports_manager']['name'],
+        ),
     )
     if form.is_valid():
         voucher = form.save()
@@ -4850,6 +4885,7 @@ def financial_voucher_update(request, pk):
         'voucher_type': voucher.voucher_type,
         'title': f'تعديل {voucher.get_voucher_type_display()}',
         'voucher': voucher,
+        'voucher_signatories': signatories,
     })
 
 
@@ -4881,7 +4917,7 @@ def financial_voucher_detail(request, pk):
     )
     return render(request, 'academies/financial_voucher_detail.html', {
         'voucher': voucher,
-        'signature_display_name': _aligned_signature_name(voucher.signature_title, voucher.signer_name),
+        'voucher_signatories': _financial_voucher_signatories(voucher.branch),
         'print_date': date.today(),
         'auto_print': request.GET.get('auto_print') == '1',
         'print_as_pdf': request.GET.get('pdf') == '1',
