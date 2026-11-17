@@ -2498,7 +2498,19 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
     if not all_branches:
         items = items.filter(branch=active_branch)
         supplies = supplies.filter(branch=active_branch)
-        voucher_supplies = voucher_supplies.filter(branch=active_branch)
+        cafeteria_branch_ids = list(
+            CafeteriaItem.objects.exclude(branch__isnull=True)
+            .values_list('branch_id', flat=True).distinct()[:2]
+        )
+        voucher_branch_filter = Q(branch=active_branch)
+        if (
+            active_branch and len(cafeteria_branch_ids) == 1
+            and cafeteria_branch_ids[0] == active_branch.pk
+        ):
+            # Older vouchers created while "all branches" was selected have
+            # no branch.  They belong to the sole branch that has a cafeteria.
+            voucher_branch_filter |= Q(branch__isnull=True)
+        voucher_supplies = voucher_supplies.filter(voucher_branch_filter)
         operating_expenses = operating_expenses.filter(branch=active_branch)
         categorized_expenses = categorized_expenses.filter(branch=active_branch)
 
@@ -4861,6 +4873,16 @@ def financial_voucher_create(request, voucher_type):
         voucher.created_by = request.user
         if not all_branches:
             voucher.branch = active_branch
+        elif (
+            voucher_type == FinancialVoucher.TYPE_SUPPLY
+            and voucher.income_source == FinancialVoucher.SOURCE_CAFETERIA
+        ):
+            cafeteria_branch_ids = list(
+                CafeteriaItem.objects.exclude(branch__isnull=True)
+                .values_list('branch_id', flat=True).distinct()[:2]
+            )
+            if len(cafeteria_branch_ids) == 1:
+                voucher.branch_id = cafeteria_branch_ids[0]
         voucher.save()
         form.save_academy_allocations(voucher)
         destination = reverse('financial_voucher_detail', kwargs={'pk': voucher.pk})
