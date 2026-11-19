@@ -1358,9 +1358,14 @@ class FinancialVoucherForm(forms.ModelForm):
 
     class Meta:
         model = FinancialVoucher
-        fields = ['income_source', 'amount', 'statement', 'voucher_date', 'signature_title', 'signature_name']
+        fields = [
+            'income_source', 'daily_booking_date_from', 'daily_booking_date_to',
+            'amount', 'statement', 'voucher_date', 'signature_title', 'signature_name',
+        ]
         widgets = {
             'income_source': forms.Select(attrs={'class': 'form-select'}),
+            'daily_booking_date_from': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'daily_booking_date_to': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
             'statement': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
             'voucher_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
@@ -1382,6 +1387,8 @@ class FinancialVoucherForm(forms.ModelForm):
             self.fields.pop('statement', None)
         else:
             self.fields.pop('income_source', None)
+            self.fields.pop('daily_booking_date_from', None)
+            self.fields.pop('daily_booking_date_to', None)
             self.fields.pop('academies', None)
             self.fields.pop('academy_allocations', None)
         if self.instance and self.instance.pk and self.voucher_type == FinancialVoucher.TYPE_SUPPLY:
@@ -1446,6 +1453,18 @@ class FinancialVoucherForm(forms.ModelForm):
         if self.voucher_type != FinancialVoucher.TYPE_SUPPLY:
             return cleaned
         source = cleaned.get('income_source')
+        if source == FinancialVoucher.SOURCE_DAILY_BOOKING:
+            date_from = cleaned.get('daily_booking_date_from')
+            date_to = cleaned.get('daily_booking_date_to')
+            if not date_from:
+                self.add_error('daily_booking_date_from', 'اختر تاريخ بداية فترة الحجز اليومي.')
+            if not date_to:
+                self.add_error('daily_booking_date_to', 'اختر تاريخ نهاية فترة الحجز اليومي.')
+            if date_from and date_to and date_from > date_to:
+                self.add_error('daily_booking_date_to', 'تاريخ النهاية يجب ألا يسبق تاريخ البداية.')
+        else:
+            cleaned['daily_booking_date_from'] = None
+            cleaned['daily_booking_date_to'] = None
         if source != FinancialVoucher.SOURCE_SPORTS_ACADEMIES:
             self.cleaned_academy_allocations = []
             return cleaned

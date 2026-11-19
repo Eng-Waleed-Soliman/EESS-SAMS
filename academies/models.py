@@ -882,6 +882,12 @@ class FinancialVoucher(models.Model):
         blank=True,
         verbose_name='مصدر الدخل',
     )
+    daily_booking_date_from = models.DateField(
+        null=True, blank=True, verbose_name='الحجز اليومي من تاريخ',
+    )
+    daily_booking_date_to = models.DateField(
+        null=True, blank=True, verbose_name='الحجز اليومي إلى تاريخ',
+    )
     statement = models.TextField(verbose_name='السبب / البيان')
     voucher_date = models.DateField(verbose_name='التاريخ')
     signature_title = models.CharField(max_length=150, verbose_name='مسمى وظيفة التوقيع')

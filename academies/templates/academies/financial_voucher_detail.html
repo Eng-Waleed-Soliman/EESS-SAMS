@@ -34,6 +34,9 @@
     {% if voucher.voucher_type == 'supply' and voucher.income_source %}
     <div class="voucher-row"><div class="voucher-label">مصدر الدخل</div><div class="voucher-value fw-bold">{{ voucher.get_income_source_display }}</div></div>
     {% endif %}
+    {% if voucher.voucher_type == 'supply' and voucher.income_source == 'daily_booking' and voucher.daily_booking_date_from and voucher.daily_booking_date_to %}
+    <div class="voucher-row"><div class="voucher-label">فترة الحجز اليومي</div><div class="voucher-value fw-bold">من {{ voucher.daily_booking_date_from|date:'d/m/Y' }} إلى {{ voucher.daily_booking_date_to|date:'d/m/Y' }}</div></div>
+    {% endif %}
     {% if voucher.voucher_type == 'supply' and voucher.income_source == 'sports_academies' %}
     <div class="voucher-academies">
       <table>

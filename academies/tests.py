@@ -1036,8 +1036,25 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, 'window.print()')
 
         supply_url = reverse('financial_voucher_create', args=['supply'])
+        supply_screen = self.client.get(supply_url)
+        self.assertContains(supply_screen, 'id="dailyBookingPeriodSection"')
+        self.assertContains(supply_screen, 'name="daily_booking_date_from"')
+        self.assertContains(supply_screen, 'name="daily_booking_date_to"')
+        period_start = today - timedelta(days=6)
+        invalid_period = self.client.post(supply_url, {
+            'income_source': FinancialVoucher.SOURCE_DAILY_BOOKING,
+            'daily_booking_date_from': today.isoformat(),
+            'daily_booking_date_to': period_start.isoformat(),
+            'amount': 2000,
+            'voucher_date': today.isoformat(),
+        })
+        self.assertEqual(invalid_period.status_code, 200)
+        self.assertContains(invalid_period, 'تاريخ النهاية يجب ألا يسبق تاريخ البداية')
+        self.assertFalse(FinancialVoucher.objects.filter(voucher_type=FinancialVoucher.TYPE_SUPPLY).exists())
         response = self.client.post(supply_url, {
             'income_source': FinancialVoucher.SOURCE_DAILY_BOOKING,
+            'daily_booking_date_from': period_start.isoformat(),
+            'daily_booking_date_to': today.isoformat(),
             'amount': 2000,
             'statement': 'توريد إيراد يومي',
             'voucher_date': today.isoformat(),
@@ -1047,9 +1064,14 @@ class ApplicationFlowsTests(TestCase):
         self.assertRedirects(response, reverse('financial_voucher_detail', args=[supply.pk]))
         self.assertEqual(supply.voucher_number, 'ت-00001')
         self.assertEqual(supply.amount_in_words, 'ألفان جنيه مصري فقط لا غير')
+        self.assertEqual(supply.daily_booking_date_from, period_start)
+        self.assertEqual(supply.daily_booking_date_to, today)
         supply_detail = self.client.get(reverse('financial_voucher_detail', args=[supply.pk]))
         self.assertContains(supply_detail, 'يتم استلام')
         self.assertContains(supply_detail, 'المبلغ المالي الموضح أدناه اليوم')
+        self.assertContains(supply_detail, 'فترة الحجز اليومي')
+        self.assertContains(supply_detail, period_start.strftime('%d/%m/%Y'))
+        self.assertContains(supply_detail, today.strftime('%d/%m/%Y'))
         self.assertNotContains(supply_detail, '>البيان<')
         list_response = self.client.get(reverse('financial_voucher_list'))
         self.assertContains(list_response, voucher.voucher_number)

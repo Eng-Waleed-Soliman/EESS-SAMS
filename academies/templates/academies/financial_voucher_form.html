@@ -26,6 +26,12 @@
   <div class="row g-3">
     {% if voucher_type == 'supply' %}
     <div class="col-12"><label class="form-label fw-bold">{{ form.income_source.label }}</label>{{ form.income_source }}<div class="text-danger small">{{ form.income_source.errors }}</div></div>
+    <div class="col-12" id="dailyBookingPeriodSection" hidden>
+      <div class="daily-booking-period-box row g-3">
+        <div class="col-md-6"><label class="form-label fw-bold">من تاريخ</label>{{ form.daily_booking_date_from }}<div class="text-danger small">{{ form.daily_booking_date_from.errors }}</div></div>
+        <div class="col-md-6"><label class="form-label fw-bold">إلى تاريخ</label>{{ form.daily_booking_date_to }}<div class="text-danger small">{{ form.daily_booking_date_to.errors }}</div></div>
+      </div>
+    </div>
     <div class="col-12" id="academyIncomeSection" hidden>
       <div class="academy-income-box">
         <label class="form-label fw-bold">{{ form.academies.label }}</label>
@@ -57,6 +63,7 @@
 .voucher-form-brand{position:absolute;left:0;top:0;width:205px;text-align:center;direction:ltr;font-size:12px;line-height:1.45;font-weight:700}
 .voucher-form-brand img{display:block;max-width:72px;max-height:65px;object-fit:contain;margin:0 auto 5px}.voucher-form-brand .brand-ar{direction:rtl}
 .academy-income-box{padding:16px;border:1px solid #bae6fd;border-radius:14px;background:#f0f9ff}.academy-allocation-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,240px);gap:12px;align-items:start;padding:12px;margin-top:9px;border:1px solid #dbeafe;border-radius:12px;background:#fff}.academy-allocation-name{font-weight:800;padding-top:10px}.academy-allocation-words{font-size:12px;font-weight:700;color:#1d4ed8;margin-top:5px}.academy-allocation-row input{width:100%}
+.daily-booking-period-box{padding:16px;border:1px solid #bae6fd;border-radius:14px;background:#f0f9ff;margin:0}
 .voucher-signatories-preview{display:grid;grid-template-columns:1fr 1fr;gap:18px;direction:rtl;margin-top:8px;padding:16px;border:1px solid #cbd5e1;border-radius:14px;background:#f8fafc}.voucher-signatories-preview>div{text-align:center}.voucher-signatories-preview strong,.voucher-signatories-preview span{display:block}.voucher-signatories-preview span{margin-top:7px;font-weight:800;color:#334155}
 @media(max-width:767px){.voucher-form-header{padding-top:105px}.voucher-form-header h2{padding:0}.voucher-form-brand{left:50%;transform:translateX(-50%)}}
 @media(max-width:575px){.academy-allocation-row,.voucher-signatories-preview{grid-template-columns:1fr}}
@@ -67,6 +74,7 @@
   const totalWords = document.getElementById('voucherAmountInWords');
   const sourceField = document.getElementById('id_income_source');
   const academySection = document.getElementById('academyIncomeSection');
+  const dailyBookingSection = document.getElementById('dailyBookingPeriodSection');
   const academySelect = document.getElementById('id_academies');
   const allocationsField = document.getElementById('id_academy_allocations');
   const rowsContainer = document.getElementById('academyAllocationRows');
@@ -132,7 +140,9 @@
   function syncSource(){
     if(!sourceField||!academySection||!amountInput)return;
     const isAcademies=sourceField.value==='sports_academies';
+    const isDailyBooking=sourceField.value==='daily_booking';
     academySection.hidden=!isAcademies;
+    if(dailyBookingSection)dailyBookingSection.hidden=!isDailyBooking;
     amountInput.readOnly=isAcademies;
     if(isAcademies){renderAcademyRows();}
     else if(allocationsField){allocationsField.value='[]';updateTotalWords();}
