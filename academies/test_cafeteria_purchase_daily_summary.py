@@ -43,3 +43,18 @@ class CafeteriaPurchaseDailySummaryTests(TestCase):
         self.assertContains(response, 'daily-summary-row')
         self.assertContains(response, 'دبل كليك')
         self.assertContains(response, '500 جرام')
+        self.assertContains(
+            response,
+            reverse('cafe_purchase_day_delete', args=[selected_date.isoformat()]),
+        )
+
+        delete_url = reverse('cafe_purchase_day_delete', args=[selected_date.isoformat()])
+        confirmation = self.client.get(delete_url)
+        self.assertContains(confirmation, 'حذف يوم مشتريات بالكامل')
+        self.assertContains(confirmation, 'عدد حركات الشراء التي سيتم حذفها: 2')
+        self.assertContains(confirmation, '350 جنيه')
+
+        response = self.client.post(delete_url)
+        self.assertRedirects(response, reverse('cafe_purchase_list'))
+        self.assertFalse(CafeteriaPurchase.objects.filter(purchase_date=selected_date).exists())
+        self.assertEqual(CafeteriaPurchase.objects.count(), 1)

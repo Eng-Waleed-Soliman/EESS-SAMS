@@ -3570,6 +3570,42 @@ def cafe_purchase_delete(request, pk):
     return _generic_delete(request, get_object_or_404(CafeteriaPurchase, pk=pk), 'حذف حركة شراء كافيتريا', 'cafe_purchase_list')
 
 
+@login_required
+def cafe_purchase_day_delete(request, purchase_date):
+    try:
+        selected_date = date.fromisoformat(purchase_date)
+    except ValueError:
+        raise Http404('تاريخ المشتريات غير صحيح.')
+    purchases = CafeteriaPurchase.objects.select_related('item').filter(
+        purchase_date=selected_date,
+    )
+    movement_count = purchases.count()
+    if not movement_count:
+        messages.error(request, 'لا توجد حركات شراء مسجلة في هذا اليوم.')
+        return redirect('cafe_purchase_list')
+    total_amount = sum(purchase.total_amount for purchase in purchases)
+    if request.method == 'POST':
+        purchases.delete()
+        messages.success(
+            request,
+            f'تم حذف يوم {selected_date:%d/%m/%Y} وجميع حركات الشراء الخاصة به وعددها {movement_count}.',
+        )
+        return redirect('cafe_purchase_list')
+    return render(request, 'academies/simple_confirm_delete.html', {
+        'object': f'جميع مشتريات يوم {selected_date:%d/%m/%Y}',
+        'title': 'حذف يوم مشتريات بالكامل',
+        'back_url': 'cafe_purchase_list',
+        'safe_delete_notice': (
+            'سيتم حذف جميع حركات شراء أصناف الكافيتريا المسجلة في هذا اليوم نهائيًا، '
+            'وسيتغير المخزون والكاش والتقارير بناءً على الحركات المتبقية.'
+        ),
+        'archive_details': [
+            f'عدد حركات الشراء التي سيتم حذفها: {movement_count}',
+            f'إجمالي قيمة المشتريات التي سيتم حذفها: {total_amount:,} جنيه',
+        ],
+    })
+
+
 def _cafeteria_requirements(item, quantity):
     if item.item_type != CafeteriaItem.TYPE_MIXED:
         return {item.id: quantity}

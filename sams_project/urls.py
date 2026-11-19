@@ -113,6 +113,7 @@ urlpatterns = [
     path('cafeteria/items/<int:pk>/delete/', views.cafe_item_delete, name='cafe_item_delete'),
     path('cafeteria/purchases/', views.cafe_purchase_list, name='cafe_purchase_list'),
     path('cafeteria/purchases/add/', views.cafe_purchase_create, name='cafe_purchase_create'),
+    path('cafeteria/purchases/day/<str:purchase_date>/delete/', views.cafe_purchase_day_delete, name='cafe_purchase_day_delete'),
     path('cafeteria/purchases/<int:pk>/edit/', views.cafe_purchase_update, name='cafe_purchase_update'),
     path('cafeteria/purchases/<int:pk>/delete/', views.cafe_purchase_delete, name='cafe_purchase_delete'),
     path('cafeteria/sales/', views.cafe_sale_list, name='cafe_sale_list'),

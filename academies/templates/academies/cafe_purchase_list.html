@@ -8,16 +8,17 @@
 <div class="alert alert-info">اضغط دبل كليك على صف اليوم لعرض أو إخفاء تفاصيل مشتريات هذا اليوم.</div>
 <div class="card p-3 table-responsive">
   <table class="table table-striped align-middle text-center" id="dailyPurchasesTable">
-    <thead><tr><th>التاريخ</th><th>عدد حركات الشراء</th><th>إجمالي مشتروات أصناف الكافيتريا عن اليوم</th></tr></thead>
+    <thead><tr><th>التاريخ</th><th>عدد حركات الشراء</th><th>إجمالي مشتروات أصناف الكافيتريا عن اليوم</th><th>الإجراء</th></tr></thead>
     <tbody>
       {% for group in daily_groups %}
       <tr class="daily-summary-row" data-target="purchase-details-{{ forloop.counter }}" tabindex="0" title="دبل كليك لعرض التفاصيل">
         <td class="fw-bold">{{ group.date }}</td>
         <td>{{ group.movement_count }}</td>
         <td class="fw-bold">{{ group.total_amount }}</td>
+        <td><a class="btn btn-sm btn-danger" href="{% url 'cafe_purchase_day_delete' group.date|date:'Y-m-d' %}">حذف اليوم بالكامل</a></td>
       </tr>
       <tr class="daily-details-row d-none" id="purchase-details-{{ forloop.counter }}">
-        <td colspan="3" class="p-3">
+        <td colspan="4" class="p-3">
           <div class="detail-title mb-2">تفاصيل مشتريات يوم {{ group.date }}</div>
           <div class="table-responsive">
             <table class="table table-bordered table-sm mb-0 text-center align-middle">
@@ -39,9 +40,9 @@
           </div>
         </td>
       </tr>
-      {% empty %}<tr><td colspan="3">لا توجد حركات شراء مسجلة</td></tr>{% endfor %}
+      {% empty %}<tr><td colspan="4">لا توجد حركات شراء مسجلة</td></tr>{% endfor %}
     </tbody>
-    {% if daily_groups %}<tfoot><tr class="table-light fw-bold"><th colspan="2">إجمالي مشتروات أصناف الكافيتريا</th><th>{{ grand_total }}</th></tr></tfoot>{% endif %}
+    {% if daily_groups %}<tfoot><tr class="table-light fw-bold"><th colspan="2">إجمالي مشتروات أصناف الكافيتريا</th><th>{{ grand_total }}</th><th></th></tr></tfoot>{% endif %}
   </table>
 </div>
 <style>
