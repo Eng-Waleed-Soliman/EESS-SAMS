@@ -1042,20 +1042,22 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(supply_screen, 'name="daily_booking_date_to"')
         period_start = today - timedelta(days=6)
         invalid_period = self.client.post(supply_url, {
-            'income_source': FinancialVoucher.SOURCE_DAILY_BOOKING,
+            'income_sources': [FinancialVoucher.SOURCE_DAILY_BOOKING],
             'daily_booking_date_from': today.isoformat(),
             'daily_booking_date_to': period_start.isoformat(),
-            'amount': 2000,
+            'daily_booking_amount': 2000,
+            'amount': 0,
             'voucher_date': today.isoformat(),
         })
         self.assertEqual(invalid_period.status_code, 200)
         self.assertContains(invalid_period, 'تاريخ النهاية يجب ألا يسبق تاريخ البداية')
         self.assertFalse(FinancialVoucher.objects.filter(voucher_type=FinancialVoucher.TYPE_SUPPLY).exists())
         response = self.client.post(supply_url, {
-            'income_source': FinancialVoucher.SOURCE_DAILY_BOOKING,
+            'income_sources': [FinancialVoucher.SOURCE_DAILY_BOOKING],
             'daily_booking_date_from': period_start.isoformat(),
             'daily_booking_date_to': today.isoformat(),
-            'amount': 2000,
+            'daily_booking_amount': 2000,
+            'amount': 0,
             'statement': 'توريد إيراد يومي',
             'voucher_date': today.isoformat(),
             'signature_title': 'المدير المالي',
@@ -1120,7 +1122,7 @@ class ApplicationFlowsTests(TestCase):
         )
         supply_url = reverse('financial_voucher_create', args=['supply'])
         create_screen = self.client.get(supply_url)
-        self.assertContains(create_screen, 'مصدر الدخل')
+        self.assertContains(create_screen, 'مصادر الدخل')
         self.assertContains(create_screen, 'الأكاديميات الرياضية')
         self.assertContains(create_screen, 'الحجز اليومي')
         self.assertContains(create_screen, 'دخل الكافيتريا')
@@ -1133,9 +1135,17 @@ class ApplicationFlowsTests(TestCase):
             {'academy_id': academy_two.pk, 'amount': 2000},
         ]
         response = self.client.post(supply_url, {
-            'income_source': FinancialVoucher.SOURCE_SPORTS_ACADEMIES,
+            'income_sources': [
+                FinancialVoucher.SOURCE_SPORTS_ACADEMIES,
+                FinancialVoucher.SOURCE_DAILY_BOOKING,
+                FinancialVoucher.SOURCE_CAFETERIA,
+            ],
             'academies': [academy_one.pk, academy_two.pk],
             'academy_allocations': json.dumps(allocations),
+            'daily_booking_amount': 300,
+            'daily_booking_date_from': date.today().isoformat(),
+            'daily_booking_date_to': date.today().isoformat(),
+            'cafeteria_amount': 450,
             'amount': 0,
             'statement': 'توريد إيرادات أكاديميات رياضية',
             'voucher_date': date.today().isoformat(),
@@ -1144,7 +1154,8 @@ class ApplicationFlowsTests(TestCase):
         voucher = FinancialVoucher.objects.get(voucher_type=FinancialVoucher.TYPE_SUPPLY)
         self.assertRedirects(response, reverse('financial_voucher_detail', args=[voucher.pk]))
         self.assertEqual(voucher.income_source, FinancialVoucher.SOURCE_SPORTS_ACADEMIES)
-        self.assertEqual(voucher.amount, 3250)
+        self.assertEqual(voucher.amount, 4000)
+        self.assertEqual(voucher.income_allocations.count(), 3)
         saved_allocations = list(voucher.academy_allocations.order_by('amount'))
         self.assertEqual(
             [(row.academy_id, row.amount) for row in saved_allocations],
@@ -1159,7 +1170,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(detail, '<th>النشاط</th>', html=True)
         self.assertContains(detail, '1250 جنيه')
         self.assertContains(detail, '2000 جنيه')
-        self.assertContains(detail, '3250 جنيه مصري')
+        self.assertContains(detail, '4000 جنيه مصري')
         self.assertContains(detail, voucher.amount_in_words)
         self.assertContains(detail, saved_allocations[0].amount_in_words)
         self.assertContains(detail, saved_allocations[1].amount_in_words)

@@ -31,13 +31,25 @@
   </section>
 
   <section class="voucher-body">
-    {% if voucher.voucher_type == 'supply' and voucher.income_source %}
-    <div class="voucher-row"><div class="voucher-label">مصدر الدخل</div><div class="voucher-value fw-bold">{{ voucher.get_income_source_display }}</div></div>
+    {% if voucher.voucher_type == 'supply' %}
+    <div class="voucher-income-sources">
+      <table>
+        <thead><tr><th>مصدر الدخل</th><th>التفاصيل</th><th>المبلغ</th></tr></thead>
+        <tbody>
+          {% for allocation in voucher.income_allocations.all %}
+          <tr>
+            <td>{{ allocation.get_source_display }}</td>
+            <td>{% if allocation.source == 'daily_booking' %}فترة الحجز اليومي: من {{ allocation.daily_booking_date_from|date:'d/m/Y' }} إلى {{ allocation.daily_booking_date_to|date:'d/m/Y' }}{% elif allocation.source == 'sports_academies' %}تفاصيل الأكاديميات موضحة أدناه{% else %}-{% endif %}</td>
+            <td>{{ allocation.amount }} جنيه</td>
+          </tr>
+          {% empty %}
+          <tr><td>{{ voucher.get_income_source_display }}</td><td>{% if voucher.daily_booking_date_from and voucher.daily_booking_date_to %}من {{ voucher.daily_booking_date_from|date:'d/m/Y' }} إلى {{ voucher.daily_booking_date_to|date:'d/m/Y' }}{% else %}-{% endif %}</td><td>{{ voucher.amount }} جنيه</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% endif %}
-    {% if voucher.voucher_type == 'supply' and voucher.income_source == 'daily_booking' and voucher.daily_booking_date_from and voucher.daily_booking_date_to %}
-    <div class="voucher-row"><div class="voucher-label">فترة الحجز اليومي</div><div class="voucher-value fw-bold">من {{ voucher.daily_booking_date_from|date:'d/m/Y' }} إلى {{ voucher.daily_booking_date_to|date:'d/m/Y' }}</div></div>
-    {% endif %}
-    {% if voucher.voucher_type == 'supply' and voucher.income_source == 'sports_academies' %}
+    {% if voucher.voucher_type == 'supply' and voucher.academy_allocations.all %}
     <div class="voucher-academies">
       <table>
         <thead><tr><th>اسم الأكاديمية</th><th>النشاط</th><th>المبلغ بالأرقام</th><th>المبلغ بالحروف</th></tr></thead>
@@ -45,8 +57,8 @@
       </table>
     </div>
     {% endif %}
-    <div class="voucher-row amount-row"><div class="voucher-label">{% if voucher.income_source == 'sports_academies' %}إجمالي المبلغ بالأرقام{% else %}المبلغ بالأرقام{% endif %}</div><div class="voucher-value amount-number">{{ voucher.amount }} جنيه مصري</div></div>
-    <div class="voucher-row"><div class="voucher-label">{% if voucher.income_source == 'sports_academies' %}إجمالي المبلغ بالحروف{% else %}المبلغ بالحروف{% endif %}</div><div class="voucher-value amount-words">{{ voucher.amount_in_words }}</div></div>
+    <div class="voucher-row amount-row"><div class="voucher-label">إجمالي المبلغ بالأرقام</div><div class="voucher-value amount-number">{{ voucher.amount }} جنيه مصري</div></div>
+    <div class="voucher-row"><div class="voucher-label">إجمالي المبلغ بالحروف</div><div class="voucher-value amount-words">{{ voucher.amount_in_words }}</div></div>
     {% if voucher.voucher_type == 'disbursement' %}<div class="voucher-row statement-row"><div class="voucher-label">سبب الصرف</div><div class="voucher-value">{{ voucher.statement|linebreaksbr }}</div></div>{% endif %}
   </section>
 
@@ -80,6 +92,7 @@
 .voucher-date-line{text-align:center;font-size:13px;line-height:1.8;margin:6mm 0;padding:3mm 2mm;background:#f1f5f9;border-radius:6px}
 .voucher-row{display:grid;grid-template-columns:34mm 1fr;border:1px solid #cbd5e1;border-bottom:0;min-height:13mm}.voucher-row:last-child{border-bottom:1px solid #cbd5e1}.voucher-label{background:#e8eef7;font-weight:800;padding:3.5mm 3mm}.voucher-value{padding:3.5mm 3mm;font-size:12.5px}.amount-number{font-size:16px;font-weight:900}.amount-words{font-weight:800}.statement-row{min-height:28mm}
 .voucher-academies{margin:3mm 0}.voucher-academies table{width:100%;border-collapse:collapse;font-size:10px}.voucher-academies th,.voucher-academies td{border:1px solid #cbd5e1;padding:2.2mm 1.5mm;text-align:center}.voucher-academies th{background:#e8eef7;font-weight:900}
+.voucher-income-sources{margin:0 0 3mm}.voucher-income-sources table{width:100%;border-collapse:collapse;font-size:10.5px}.voucher-income-sources th,.voucher-income-sources td{border:1px solid #cbd5e1;padding:2.4mm 1.5mm;text-align:center}.voucher-income-sources th{background:#dcfce7;font-weight:900}
 .voucher-footer{margin-top:10mm}.voucher-signatures{display:grid;grid-template-columns:1fr 1fr;direction:rtl;gap:20mm;align-items:start}.voucher-signature{direction:rtl;text-align:center}.voucher-signature>div{width:100%;text-align:center;white-space:nowrap}.signature-title{font-size:13px;font-weight:900;margin-bottom:2mm}.signature-name{font-size:12px;font-weight:800;margin-bottom:6mm;min-height:5mm}.signature-space{padding-top:3mm}.voucher-meta{direction:rtl;text-align:center;font-size:9px;line-height:1.8;color:#475569;margin-top:6mm}
 @media(max-width:620px){.financial-voucher-sheet{width:100%;padding:7mm}.voucher-heading h1{font-size:18px}.voucher-number{font-size:9px}}
 @page{size:A5 portrait;margin:8mm}

@@ -980,6 +980,46 @@ class FinancialVoucherAcademyAllocation(models.Model):
         return f'{self.academy.name} - {self.amount}'
 
 
+class FinancialVoucherIncomeAllocation(models.Model):
+    voucher = models.ForeignKey(
+        FinancialVoucher,
+        on_delete=models.CASCADE,
+        related_name='income_allocations',
+        verbose_name='أمر التوريد',
+    )
+    source = models.CharField(
+        max_length=30,
+        choices=FinancialVoucher.INCOME_SOURCE_CHOICES,
+        verbose_name='مصدر الدخل',
+    )
+    amount = models.PositiveIntegerField(verbose_name='المبلغ المالي')
+    daily_booking_date_from = models.DateField(
+        null=True, blank=True, verbose_name='الحجز اليومي من تاريخ',
+    )
+    daily_booking_date_to = models.DateField(
+        null=True, blank=True, verbose_name='الحجز اليومي إلى تاريخ',
+    )
+
+    class Meta:
+        ordering = ['id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['voucher', 'source'],
+                name='unique_income_source_per_financial_voucher',
+            ),
+        ]
+        verbose_name = 'مصدر دخل في أمر توريد'
+        verbose_name_plural = 'مصادر الدخل في أوامر التوريد'
+
+    @property
+    def amount_in_words(self):
+        from .number_words import egyptian_pounds_in_words
+        return egyptian_pounds_in_words(self.amount)
+
+    def __str__(self):
+        return f'{self.get_source_display()} - {self.amount}'
+
+
 class AcademyMonthlyRentPayment(models.Model):
     academy = models.ForeignKey(Academy, on_delete=models.CASCADE, related_name='monthly_rent_payments', verbose_name='الأكاديمية')
     month = models.DateField(verbose_name='الشهر')

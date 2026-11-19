@@ -116,8 +116,15 @@ class CafeteriaCashSupplyTests(TestCase):
         session.save()
         create_url = reverse('financial_voucher_create', args=['supply'])
         response = self.client.post(create_url, {
-            'income_source': FinancialVoucher.SOURCE_CAFETERIA,
-            'amount': 31,
+            'income_sources': [
+                FinancialVoucher.SOURCE_CAFETERIA,
+                FinancialVoucher.SOURCE_DAILY_BOOKING,
+            ],
+            'cafeteria_amount': 31,
+            'daily_booking_amount': 12,
+            'daily_booking_date_from': date.today().isoformat(),
+            'daily_booking_date_to': date.today().isoformat(),
+            'amount': 43,
             'voucher_date': date.today().isoformat(),
         })
 
@@ -126,6 +133,8 @@ class CafeteriaCashSupplyTests(TestCase):
             income_source=FinancialVoucher.SOURCE_CAFETERIA,
         )
         self.assertRedirects(response, reverse('financial_voucher_detail', args=[voucher.pk]))
+        self.assertEqual(voucher.amount, 43)
+        self.assertEqual(voucher.income_allocations.count(), 2)
         self.assertEqual(voucher.branch, self.branch)
         session = self.client.session
         session['active_branch_id'] = self.branch.pk

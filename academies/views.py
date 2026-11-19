@@ -23,7 +23,7 @@ from django.http import HttpResponse, Http404, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, ExpenseCategory, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, SecurityMovement
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, ExpenseCategory, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, FinancialVoucherIncomeAllocation, SecurityMovement
 from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, ExpenseCategoryForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaRecipeComponentFormSet, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .models import AcademyPlayerMonthlySubscription
@@ -2489,9 +2489,14 @@ def cafe_sale_prices(request):
 def _cafeteria_cash_balance(active_branch=None, all_branches=False):
     items = CafeteriaItem.objects.all()
     supplies = CafeteriaCashSupply.objects.all()
-    voucher_supplies = FinancialVoucher.objects.filter(
+    voucher_supplies = FinancialVoucherIncomeAllocation.objects.filter(
+        voucher__voucher_type=FinancialVoucher.TYPE_SUPPLY,
+        source=FinancialVoucher.SOURCE_CAFETERIA,
+    )
+    legacy_voucher_supplies = FinancialVoucher.objects.filter(
         voucher_type=FinancialVoucher.TYPE_SUPPLY,
         income_source=FinancialVoucher.SOURCE_CAFETERIA,
+        income_allocations__isnull=True,
     )
     operating_expenses = CafeteriaOperatingExpense.objects.all()
     categorized_expenses = MonthlyExpense.objects.select_related('category')
@@ -2502,15 +2507,22 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
             CafeteriaItem.objects.exclude(branch__isnull=True)
             .values_list('branch_id', flat=True).distinct()[:2]
         )
-        voucher_branch_filter = Q(branch=active_branch)
+        voucher_branch_filter = Q(voucher__branch=active_branch)
         if (
             active_branch and len(cafeteria_branch_ids) == 1
             and cafeteria_branch_ids[0] == active_branch.pk
         ):
             # Older vouchers created while "all branches" was selected have
             # no branch.  They belong to the sole branch that has a cafeteria.
-            voucher_branch_filter |= Q(branch__isnull=True)
+            voucher_branch_filter |= Q(voucher__branch__isnull=True)
         voucher_supplies = voucher_supplies.filter(voucher_branch_filter)
+        legacy_branch_filter = Q(branch=active_branch)
+        if (
+            active_branch and len(cafeteria_branch_ids) == 1
+            and cafeteria_branch_ids[0] == active_branch.pk
+        ):
+            legacy_branch_filter |= Q(branch__isnull=True)
+        legacy_voucher_supplies = legacy_voucher_supplies.filter(legacy_branch_filter)
         operating_expenses = operating_expenses.filter(branch=active_branch)
         categorized_expenses = categorized_expenses.filter(branch=active_branch)
 
@@ -2526,6 +2538,7 @@ def _cafeteria_cash_balance(active_branch=None, all_branches=False):
     )
     supplied_cash_total = supplies.aggregate(total=Sum('amount'))['total'] or 0
     voucher_supplied_cash_total = voucher_supplies.aggregate(total=Sum('amount'))['total'] or 0
+    voucher_supplied_cash_total += legacy_voucher_supplies.aggregate(total=Sum('amount'))['total'] or 0
     operating_expense_total = operating_expenses.aggregate(total=Sum('amount'))['total'] or 0
     categorized_expense_total = sum(
         row.amount for row in categorized_expenses
@@ -4875,7 +4888,7 @@ def financial_voucher_create(request, voucher_type):
             voucher.branch = active_branch
         elif (
             voucher_type == FinancialVoucher.TYPE_SUPPLY
-            and voucher.income_source == FinancialVoucher.SOURCE_CAFETERIA
+            and FinancialVoucher.SOURCE_CAFETERIA in set(form.cleaned_data.get('income_sources') or [])
         ):
             cafeteria_branch_ids = list(
                 CafeteriaItem.objects.exclude(branch__isnull=True)
@@ -4885,6 +4898,7 @@ def financial_voucher_create(request, voucher_type):
                 voucher.branch_id = cafeteria_branch_ids[0]
         voucher.save()
         form.save_academy_allocations(voucher)
+        form.save_income_allocations(voucher)
         destination = reverse('financial_voucher_detail', kwargs={'pk': voucher.pk})
         submit_action = request.POST.get('submit_action', 'save')
         if submit_action in {'print', 'pdf'}:
@@ -4917,6 +4931,7 @@ def financial_voucher_update(request, pk):
     if form.is_valid():
         voucher = form.save()
         form.save_academy_allocations(voucher)
+        form.save_income_allocations(voucher)
         destination = reverse('financial_voucher_detail', kwargs={'pk': voucher.pk})
         submit_action = request.POST.get('submit_action', 'save')
         if submit_action in {'print', 'pdf'}:
@@ -4953,7 +4968,7 @@ def financial_voucher_detail(request, pk):
         return denied
     voucher = get_object_or_404(
         FinancialVoucher.objects.select_related('created_by').prefetch_related(
-            'academy_allocations__academy'
+            'academy_allocations__academy', 'income_allocations'
         ),
         pk=pk,
     )

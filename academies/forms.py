@@ -9,7 +9,7 @@ from django.db.models import Q
 from django.core.files.uploadedfile import UploadedFile, SimpleUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UsernameField
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, ExpenseCategory, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, FacilityGalleryImage, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher, FinancialVoucherAcademyAllocation
+from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, ExpenseCategory, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, FacilityGalleryImage, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher, FinancialVoucherAcademyAllocation, FinancialVoucherIncomeAllocation
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -1338,6 +1338,20 @@ class AcademyDepositPlanForm(forms.ModelForm):
 
 
 class FinancialVoucherForm(forms.ModelForm):
+    income_sources = forms.MultipleChoiceField(
+        label='مصادر الدخل',
+        choices=FinancialVoucher.INCOME_SOURCE_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    daily_booking_amount = forms.IntegerField(
+        label='مبلغ الحجز اليومي', required=False, min_value=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
+    )
+    cafeteria_amount = forms.IntegerField(
+        label='مبلغ دخل الكافيتريا', required=False, min_value=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
+    )
     academies = forms.ModelMultipleChoiceField(
         label='اسم الأكاديمية',
         queryset=Academy.objects.none(),
@@ -1359,11 +1373,10 @@ class FinancialVoucherForm(forms.ModelForm):
     class Meta:
         model = FinancialVoucher
         fields = [
-            'income_source', 'daily_booking_date_from', 'daily_booking_date_to',
+            'daily_booking_date_from', 'daily_booking_date_to',
             'amount', 'statement', 'voucher_date', 'signature_title', 'signature_name',
         ]
         widgets = {
-            'income_source': forms.Select(attrs={'class': 'form-select'}),
             'daily_booking_date_from': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'daily_booking_date_to': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'step': '1'}),
@@ -1379,19 +1392,35 @@ class FinancialVoucherForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['academies'].queryset = Academy.objects.order_by('name')
         if self.voucher_type == FinancialVoucher.TYPE_SUPPLY:
-            self.fields['income_source'].required = True
             self.fields['amount'].label = 'إجمالي المبلغ المالي'
-            self.fields['income_source'].choices = [('', 'اختر مصدر الدخل')] + list(
-                FinancialVoucher.INCOME_SOURCE_CHOICES
-            )
+            self.fields['amount'].required = False
+            self.fields['amount'].widget.attrs['readonly'] = 'readonly'
             self.fields.pop('statement', None)
         else:
-            self.fields.pop('income_source', None)
+            self.fields.pop('income_sources', None)
+            self.fields.pop('daily_booking_amount', None)
+            self.fields.pop('cafeteria_amount', None)
             self.fields.pop('daily_booking_date_from', None)
             self.fields.pop('daily_booking_date_to', None)
             self.fields.pop('academies', None)
             self.fields.pop('academy_allocations', None)
         if self.instance and self.instance.pk and self.voucher_type == FinancialVoucher.TYPE_SUPPLY:
+            income_rows = list(self.instance.income_allocations.all())
+            if income_rows:
+                self.fields['income_sources'].initial = [row.source for row in income_rows]
+                for row in income_rows:
+                    if row.source == FinancialVoucher.SOURCE_DAILY_BOOKING:
+                        self.fields['daily_booking_amount'].initial = row.amount
+                        self.fields['daily_booking_date_from'].initial = row.daily_booking_date_from
+                        self.fields['daily_booking_date_to'].initial = row.daily_booking_date_to
+                    elif row.source == FinancialVoucher.SOURCE_CAFETERIA:
+                        self.fields['cafeteria_amount'].initial = row.amount
+            elif self.instance.income_source:
+                self.fields['income_sources'].initial = [self.instance.income_source]
+                if self.instance.income_source == FinancialVoucher.SOURCE_DAILY_BOOKING:
+                    self.fields['daily_booking_amount'].initial = self.instance.amount
+                elif self.instance.income_source == FinancialVoucher.SOURCE_CAFETERIA:
+                    self.fields['cafeteria_amount'].initial = self.instance.amount
             allocations = list(self.instance.academy_allocations.select_related('academy'))
             self.fields['academies'].initial = [row.academy_id for row in allocations]
             self.fields['academy_allocations'].initial = json.dumps([
@@ -1439,10 +1468,7 @@ class FinancialVoucherForm(forms.ModelForm):
 
     def clean_amount(self):
         amount = self.cleaned_data.get('amount') or 0
-        if (
-            self.voucher_type == FinancialVoucher.TYPE_SUPPLY
-            and self.data.get('income_source') == FinancialVoucher.SOURCE_SPORTS_ACADEMIES
-        ):
+        if self.voucher_type == FinancialVoucher.TYPE_SUPPLY:
             return amount
         if amount <= 0:
             raise forms.ValidationError('قيمة المبلغ يجب أن تكون أكبر من صفر.')
@@ -1452,10 +1478,15 @@ class FinancialVoucherForm(forms.ModelForm):
         cleaned = super().clean()
         if self.voucher_type != FinancialVoucher.TYPE_SUPPLY:
             return cleaned
-        source = cleaned.get('income_source')
-        if source == FinancialVoucher.SOURCE_DAILY_BOOKING:
+        sources = set(cleaned.get('income_sources') or [])
+        if not sources:
+            self.add_error('income_sources', 'اختر مصدر دخل واحدًا على الأقل.')
+        if FinancialVoucher.SOURCE_DAILY_BOOKING in sources:
             date_from = cleaned.get('daily_booking_date_from')
             date_to = cleaned.get('daily_booking_date_to')
+            daily_amount = cleaned.get('daily_booking_amount') or 0
+            if daily_amount <= 0:
+                self.add_error('daily_booking_amount', 'أدخل مبلغ الحجز اليومي.')
             if not date_from:
                 self.add_error('daily_booking_date_from', 'اختر تاريخ بداية فترة الحجز اليومي.')
             if not date_to:
@@ -1465,41 +1496,47 @@ class FinancialVoucherForm(forms.ModelForm):
         else:
             cleaned['daily_booking_date_from'] = None
             cleaned['daily_booking_date_to'] = None
-        if source != FinancialVoucher.SOURCE_SPORTS_ACADEMIES:
+            cleaned['daily_booking_amount'] = None
+        if FinancialVoucher.SOURCE_CAFETERIA not in sources:
+            cleaned['cafeteria_amount'] = None
+        elif (cleaned.get('cafeteria_amount') or 0) <= 0:
+            self.add_error('cafeteria_amount', 'أدخل مبلغ دخل الكافيتريا.')
+        if FinancialVoucher.SOURCE_SPORTS_ACADEMIES not in sources:
             self.cleaned_academy_allocations = []
-            return cleaned
-        selected_academies = cleaned.get('academies')
-        selected_ids = {academy.pk for academy in selected_academies} if selected_academies else set()
-        try:
-            raw_allocations = json.loads(cleaned.get('academy_allocations') or '[]')
-        except (TypeError, ValueError, json.JSONDecodeError):
-            raw_allocations = []
-        allocations = []
-        seen_ids = set()
-        for row in raw_allocations if isinstance(raw_allocations, list) else []:
+        else:
+            selected_academies = cleaned.get('academies')
+            selected_ids = {academy.pk for academy in selected_academies} if selected_academies else set()
             try:
-                academy_id = int(row.get('academy_id'))
-                amount = int(row.get('amount'))
-            except (AttributeError, TypeError, ValueError):
-                continue
-            if academy_id in selected_ids and academy_id not in seen_ids and amount > 0:
-                allocations.append({'academy_id': academy_id, 'amount': amount})
-                seen_ids.add(academy_id)
-        if not selected_ids:
-            self.add_error('academies', 'اختر أكاديمية واحدة على الأقل.')
-        elif seen_ids != selected_ids:
-            self.add_error('academy_allocations', 'أدخل مبلغًا ماليًا صحيحًا لكل أكاديمية مختارة.')
-        if allocations:
-            cleaned['amount'] = sum(row['amount'] for row in allocations)
-        self.cleaned_academy_allocations = allocations
+                raw_allocations = json.loads(cleaned.get('academy_allocations') or '[]')
+            except (TypeError, ValueError, json.JSONDecodeError):
+                raw_allocations = []
+            allocations = []
+            seen_ids = set()
+            for row in raw_allocations if isinstance(raw_allocations, list) else []:
+                try:
+                    academy_id = int(row.get('academy_id'))
+                    amount = int(row.get('amount'))
+                except (AttributeError, TypeError, ValueError):
+                    continue
+                if academy_id in selected_ids and academy_id not in seen_ids and amount > 0:
+                    allocations.append({'academy_id': academy_id, 'amount': amount})
+                    seen_ids.add(academy_id)
+            if not selected_ids:
+                self.add_error('academies', 'اختر أكاديمية واحدة على الأقل.')
+            elif seen_ids != selected_ids:
+                self.add_error('academy_allocations', 'أدخل مبلغًا ماليًا صحيحًا لكل أكاديمية مختارة.')
+            self.cleaned_academy_allocations = allocations
+        total = sum(row['amount'] for row in getattr(self, 'cleaned_academy_allocations', []))
+        total += cleaned.get('daily_booking_amount') or 0
+        total += cleaned.get('cafeteria_amount') or 0
+        if total <= 0 and sources:
+            self.add_error('amount', 'إجمالي المبلغ يجب أن يكون أكبر من صفر.')
+        cleaned['amount'] = total
         return cleaned
 
     def save_academy_allocations(self, voucher):
         voucher.academy_allocations.all().delete()
-        if (
-            voucher.voucher_type == FinancialVoucher.TYPE_SUPPLY
-            and voucher.income_source == FinancialVoucher.SOURCE_SPORTS_ACADEMIES
-        ):
+        if FinancialVoucher.SOURCE_SPORTS_ACADEMIES in set(self.cleaned_data.get('income_sources') or []):
             FinancialVoucherAcademyAllocation.objects.bulk_create([
                 FinancialVoucherAcademyAllocation(
                     voucher=voucher,
@@ -1508,6 +1545,42 @@ class FinancialVoucherForm(forms.ModelForm):
                 )
                 for row in getattr(self, 'cleaned_academy_allocations', [])
             ])
+
+    def save_income_allocations(self, voucher):
+        voucher.income_allocations.all().delete()
+        if voucher.voucher_type != FinancialVoucher.TYPE_SUPPLY:
+            return
+        sources = list(self.cleaned_data.get('income_sources') or [])
+        academy_total = sum(row['amount'] for row in getattr(self, 'cleaned_academy_allocations', []))
+        rows = []
+        for source in sources:
+            if source == FinancialVoucher.SOURCE_SPORTS_ACADEMIES:
+                amount = academy_total
+            elif source == FinancialVoucher.SOURCE_DAILY_BOOKING:
+                amount = self.cleaned_data.get('daily_booking_amount') or 0
+            else:
+                amount = self.cleaned_data.get('cafeteria_amount') or 0
+            rows.append(FinancialVoucherIncomeAllocation(
+                voucher=voucher,
+                source=source,
+                amount=amount,
+                daily_booking_date_from=(
+                    self.cleaned_data.get('daily_booking_date_from')
+                    if source == FinancialVoucher.SOURCE_DAILY_BOOKING else None
+                ),
+                daily_booking_date_to=(
+                    self.cleaned_data.get('daily_booking_date_to')
+                    if source == FinancialVoucher.SOURCE_DAILY_BOOKING else None
+                ),
+            ))
+        FinancialVoucherIncomeAllocation.objects.bulk_create(rows)
+        voucher.income_source = sources[0] if sources else ''
+        voucher.daily_booking_date_from = self.cleaned_data.get('daily_booking_date_from')
+        voucher.daily_booking_date_to = self.cleaned_data.get('daily_booking_date_to')
+        voucher.amount = self.cleaned_data.get('amount') or 0
+        voucher.save(update_fields=[
+            'income_source', 'daily_booking_date_from', 'daily_booking_date_to', 'amount', 'updated_at',
+        ])
 
 
 class DailyBookingForm(forms.ModelForm):
