@@ -141,6 +141,15 @@ class CafeteriaCashSupplyTests(TestCase):
         session.save()
         self.assertEqual(self.client.get(reverse('cafe_inventory')).context['cafeteria_cash'], 19)
 
+        cafeteria_register = self.client.get(reverse('cafe_cash_supply_create'))
+        self.assertContains(cafeteria_register, f'أمر توريد مالي {voucher.voucher_number}')
+        self.assertContains(cafeteria_register, '<td class="fw-bold">31</td>', html=True)
+        daily_register = self.client.get(reverse('daily_income_supply'))
+        self.assertContains(daily_register, f'أمر التوريد {voucher.voucher_number}')
+        self.assertContains(daily_register, 'فترة الحجز من')
+        self.assertContains(daily_register, '<td class="fw-bold">12</td>', html=True)
+        self.assertEqual(daily_register.context['supplied_total'], 12)
+
         voucher.delete()
         self.assertEqual(self.client.get(reverse('cafe_inventory')).context['cafeteria_cash'], 50)
 

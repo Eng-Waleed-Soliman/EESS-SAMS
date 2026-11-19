@@ -1477,12 +1477,44 @@ def daily_income_supply(request):
         messages.success(request, 'تم تسجيل توريد المبلغ النقدي بنجاح.')
         return redirect('daily_income_supply')
     supplies = DailyIncomeSupply.objects.all().order_by('-supply_date', '-created_at')
+    voucher_supplies = FinancialVoucherIncomeAllocation.objects.select_related(
+        'voucher', 'voucher__created_by', 'voucher__branch',
+    ).filter(
+        voucher__voucher_type=FinancialVoucher.TYPE_SUPPLY,
+        source=FinancialVoucher.SOURCE_DAILY_BOOKING,
+    )
     if not all_branches:
         supplies = supplies.filter(branch=active_branch)
+        voucher_supplies = voucher_supplies.filter(voucher__branch=active_branch)
+    supply_rows = [
+        {
+            'date': supply.supply_date,
+            'amount': supply.amount,
+            'notes': supply.notes,
+            'source': 'توريد نقدي مباشر',
+            'sort_id': supply.pk,
+        }
+        for supply in supplies
+    ]
+    supply_rows.extend({
+        'date': allocation.voucher.voucher_date,
+        'amount': allocation.amount,
+        'notes': (
+            f'أمر التوريد {allocation.voucher.voucher_number} — '
+            f'فترة الحجز من {allocation.daily_booking_date_from:%d/%m/%Y} '
+            f'إلى {allocation.daily_booking_date_to:%d/%m/%Y}'
+            if allocation.daily_booking_date_from and allocation.daily_booking_date_to
+            else f'أمر التوريد {allocation.voucher.voucher_number}'
+        ),
+        'source': 'أمر توريد مالي',
+        'sort_id': allocation.voucher_id,
+    } for allocation in voucher_supplies)
+    supply_rows.sort(key=lambda row: (row['date'], row['sort_id']), reverse=True)
     return render(request, 'academies/daily_income_supply.html', {
         'form': form,
         'supplies': supplies,
-        'supplied_total': supplies.aggregate(total=Sum('amount'))['total'] or 0,
+        'supply_rows': supply_rows,
+        'supplied_total': sum(row['amount'] for row in supply_rows),
     })
 
 
@@ -2793,8 +2825,25 @@ def cafe_cash_supply_create(request):
         initial={'supply_date': date.today()},
     )
     supplies = CafeteriaCashSupply.objects.select_related('branch', 'created_by')
+    voucher_supplies = FinancialVoucherIncomeAllocation.objects.select_related(
+        'voucher', 'voucher__branch', 'voucher__created_by',
+    ).filter(
+        voucher__voucher_type=FinancialVoucher.TYPE_SUPPLY,
+        source=FinancialVoucher.SOURCE_CAFETERIA,
+    )
     if not all_branches:
         supplies = supplies.filter(branch=active_branch)
+        cafeteria_branch_ids = list(
+            CafeteriaItem.objects.exclude(branch__isnull=True)
+            .values_list('branch_id', flat=True).distinct()[:2]
+        )
+        voucher_branch_filter = Q(voucher__branch=active_branch)
+        if (
+            active_branch and len(cafeteria_branch_ids) == 1
+            and cafeteria_branch_ids[0] == active_branch.pk
+        ):
+            voucher_branch_filter |= Q(voucher__branch__isnull=True)
+        voucher_supplies = voucher_supplies.filter(voucher_branch_filter)
     if request.method == 'POST' and form.is_valid():
         available_cash = _cafeteria_cash_balance(active_branch, all_branches)
         if form.cleaned_data['amount'] > available_cash:
@@ -2809,11 +2858,33 @@ def cafe_cash_supply_create(request):
             supply.save()
             messages.success(request, 'تم حفظ توريد مبلغ الكافيتريا بنجاح.')
             return redirect('cafe_sale_list' if return_to_sales else 'cafe_inventory')
+    supplies = supplies.order_by('-supply_date', '-id')
+    supply_rows = [
+        {
+            'date': supply.supply_date,
+            'amount': supply.amount,
+            'created_by': supply.created_by,
+            'branch': supply.branch,
+            'source': 'توريد كافيتريا مباشر',
+            'sort_id': supply.pk,
+        }
+        for supply in supplies
+    ]
+    supply_rows.extend({
+        'date': allocation.voucher.voucher_date,
+        'amount': allocation.amount,
+        'created_by': allocation.voucher.created_by,
+        'branch': allocation.voucher.branch,
+        'source': f'أمر توريد مالي {allocation.voucher.voucher_number}',
+        'sort_id': allocation.voucher_id,
+    } for allocation in voucher_supplies)
+    supply_rows.sort(key=lambda row: (row['date'], row['sort_id']), reverse=True)
     return render(request, 'academies/cafe_cash_supply_form.html', {
         'form': form,
         'return_to_sales': return_to_sales,
         'back_url': 'cafe_sale_list' if return_to_sales else 'cafe_inventory',
-        'supplies': supplies.order_by('-supply_date', '-id'),
+        'supplies': supplies,
+        'supply_rows': supply_rows,
     })
 
 
