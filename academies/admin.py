@@ -117,8 +117,8 @@ class AcademyDepositInstallmentAdmin(admin.ModelAdmin):
 
 @admin.register(FinancialVoucher)
 class FinancialVoucherAdmin(admin.ModelAdmin):
-    list_display = ('voucher_number', 'voucher_type', 'voucher_date', 'amount', 'signature_title', 'created_by')
-    list_filter = ('voucher_type', 'voucher_date')
+    list_display = ('voucher_number', 'voucher_type', 'voucher_date', 'amount', 'signature_title', 'reviewed_at', 'created_by')
+    list_filter = ('voucher_type', 'voucher_date', 'reviewed_at')
     search_fields = ('statement', 'signature_title')
 
 

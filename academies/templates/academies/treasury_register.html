@@ -1,0 +1,81 @@
+{% extends 'academies/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h3>الخزينة</h3>
+  <a class="btn btn-secondary" href="{% url 'accounts_home' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">رجوع للحسابات</a>
+</div>
+
+<div class="card p-3 mb-4">
+  <form method="get" class="row g-3 align-items-end">
+    <input type="hidden" name="tab" value="{{ selected_tab }}">
+    <div class="col-md-5">
+      <label class="form-label fw-bold">الشهر</label>
+      <input type="month" name="month" value="{{ month_value }}" class="form-control" onchange="this.form.submit()">
+    </div>
+    <div class="col-md-5">
+      <label class="form-label fw-bold">الفرع</label>
+      <select name="branch_id" class="form-select" onchange="this.form.submit()">
+        <option value="all" {% if active_branch_is_all %}selected{% endif %}>كل الفروع</option>
+        {% for branch in available_branches %}<option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.display_name }}</option>{% endfor %}
+      </select>
+    </div>
+  </form>
+</div>
+
+<div class="d-flex gap-2 flex-wrap mb-3 treasury-tabs">
+  <a class="btn {% if selected_tab == 'supply' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?tab=supply&amp;month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">التوريدات</a>
+  <a class="btn {% if selected_tab == 'disbursement' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?tab=disbursement&amp;month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">المصروفات</a>
+</div>
+
+<div class="card p-3 table-responsive">
+  {% if selected_tab == 'supply' %}
+  <table class="table table-striped text-center align-middle treasury-table">
+    <thead><tr><th>التاريخ</th><th>مصدر الدخل / اسم الأكاديمية الرياضية</th><th>المبلغ المالي</th><th>المراجعة</th></tr></thead>
+    <tbody>
+      {% for row in supply_rows %}
+      <tr>
+        <td>{{ row.date|date:'d/m/Y' }}</td><td>{{ row.source }}</td><td>{{ row.amount }}</td>
+        <td>
+          {% if row.voucher.reviewed_at %}
+          <span class="reviewed-label">تمت المراجعة</span>
+          <a class="btn btn-sm" href="{% url 'financial_voucher_detail' row.voucher.pk %}?auto_print=1&amp;pdf=1">تصدير PDF</a>
+          {% else %}
+          <form method="post" action="{% url 'treasury_review' row.voucher.pk %}" class="d-inline">{% csrf_token %}
+            <input type="hidden" name="tab" value="supply"><input type="hidden" name="month" value="{{ month_value }}"><input type="hidden" name="branch_id" value="{% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">
+            <button class="btn btn-sm" type="submit">مراجعة</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="4">لا توجد أوامر توريد في الشهر المختار</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <table class="table table-striped text-center align-middle treasury-table">
+    <thead><tr><th>التاريخ</th><th>المبلغ المالي</th><th>سبب الصرف</th><th>المراجعة</th></tr></thead>
+    <tbody>
+      {% for voucher in disbursement_rows %}
+      <tr>
+        <td>{{ voucher.voucher_date|date:'d/m/Y' }}</td><td>{{ voucher.amount }}</td><td>{{ voucher.statement }}</td>
+        <td>
+          {% if voucher.reviewed_at %}
+          <span class="reviewed-label">تمت المراجعة</span>
+          <a class="btn btn-sm" href="{% url 'financial_voucher_detail' voucher.pk %}?auto_print=1&amp;pdf=1">تصدير PDF</a>
+          {% else %}
+          <form method="post" action="{% url 'treasury_review' voucher.pk %}" class="d-inline">{% csrf_token %}
+            <input type="hidden" name="tab" value="disbursement"><input type="hidden" name="month" value="{{ month_value }}"><input type="hidden" name="branch_id" value="{% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">
+            <button class="btn btn-sm" type="submit">مراجعة</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="4">لا توجد أوامر صرف في الشهر المختار</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+<style>
+.treasury-tabs .btn{min-width:180px!important}.reviewed-label{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:7px 14px;margin:3px;border-radius:10px;background:#dcfce7;color:#166534;font-weight:900}.treasury-table td:last-child{min-width:285px}
+@media(max-width:768px){.treasury-tabs .btn{flex:1 1 calc(50% - 8px)}.treasury-table{min-width:760px}}
+</style>
+{% endblock %}

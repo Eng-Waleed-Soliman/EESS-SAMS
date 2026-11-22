@@ -41,16 +41,18 @@
   <form class="row g-3 align-items-end" method="get">
     <div class="col-md-4">
       <label class="form-label fw-bold">الشهر</label>
-      <input type="month" name="month" value="{{ month_value }}" class="form-control">
+      <input type="month" name="month" value="{{ month_value }}" class="form-control" onchange="this.form.submit()">
     </div>
     <div class="col-md-4">
       <label class="form-label fw-bold">الفرع</label>
-      <select name="branch_id" class="form-select">
+      <select name="branch_id" class="form-select" onchange="this.form.submit()">
         <option value="all" {% if active_branch_is_all %}selected{% endif %}>كل الفروع</option>
         {% for branch in available_branches %}<option value="{{ branch.pk }}" {% if active_branch and active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.display_name }}</option>{% endfor %}
       </select>
     </div>
-    <div class="col-md-3"><button class="btn btn-primary w-100">عرض</button></div>
+    {% if can_manage_vouchers %}
+    <div class="col-md-3"><a class="btn btn-primary w-100" href="{% url 'treasury_register' %}?month={{ month_value }}&amp;branch_id={% if active_branch_is_all %}all{% else %}{{ active_branch.pk }}{% endif %}">الخزينة</a></div>
+    {% endif %}
   </form>
 </div>
 <header class="accounts-print-header">

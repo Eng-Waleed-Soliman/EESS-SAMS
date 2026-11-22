@@ -896,6 +896,11 @@ class FinancialVoucher(models.Model):
         User, null=True, blank=True, on_delete=models.SET_NULL,
         related_name='financial_vouchers', verbose_name='أنشئ بواسطة',
     )
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name='تاريخ مراجعة الخزينة')
+    reviewed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='reviewed_financial_vouchers', verbose_name='تمت المراجعة بواسطة',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

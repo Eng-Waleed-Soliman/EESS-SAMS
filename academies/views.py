@@ -5887,6 +5887,92 @@ def company_management_home(request):
     return redirect('shareholder_list')
 
 
+def _treasury_supply_rows(vouchers):
+    rows = []
+    for voucher in vouchers:
+        academy_allocations = list(voucher.academy_allocations.all())
+        income_allocations = list(voucher.income_allocations.all())
+        for allocation in academy_allocations:
+            rows.append({
+                'voucher': voucher,
+                'date': voucher.voucher_date,
+                'source': allocation.academy.name,
+                'amount': allocation.amount,
+            })
+        for allocation in income_allocations:
+            if (
+                allocation.source == FinancialVoucher.SOURCE_SPORTS_ACADEMIES
+                and academy_allocations
+            ):
+                continue
+            rows.append({
+                'voucher': voucher,
+                'date': voucher.voucher_date,
+                'source': allocation.get_source_display(),
+                'amount': allocation.amount,
+            })
+        if not academy_allocations and not income_allocations:
+            rows.append({
+                'voucher': voucher,
+                'date': voucher.voucher_date,
+                'source': voucher.get_income_source_display() or voucher.statement,
+                'amount': voucher.amount,
+            })
+    return rows
+
+
+@login_required
+def treasury_register(request):
+    denied = _voucher_access_or_redirect(request)
+    if denied:
+        return denied
+    selected_tab = request.GET.get('tab', FinancialVoucher.TYPE_SUPPLY)
+    if selected_tab not in {FinancialVoucher.TYPE_SUPPLY, FinancialVoucher.TYPE_DISBURSEMENT}:
+        selected_tab = FinancialVoucher.TYPE_SUPPLY
+    year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
+    active_branch, all_branches = selected_branch(request)
+    vouchers = FinancialVoucher.objects.select_related(
+        'created_by', 'reviewed_by',
+    ).prefetch_related(
+        'academy_allocations__academy', 'income_allocations',
+    ).filter(
+        voucher_type=selected_tab,
+        voucher_date__range=(start, end),
+    )
+    if not all_branches:
+        vouchers = vouchers.filter(branch=active_branch)
+    vouchers = list(vouchers.order_by('-voucher_date', '-id'))
+    return render(request, 'academies/treasury_register.html', {
+        'selected_tab': selected_tab,
+        'month_value': month_value,
+        'active_branch': active_branch,
+        'active_branch_is_all': all_branches,
+        'supply_rows': _treasury_supply_rows(vouchers) if selected_tab == FinancialVoucher.TYPE_SUPPLY else [],
+        'disbursement_rows': vouchers if selected_tab == FinancialVoucher.TYPE_DISBURSEMENT else [],
+    })
+
+
+@login_required
+def treasury_review(request, pk):
+    denied = _voucher_access_or_redirect(request)
+    if denied:
+        return denied
+    if request.method != 'POST':
+        return redirect('treasury_register')
+    voucher = get_object_or_404(FinancialVoucher, pk=pk)
+    if not voucher.reviewed_at:
+        voucher.reviewed_at = timezone.now()
+        voucher.reviewed_by = request.user
+        voucher.save(update_fields=['reviewed_at', 'reviewed_by', 'updated_at'])
+        messages.success(request, f'تمت مراجعة الأمر المالي {voucher.voucher_number}.')
+    query = urlencode({
+        'tab': request.POST.get('tab', voucher.voucher_type),
+        'month': request.POST.get('month', voucher.voucher_date.strftime('%Y-%m')),
+        'branch_id': request.POST.get('branch_id', 'all'),
+    })
+    return redirect(f'{reverse("treasury_register")}?{query}')
+
+
 @login_required
 def accounts_home(request):
     profile = _ensure_user_profile(request.user)
