@@ -1,5 +1,6 @@
 import json
 import zipfile
+from unittest.mock import patch
 from io import BytesIO
 from datetime import date, timedelta
 from decimal import Decimal
@@ -60,6 +61,7 @@ from .models import (
     MonthlyExpense,
     OperatingExpense,
     Shareholder,
+    ShareholderProfitWithdrawal,
     SecurityMovement,
     UserPermission,
     WebsiteSetting,
@@ -176,6 +178,26 @@ class ApplicationFlowsTests(TestCase):
         accounts_page = self.client.get(reverse('accounts_home'))
         self.assertNotContains(accounts_page, 'id="payrollSectionToggle"')
         self.assertNotContains(accounts_page, 'id="payrollSection"')
+
+    def test_accounting_and_sports_activity_manager_can_open_selected_reports(self):
+        scenarios = [
+            ('Accounting', {'monthly_income': True}, {'can_accounts': True}),
+            ('Sports_Activity_Manager', {'academies': True}, {'can_report_income': True}),
+        ]
+        for username, report_permissions, profile_fields in scenarios:
+            with self.subTest(username=username):
+                user = User.objects.create_user(username=username, password='test-password')
+                profile = UserPermission.objects.create(
+                    user=user,
+                    report_permissions=report_permissions,
+                    **profile_fields,
+                )
+                self.client.force_login(user)
+                response = self.client.get(reverse('reports_home'))
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.context['allowed_report_options'])
+                profile.delete()
+                user.delete()
 
     def test_public_website_uses_published_management_data(self):
         branch = Branch.objects.create(
@@ -3267,6 +3289,9 @@ class ApplicationFlowsTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'توزيع الأرباح على المساهمين')
+        self.assertContains(response, 'صرف مبلغ من نصيب مساهم')
+        self.assertNotContains(response, '>عرض</button>', html=False)
+        self.assertContains(response, 'onchange="this.form.submit()"')
         self.assertContains(response, 'name="profit_scope"')
         self.assertContains(response, 'إجمالي السنة')
         self.assertContains(response, 'الإجمالي العام')
@@ -3282,6 +3307,36 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(yearly_response.context['shareholder_profit_rows'][0]['profit_share'], -150)
         total_response = self.client.get(reverse('shareholder_list'), {'profit_scope': 'all'})
         self.assertEqual(total_response.context['shareholder_profit_total'], -1500)
+
+        withdrawal_url = reverse('shareholder_profit_withdrawal_create')
+        withdrawal_page = self.client.get(withdrawal_url)
+        self.assertEqual(withdrawal_page.status_code, 200)
+        self.assertContains(withdrawal_page, 'name="shareholder"')
+        self.assertContains(withdrawal_page, 'name="amount"')
+        self.assertContains(withdrawal_page, 'name="withdrawal_date"')
+        with patch('academies.views._month_financial_summary', return_value={'net_profit': 10000}):
+            saved = self.client.post(withdrawal_url, {
+                'shareholder': shareholder.pk,
+                'amount': '250',
+                'withdrawal_date': '2026-07-15',
+            })
+            self.assertRedirects(
+                saved,
+                reverse('shareholder_list') + '?profit_scope=month&profit_year=2026&profit_month=7',
+            )
+            updated = self.client.get(reverse('shareholder_list'), {
+                'profit_scope': 'month', 'profit_year': 2026, 'profit_month': 7,
+            })
+            rejected = self.client.post(withdrawal_url, {
+                'shareholder': shareholder.pk,
+                'amount': '800',
+                'withdrawal_date': '2026-07-20',
+            })
+        self.assertEqual(ShareholderProfitWithdrawal.objects.count(), 1)
+        self.assertEqual(rejected.status_code, 200)
+        self.assertContains(rejected, 'المبلغ يتجاوز النصيب المتاح للمساهم')
+        self.assertEqual(updated.context['shareholder_profit_rows'][0]['withdrawn_amount'], Decimal('250'))
+        self.assertEqual(updated.context['shareholder_profit_rows'][0]['profit_share'], Decimal('750'))
 
         accounts_response = self.client.get(reverse('accounts_home'), {'month': '2026-07'})
         self.assertNotContains(accounts_response, 'توزيع الأرباح على المساهمين')

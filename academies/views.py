@@ -23,8 +23,8 @@ from django.http import HttpResponse, Http404, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from datetime import date, timedelta
-from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, Employee, FoundingExpense, ExpenseCategory, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, FinancialVoucherIncomeAllocation, SecurityMovement
-from .forms import AcademyForm, DailyBookingForm, ShareholderForm, EmployeeForm, FoundingExpenseForm, ExpenseCategoryForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaRecipeComponentFormSet, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
+from .models import Academy, DailyBooking, Customer, OperationDayCancellation, AcademyOperationOverride, Shareholder, ShareholderProfitWithdrawal, Employee, FoundingExpense, ExpenseCategory, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaIngredientUsage, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaHospitality, CafeteriaHospitalityItem, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, DailyBookingCheckout, DailyIncomeSupply, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyRentPaymentEntry, AcademyDepositPlan, AcademyDepositInstallment, FinancialVoucher, FinancialVoucherIncomeAllocation, SecurityMovement
+from .forms import AcademyForm, DailyBookingForm, ShareholderForm, ShareholderProfitWithdrawalForm, EmployeeForm, FoundingExpenseForm, ExpenseCategoryForm, MonthlyExpenseForm, DailyExpenseForm, OperatingExpenseForm, CafeteriaCategoryForm, CafeteriaItemForm, CafeteriaRecipeComponentFormSet, CafeteriaPurchaseForm, CafeteriaAddonForm, CafeteriaSaleForm, CafeteriaCashSupplyForm, CafeteriaOperatingExpenseForm, EESSUserForm, EESSUserUpdateForm, EESSPermissionForm, JobTitleForm, BonusTierForm, AppSettingForm, WebsiteSettingForm, BranchForm, BranchGalleryImageFormSet, FacilityForm, SportActivityMediaForm, ActivityForm, AcademyMemberForm, DailyIncomeSupplyForm, AcademyDepositPlanForm, FinancialVoucherForm, split_values
 from .constants import OPERATION_SCREEN_PLACES, TIME_INDEX, SLOT_LABELS, WEEKDAY_AR, PERIOD_CHOICES, PERIOD_SLOT_RANGES, TIME_CHOICES
 from .models import AcademyPlayerMonthlySubscription
 from .models import FacilityGalleryImage
@@ -523,7 +523,7 @@ SIDEBAR_PERMISSION_MODULES = [
     {'key': 'academy_rent', 'field': 'can_academy_rent', 'label': 'إيجارات الأكاديميات', 'buttons': ['عرض', 'تعديل المسدد', 'تعديل التوريد للشركة', 'تصدير PDF']},
     {'key': 'operation', 'field': 'can_operation', 'label': 'التشغيل', 'buttons': ['تعديل موعد', 'حذف من التشغيل', 'نقل مكان التدريب', 'إرجاع للحالة الأصلية']},
     {'key': 'security', 'field': 'can_security', 'label': 'الأمن', 'buttons': ['الدخول', 'الخروج', 'مسح QR Code', 'تسجيل زائر']},
-    {'key': 'shareholders', 'field': 'can_shareholders', 'label': 'المساهمين', 'buttons': ['إضافة مساهم', 'تعديل مساهم', 'حذف مساهم']},
+    {'key': 'shareholders', 'field': 'can_shareholders', 'label': 'المساهمين', 'buttons': ['إضافة مساهم', 'تعديل مساهم', 'حذف مساهم', 'صرف مبلغ من نصيب مساهم']},
     {'key': 'employees', 'field': 'can_employees', 'label': 'الموظفين', 'buttons': ['إضافة موظف', 'تعديل موظف', 'حذف موظف']},
     {'key': 'general_expenses', 'field': 'can_general_expenses', 'label': 'المصروفات', 'buttons': ['إضافة مصروف', 'تعديل', 'حذف']},
     {
@@ -606,7 +606,7 @@ def _user_allowed_report_types(user):
         return [
             key for key, field in REPORT_PERMISSION_FIELDS.items()
             if report_permissions.get(key)
-            or any(report_permissions.get(old_key) for old_key in legacy_permissions[key])
+            or any(report_permissions.get(old_key) for old_key in legacy_permissions.get(key, ()))
             or getattr(profile, field, False)
             or (key == 'academies' and getattr(profile, 'can_report_shareholders', False))
         ]
@@ -2102,6 +2102,16 @@ def _legacy_daily_income(request):
 
 @login_required
 def shareholder_list(request):
+    profile = _ensure_user_profile(request.user)
+    saved_shareholder_buttons = (profile.button_permissions or {}).get('shareholders')
+    can_withdraw_shareholder_profit = bool(
+        request.user.is_superuser or request.user.is_staff or (
+            profile.can_shareholders and (
+                not saved_shareholder_buttons or
+                'صرف مبلغ من نصيب مساهم' in saved_shareholder_buttons
+            )
+        )
+    )
     q = request.GET.get('q', '').strip()
     shareholders = Shareholder.objects.all()
     if q:
@@ -2119,6 +2129,7 @@ def shareholder_list(request):
         (CafeteriaOperatingExpense.objects.all(), 'expense_date'),
         (MonthlyExpense.objects.all(), 'expense_month'),
         (DailyExpense.objects.all(), 'expense_date'),
+        (ShareholderProfitWithdrawal.objects.all(), 'withdrawal_date'),
     )
     for queryset, field_name in financial_date_sources:
         financial_years.update(value.year for value in queryset.dates(field_name, 'year'))
@@ -2156,15 +2167,31 @@ def shareholder_list(request):
         shareholder_profit_total += int(
             _month_financial_summary(year, month, period_start, period_end)['net_profit'] or 0
         )
-    shareholder_profit_rows = [
-        {
+    first_period_year, first_period_month = min(profit_periods)
+    last_period_year, last_period_month = max(profit_periods)
+    withdrawal_start = date(first_period_year, first_period_month, 1)
+    withdrawal_end = date(
+        last_period_year, last_period_month,
+        monthrange(last_period_year, last_period_month)[1],
+    )
+    withdrawn_by_shareholder = {
+        row['shareholder_id']: row['total'] or Decimal('0')
+        for row in ShareholderProfitWithdrawal.objects.filter(
+            withdrawal_date__range=(withdrawal_start, withdrawal_end)
+        ).values('shareholder_id').annotate(total=Sum('amount'))
+    }
+    shareholder_profit_rows = []
+    for shareholder in Shareholder.objects.all():
+        gross_profit_share = int(
+            shareholder_profit_total * shareholder.share_percentage / 100
+        )
+        withdrawn_amount = withdrawn_by_shareholder.get(shareholder.pk, Decimal('0'))
+        shareholder_profit_rows.append({
             'shareholder': shareholder,
-            'profit_share': int(
-                shareholder_profit_total * shareholder.share_percentage / 100
-            ),
-        }
-        for shareholder in Shareholder.objects.all()
-    ]
+            'gross_profit_share': gross_profit_share,
+            'withdrawn_amount': withdrawn_amount,
+            'profit_share': Decimal(gross_profit_share) - withdrawn_amount,
+        })
     return render(request, 'academies/shareholder_list.html', {
         'shareholders': shareholders,
         'q': q,
@@ -2176,6 +2203,70 @@ def shareholder_list(request):
         'profit_period_label': profit_period_label,
         'shareholder_profit_total': shareholder_profit_total,
         'shareholder_profit_rows': shareholder_profit_rows,
+        'can_withdraw_shareholder_profit': can_withdraw_shareholder_profit,
+    })
+
+
+@login_required
+def shareholder_profit_withdrawal_create(request):
+    profile = _ensure_user_profile(request.user)
+    saved_buttons = (profile.button_permissions or {}).get('shareholders')
+    allowed = bool(
+        request.user.is_superuser or request.user.is_staff or (
+            profile.can_shareholders and (
+                not saved_buttons or 'صرف مبلغ من نصيب مساهم' in saved_buttons
+            )
+        )
+    )
+    if not allowed:
+        messages.error(request, 'ليس لديك صلاحية صرف مبلغ من نصيب مساهم.')
+        return redirect('shareholder_list')
+
+    form = ShareholderProfitWithdrawalForm(
+        request.POST or None,
+        initial={'withdrawal_date': timezone.localdate()},
+    )
+    if form.is_valid():
+        amount = form.cleaned_data['amount']
+        withdrawal_date = form.cleaned_data['withdrawal_date']
+        period_start = withdrawal_date.replace(day=1)
+        period_end = withdrawal_date.replace(
+            day=monthrange(withdrawal_date.year, withdrawal_date.month)[1]
+        )
+        with transaction.atomic():
+            shareholder = Shareholder.objects.select_for_update().get(
+                pk=form.cleaned_data['shareholder'].pk
+            )
+            month_profit = Decimal(str(_month_financial_summary(
+                withdrawal_date.year, withdrawal_date.month, period_start, period_end
+            )['net_profit'] or 0))
+            gross_share = (
+                month_profit * Decimal(shareholder.share_percentage) / Decimal('100')
+            )
+            already_withdrawn = ShareholderProfitWithdrawal.objects.filter(
+                shareholder=shareholder,
+                withdrawal_date__range=(period_start, period_end),
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            available = gross_share - already_withdrawn
+            if amount > available:
+                form.add_error(
+                    'amount',
+                    f'المبلغ يتجاوز النصيب المتاح للمساهم في هذا الشهر ({max(available, Decimal("0"))}).',
+                )
+            else:
+                withdrawal = form.save(commit=False)
+                withdrawal.shareholder = shareholder
+                withdrawal.created_by = request.user
+                withdrawal.save()
+                messages.success(request, 'تم حفظ الصرف وخصم المبلغ من نصيب المساهم في صافي الربح.')
+                query = urlencode({
+                    'profit_scope': 'month',
+                    'profit_year': withdrawal_date.year,
+                    'profit_month': withdrawal_date.month,
+                })
+                return redirect(f'{reverse("shareholder_list")}?{query}')
+    return render(request, 'academies/shareholder_profit_withdrawal_form.html', {
+        'form': form,
     })
 
 @login_required

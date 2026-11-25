@@ -9,7 +9,7 @@ from django.db.models import Q
 from django.core.files.uploadedfile import UploadedFile, SimpleUploadedFile
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UsernameField
-from .models import Academy, DailyBooking, Customer, Shareholder, Employee, FoundingExpense, ExpenseCategory, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, FacilityGalleryImage, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher, FinancialVoucherAcademyAllocation, FinancialVoucherIncomeAllocation
+from .models import Academy, DailyBooking, Customer, Shareholder, ShareholderProfitWithdrawal, Employee, FoundingExpense, ExpenseCategory, MonthlyExpense, DailyExpense, OperatingExpense, CafeteriaCategory, CafeteriaItem, CafeteriaRecipeComponent, CafeteriaPurchase, CafeteriaAddon, CafeteriaSale, CafeteriaCashSupply, CafeteriaOperatingExpense, UserPermission, AcademyOperationOverride, JobTitle, BonusTier, AppSetting, WebsiteSetting, Branch, BranchGalleryImage, Facility, FacilityGalleryImage, SportActivityMedia, Activity, AcademyMember, AcademyMonthlyRentPayment, AcademyDepositPlan, DailyIncomeSupply, FinancialVoucher, FinancialVoucherAcademyAllocation, FinancialVoucherIncomeAllocation
 from .constants import (
     OPERATION_PLACE_CHOICES, OPERATION_SCREEN_PLACES, TRAINING_DAY_CHOICES,
     TIME_CHOICES, TIME_INDEX, SPORT_ACTIVITY_CHOICES, TRAINING_SLOT_CHOICES,
@@ -1908,6 +1908,23 @@ class ShareholderForm(forms.ModelForm):
         if commit:
             shareholder.save()
         return shareholder
+
+
+class ShareholderProfitWithdrawalForm(forms.ModelForm):
+    class Meta:
+        model = ShareholderProfitWithdrawal
+        fields = ['shareholder', 'amount', 'withdrawal_date']
+        widgets = {
+            'shareholder': forms.Select(attrs={'class': 'form-select'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'min': '0.01', 'step': '0.01'}),
+            'withdrawal_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        }
+
+    def clean_amount(self):
+        amount = self.cleaned_data['amount']
+        if amount <= 0:
+            raise forms.ValidationError('المبلغ المالي يجب أن يكون أكبر من صفر.')
+        return amount
 
 
 class EmployeeForm(forms.ModelForm):

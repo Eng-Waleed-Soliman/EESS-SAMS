@@ -1321,6 +1321,30 @@ class Shareholder(models.Model):
         return f'data:{content_type};base64,{encoded}'
 
 
+class ShareholderProfitWithdrawal(models.Model):
+    shareholder = models.ForeignKey(
+        Shareholder, on_delete=models.PROTECT, related_name='profit_withdrawals',
+        verbose_name='اسم المساهم',
+    )
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2, verbose_name='المبلغ المالي',
+    )
+    withdrawal_date = models.DateField(verbose_name='تاريخ الصرف')
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='shareholder_profit_withdrawals', verbose_name='سجل بواسطة',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-withdrawal_date', '-created_at']
+        verbose_name = 'صرف من نصيب مساهم'
+        verbose_name_plural = 'مصروفات أنصبة المساهمين'
+
+    def __str__(self):
+        return f'{self.shareholder} - {self.amount}'
+
+
 
 
 class JobTitle(models.Model):

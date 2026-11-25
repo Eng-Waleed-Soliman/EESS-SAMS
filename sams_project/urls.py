@@ -59,6 +59,7 @@ urlpatterns = [
     path('company-management/', views.company_management_home, name='company_management_home'),
     path('shareholders/', views.shareholder_list, name='shareholder_list'),
     path('shareholders/add/', views.shareholder_create, name='shareholder_create'),
+    path('shareholders/profit-withdrawals/add/', views.shareholder_profit_withdrawal_create, name='shareholder_profit_withdrawal_create'),
     path('shareholders/<int:pk>/edit/', views.shareholder_update, name='shareholder_update'),
     path('shareholders/<int:pk>/delete/', views.shareholder_delete, name='shareholder_delete'),
     path('employees/', views.employee_list, name='employee_list'),
