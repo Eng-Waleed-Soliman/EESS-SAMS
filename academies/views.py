@@ -537,6 +537,7 @@ SIDEBAR_PERMISSION_MODULES = [
             'سجل أوامر الصرف والتوريد',
             'المصروفات',
             'تصدير PDF',
+            'مرتبات الموظفين والبونص',
             'المكافآت',
             'الخصومات',
             'السلف',
@@ -6090,6 +6091,7 @@ def accounts_home(request):
         accounts_button_allowed('المصروفات العامة')
     )
     can_view_treasury = accounts_button_allowed('الخزينة')
+    can_view_payroll_section = accounts_button_allowed('مرتبات الموظفين والبونص')
     can_view_rewards = accounts_button_allowed('المكافآت')
     can_view_deductions = accounts_button_allowed('الخصومات')
     can_view_advances = accounts_button_allowed('السلف')
@@ -6126,6 +6128,7 @@ def accounts_home(request):
         'can_view_voucher_register': accounts_button_allowed('سجل أوامر الصرف والتوريد'),
         'can_export_accounts': can_view_financial_summary and accounts_button_allowed('تصدير PDF'),
         'can_view_treasury': can_view_treasury,
+        'can_view_payroll_section': can_view_payroll_section,
         'can_view_rewards': can_view_rewards,
         'can_view_deductions': can_view_deductions,
         'can_view_advances': can_view_advances,

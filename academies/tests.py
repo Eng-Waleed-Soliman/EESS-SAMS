@@ -136,14 +136,17 @@ class ApplicationFlowsTests(TestCase):
             'الخزينة',
             'أمر صرف مبلغ مالي', 'أمر توريد مبلغ مالي',
             'سجل أوامر الصرف والتوريد', 'المصروفات',
-            'تصدير PDF', 'المكافآت', 'الخصومات', 'السلف',
+            'تصدير PDF', 'مرتبات الموظفين والبونص', 'المكافآت', 'الخصومات', 'السلف',
             'تصدير PDF لمرتبات الموظفين',
         ]:
             self.assertContains(permission_page, f'value="{button_label}"')
         self.assertNotContains(permission_page, 'value="طباعة"')
 
         managed_profile.button_permissions = {
-            'accounts': ['الخزينة', 'أمر توريد مبلغ مالي', 'سجل أوامر الصرف والتوريد', 'المكافآت'],
+            'accounts': [
+                'الخزينة', 'أمر توريد مبلغ مالي', 'سجل أوامر الصرف والتوريد',
+                'مرتبات الموظفين والبونص', 'المكافآت',
+            ],
         }
         managed_profile.save(update_fields=['button_permissions'])
         self.client.force_login(managed_user)
@@ -153,6 +156,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(accounts_page, 'سجل أوامر الصرف والتوريد')
         self.assertContains(accounts_page, '>الخزينة</a>', html=False)
         self.assertContains(accounts_page, '>المكافآت</a>', html=False)
+        self.assertContains(accounts_page, 'id="payrollSectionToggle"')
+        self.assertContains(accounts_page, 'id="payrollSection" hidden')
         self.assertContains(accounts_page, 'class="accounts-actions-menu"')
         self.assertContains(accounts_page, 'class="accounts-actions-toggle"')
         self.assertContains(accounts_page, 'const minimumAccountsMenuVisibilityMs = 1000')
@@ -165,6 +170,12 @@ class ApplicationFlowsTests(TestCase):
         self.assertNotContains(accounts_page, '>الخصومات</a>', html=False)
         self.assertNotContains(accounts_page, '>السلف</a>', html=False)
         self.assertNotContains(accounts_page, 'onclick="printPayrollReport()"')
+
+        managed_profile.button_permissions = {'accounts': ['الخزينة']}
+        managed_profile.save(update_fields=['button_permissions'])
+        accounts_page = self.client.get(reverse('accounts_home'))
+        self.assertNotContains(accounts_page, 'id="payrollSectionToggle"')
+        self.assertNotContains(accounts_page, 'id="payrollSection"')
 
     def test_public_website_uses_published_management_data(self):
         branch = Branch.objects.create(
@@ -3388,6 +3399,9 @@ class ApplicationFlowsTests(TestCase):
         response = self.client.get(reverse('accounts_home'), {'month': '2026-08'})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'class="payroll-actions-menu no-print"')
+        self.assertContains(response, 'id="payrollSectionToggle"')
+        self.assertContains(response, 'id="payrollSection" hidden')
+        self.assertContains(response, "payrollSectionToggle.addEventListener('click'")
         self.assertContains(response, 'class="payroll-actions-toggle"')
         self.assertContains(response, 'class="payroll-actions-dropdown"')
         self.assertContains(response, 'المكافآت')

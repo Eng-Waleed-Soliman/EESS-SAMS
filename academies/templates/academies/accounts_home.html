@@ -72,11 +72,15 @@
   <div class="col-md-3"><div class="card p-3"><b>مصروفات التشغيل</b><h3>{{ summary.operating_expenses }}</h3></div></div>
   <div class="col-md-3"><div class="card p-3"><b>صافي الربح</b><h3>{{ summary.net_profit }}</h3></div></div>
 </div>
-<div class="card p-3 mb-4 payroll-card">
+{% if can_view_payroll_section %}
+<div class="payroll-section-control mb-3 no-print">
+  <button type="button" class="btn payroll-section-toggle" id="payrollSectionToggle" aria-expanded="false" aria-controls="payrollSection">
+    <span>مرتبات الموظفين والبونص</span>
+    <span class="payroll-section-toggle-icon" aria-hidden="true">⌄</span>
+  </button>
+</div>
+<div class="card p-3 mb-4 payroll-card" id="payrollSection" hidden>
   <div class="payroll-section-heading d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-    <div>
-      <h4 class="mb-1">مرتبات الموظفين والبونص</h4>
-    </div>
     {% if can_view_payroll_actions %}
     <details class="payroll-actions-menu no-print">
       <summary class="payroll-actions-toggle" aria-label="فتح قائمة إجراءات المرتبات" title="إجراءات المرتبات">
@@ -114,6 +118,7 @@
     </tbody>
   </table></div>
 </div>
+{% endif %}
 </section>
 <footer class="accounts-print-footer">
   <div class="accounts-signature">
@@ -131,6 +136,10 @@
 .accounts-signature .signature-name{margin-top:5px}
 .accounts-signature .signature-placeholder{margin-top:12px}
 .payroll-section-heading{position:relative;min-height:52px}
+.payroll-section-control{display:flex;justify-content:flex-start}
+.payroll-section-toggle{min-width:280px;min-height:50px;border:1px solid #7dd3fc;background:#e0f7ff;color:#0f172a;font-weight:900;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 18px;border-radius:12px;box-shadow:0 6px 18px rgba(14,116,144,.14);transition:.18s ease}
+.payroll-section-toggle:hover,.payroll-section-toggle[aria-expanded="true"]{background:#2563eb;border-color:#2563eb;color:#fff;transform:translateY(-1px);box-shadow:0 10px 24px rgba(37,99,235,.22)}
+.payroll-section-toggle-icon{font-size:22px;line-height:1;transition:transform .18s ease}.payroll-section-toggle[aria-expanded="true"] .payroll-section-toggle-icon{transform:rotate(180deg)}
 .payroll-actions-menu{position:relative;z-index:70}.payroll-actions-menu summary{list-style:none}.payroll-actions-menu summary::-webkit-details-marker{display:none}
 .payroll-actions-toggle{width:56px;height:48px;padding:11px 13px;border:1px solid #7dd3fc;border-radius:12px;background:#e0f7ff;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;cursor:pointer;box-shadow:0 6px 18px rgba(14,116,144,.14)}
 .payroll-actions-toggle span{display:block;height:4px;border-radius:4px;background:#0369a1}.payroll-actions-menu[open] .payroll-actions-toggle{background:#2563eb;border-color:#2563eb}.payroll-actions-menu[open] .payroll-actions-toggle span{background:#fff}
@@ -167,6 +176,15 @@
 </style>
 <script>
 const accountsEmployeeNames=JSON.parse(document.getElementById('accountsEmployeeNames').textContent||'{}');
+const payrollSectionToggle=document.getElementById('payrollSectionToggle');
+const payrollSection=document.getElementById('payrollSection');
+if(payrollSectionToggle && payrollSection){
+  payrollSectionToggle.addEventListener('click',function(){
+    const willOpen=payrollSection.hidden;
+    payrollSection.hidden=!willOpen;
+    payrollSectionToggle.setAttribute('aria-expanded',willOpen ? 'true' : 'false');
+  });
+}
 function updateAccountsSignature(){
   const selector=document.getElementById('accountsSignatureSelector');
   if(!selector) return;
