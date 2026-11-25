@@ -539,7 +539,7 @@ SIDEBAR_PERMISSION_MODULES = [
             'طباعة',
         ],
     },
-    {'key': 'cafeteria', 'field': 'can_cafeteria', 'label': 'الكافيتريا', 'buttons': ['إضافة صنف', 'فئات الأصناف', 'مشتروات أصناف الكافيتريا', 'إضافة للأوردر', 'Checkout', 'تعديل حركة بيع', 'حذف حركة بيع']},
+    {'key': 'cafeteria', 'field': 'can_cafeteria', 'label': 'الكافيتريا', 'buttons': ['إضافة صنف', 'فئات الأصناف', 'مخزون الكافيتريا', 'إضافة للأوردر', 'Checkout', 'تعديل حركة بيع', 'حذف حركة بيع']},
     {'key': 'reports', 'field': 'can_reports', 'label': 'التقارير', 'buttons': ['عرض التقرير', 'تصدير PDF']},
     {'key': 'settings', 'field': 'can_settings', 'label': 'الإعدادات', 'buttons': ['المستخدمين والصلاحيات', 'الوظائف والمرتبات', 'شرائح البونص', 'فئات المصاريف', 'هوية البرنامج', 'الأفرع', 'الملاعب والصالات', 'صور الرياضات والأنشطة']},
 ]
@@ -615,6 +615,19 @@ def _user_allowed_report_types(user):
 
 def _can_access_reports(user):
     return bool(_user_allowed_report_types(user))
+
+
+def _can_access_academy_rent(user):
+    if user.is_superuser or user.is_staff:
+        return True
+    try:
+        profile = user.eess_permissions
+    except Exception:
+        return False
+    return bool(
+        profile.can_academy_rent or profile.can_accounts
+        or profile.can_report_income or profile.can_reports
+    )
 
 
 def _can_access_security(user):
@@ -2595,6 +2608,23 @@ def _is_cafeteria_cash_expense_category(category_name):
     return is_cafeteria and (is_purchase or is_operating)
 
 
+def _is_cafeteria_purchase_expense_category(category_name):
+    """Identify monthly expenses that represent cafeteria stock purchases."""
+    normalized = _norm(category_name)
+    is_cafeteria = 'كافيتريا' in normalized or 'كافتيريا' in normalized
+    is_purchase = 'مشتروات' in normalized or 'مشتريات' in normalized
+    return is_cafeteria and is_purchase
+
+
+def _cafeteria_purchase_expense_rows(expenses):
+    return [
+        expense for expense in expenses
+        if _is_cafeteria_purchase_expense_category(
+            expense.category.name if expense.category_id else expense.title
+        )
+    ]
+
+
 @login_required
 def cafe_inventory(request):
     today = date.today()
@@ -4493,10 +4523,19 @@ def _month_financial_summary(year, month, start, end, branch=None):
     )
     daily_income_total = int(daily_booking_income or 0) + int(ball_field_academy_income or 0)
     cafe_sales_total = sum(s.total_amount for s in sale_qs)
-    cafe_stock_purchase_total = sum(p.total_amount for p in purchase_qs)
+    categorized_cafe_purchase_expenses = _cafeteria_purchase_expense_rows(
+        monthly_qs.select_related('category')
+    )
+    categorized_cafe_purchase_total = sum(
+        int(expense.amount or 0) for expense in categorized_cafe_purchase_expenses
+    )
+    cafe_stock_purchase_total = (
+        sum(p.total_amount for p in purchase_qs) + categorized_cafe_purchase_total
+    )
     cafe_operating_expenses = cafe_operating_expense_qs.aggregate(total=Sum('amount'))['total'] or 0
     cafe_purchase_total = int(cafe_stock_purchase_total or 0) + int(cafe_operating_expenses or 0)
     monthly_expenses = monthly_qs.aggregate(total=Sum('amount'))['total'] or 0
+    monthly_general_expenses = int(monthly_expenses or 0) - categorized_cafe_purchase_total
     daily_expenses = daily_qs.aggregate(total=Sum('amount'))['total'] or 0
     operating_expenses = operating_qs.aggregate(total=Sum('amount'))['total'] or 0
     payroll_rows = []
@@ -4528,13 +4567,13 @@ def _month_financial_summary(year, month, start, end, branch=None):
     # An advance reduces the final amount received, not the cost of wages.
     payroll_expense_total = payroll_total + payroll_advances
     accounts_total_expenses = (
-        int(monthly_expenses or 0) + int(daily_expenses or 0)
+        int(monthly_general_expenses or 0) + int(daily_expenses or 0)
         + int(operating_expenses or 0) + int(cafe_purchase_total or 0)
         + payroll_expense_total
     )
     income_statement = _income_statement_totals(
         academy_income, daily_booking_income, cafe_sales_total,
-        monthly_expenses, daily_expenses, cafe_stock_purchase_total, cafe_operating_expenses,
+        monthly_general_expenses, daily_expenses, cafe_stock_purchase_total, cafe_operating_expenses,
     )
     return {
         'rent_rows': rent_rows,
@@ -4545,6 +4584,7 @@ def _month_financial_summary(year, month, start, end, branch=None):
         'cafe_sales_total': cafe_sales_total,
         'cafe_purchase_total': cafe_purchase_total,
         'cafe_stock_purchase_total': cafe_stock_purchase_total,
+        'categorized_cafe_purchase_total': categorized_cafe_purchase_total,
         'cafe_operating_expenses': cafe_operating_expenses,
         'monthly_expenses': monthly_expenses,
         'daily_expenses': daily_expenses,
@@ -4788,7 +4828,15 @@ def reports_home(request):
     elif report_type == 'cafeteria':
         cafe_purchases = CafeteriaPurchase.objects.filter(purchase_date__range=(start, end))
         cafe_sales = CafeteriaSale.objects.filter(sale_date__range=(start, end)).select_related('item')
-        cafe_stock_purchase_total = sum(p.total_amount for p in cafe_purchases)
+        categorized_cafe_purchase_expenses = _cafeteria_purchase_expense_rows(
+            MonthlyExpense.objects.filter(
+                expense_month__range=(start, end)
+            ).select_related('category')
+        )
+        cafe_stock_purchase_total = (
+            sum(p.total_amount for p in cafe_purchases)
+            + sum(int(expense.amount or 0) for expense in categorized_cafe_purchase_expenses)
+        )
         cafe_operating_expenses = CafeteriaOperatingExpense.objects.filter(
             expense_date__range=(start, end)
         ).aggregate(total=Sum('amount'))['total'] or 0
@@ -5321,10 +5369,18 @@ def reports_home_v2(request):
             index = month_indexes.get((expense.expense_date.year, expense.expense_date.month))
             if index is not None:
                 series['cafeteria_expenses'][index] += int(expense.amount or 0)
-        for expense in monthly_expense_qs.filter(expense_month__range=(analysis_start, analysis_end)):
+        for expense in monthly_expense_qs.filter(
+            expense_month__range=(analysis_start, analysis_end)
+        ).select_related('category'):
             index = month_indexes.get((expense.expense_month.year, expense.expense_month.month))
             if index is not None:
-                series['general_expenses'][index] += int(expense.amount or 0)
+                category_name = expense.category.name if expense.category_id else expense.title
+                target = (
+                    'cafeteria_expenses'
+                    if _is_cafeteria_purchase_expense_category(category_name)
+                    else 'general_expenses'
+                )
+                series[target][index] += int(expense.amount or 0)
         for expense in daily_expense_qs.filter(expense_date__range=(analysis_start, analysis_end)):
             index = month_indexes.get((expense.expense_date.year, expense.expense_date.month))
             if index is not None:
@@ -5582,12 +5638,16 @@ def reports_home_v2(request):
             for sale_date, amount in sorted(cafeteria_income_by_date.items())
         ]
         expense_rows = []
+        categorized_cafeteria_purchase_expenses = []
         for expense in monthly_expense_qs.filter(
             expense_month__range=(start, end)
         ).select_related('category'):
+            category_name = expense.category.name if expense.category_id else expense.title
+            if _is_cafeteria_purchase_expense_category(category_name):
+                categorized_cafeteria_purchase_expenses.append(expense)
             expense_rows.append({
                 'type': 'مصروف شهري', 'date': expense.expense_month,
-                'title': expense.category.name if expense.category_id else expense.title,
+                'title': category_name,
                 'amount': expense.amount, 'notes': expense.notes,
             })
         for expense in daily_expense_qs.filter(expense_date__range=(start, end)):
@@ -5604,8 +5664,12 @@ def reports_home_v2(request):
             ).select_related('created_by')
         )
         expense_rows.sort(key=lambda item: (item['date'], item['title']))
-        cafeteria_stock_purchase_total = sum(
-            purchase.total_amount for purchase in cafeteria_purchase_details
+        categorized_cafeteria_purchase_total = sum(
+            int(expense.amount or 0) for expense in categorized_cafeteria_purchase_expenses
+        )
+        cafeteria_stock_purchase_total = (
+            sum(purchase.total_amount for purchase in cafeteria_purchase_details)
+            + categorized_cafeteria_purchase_total
         )
         cafeteria_operating_expense_total = sum(
             int(expense.amount or 0) for expense in cafeteria_operating_expense_details
@@ -5615,7 +5679,7 @@ def reports_home_v2(request):
         cafeteria_income_total = sum(row['amount'] or 0 for row in cafeteria_income_rows)
         income_statement = _income_statement_totals(
             academy_income_total, daily_booking_total, cafeteria_income_total,
-            sum(row['amount'] or 0 for row in expense_rows), 0,
+            sum(row['amount'] or 0 for row in expense_rows) - categorized_cafeteria_purchase_total, 0,
             cafeteria_stock_purchase_total, cafeteria_operating_expense_total,
         )
         context.update({
@@ -5631,6 +5695,7 @@ def reports_home_v2(request):
             'income_cafeteria_total': cafeteria_income_total,
             'income_expense_rows': expense_rows,
             'income_cafeteria_purchase_details': cafeteria_purchase_details,
+            'income_categorized_cafeteria_purchase_expenses': categorized_cafeteria_purchase_expenses,
             'income_cafeteria_operating_expense_details': cafeteria_operating_expense_details,
             'income_cafeteria_stock_purchase_total': cafeteria_stock_purchase_total,
             'income_cafeteria_operating_expense_total': cafeteria_operating_expense_total,
@@ -5662,7 +5727,15 @@ def reports_home_v2(request):
         sales = list(CafeteriaSale.objects.filter(
             sale_date__range=(start, end), item__in=cafeteria_item_qs
         ).select_related('item').defer('item__image_data'))
-        stock_purchase_total = sum(row.total_amount for row in purchases)
+        categorized_cafeteria_purchase_expenses = _cafeteria_purchase_expense_rows(
+            monthly_expense_qs.filter(
+                expense_month__range=(start, end)
+            ).select_related('category')
+        )
+        stock_purchase_total = (
+            sum(row.total_amount for row in purchases)
+            + sum(int(expense.amount or 0) for expense in categorized_cafeteria_purchase_expenses)
+        )
         cafeteria_operating_expenses = list(cafeteria_operating_expense_qs.filter(
             expense_date__range=(start, end)
         ).select_related('created_by'))
@@ -5770,6 +5843,7 @@ def reports_home_v2(request):
             'cafeteria_stock_purchase_total': stock_purchase_total,
             'cafeteria_operating_expense_total': cafeteria_operating_expense_total,
             'cafeteria_purchase_details': purchases,
+            'cafeteria_categorized_purchase_expenses': categorized_cafeteria_purchase_expenses,
             'cafeteria_operating_expense_details': cafeteria_operating_expenses,
             'cafeteria_sales_total': sales_total,
             'cafeteria_net_profit': sales_total - purchase_total,
@@ -6972,7 +7046,7 @@ def academy_member_delete(request, academy_id, pk):
 
 @login_required
 def academy_rent_payments(request):
-    if not _can_access_reports(request.user):
+    if not _can_access_academy_rent(request.user):
         messages.error(request, 'ليس لديك صلاحية عرض الإيجارات الشهرية.')
         return redirect('dashboard')
     year, month, start, end, month_value = _month_bounds(request.GET.get('month'))
@@ -7015,7 +7089,7 @@ def academy_rent_payments(request):
 
 @login_required
 def academy_rent_payment_entries(request, payment_id):
-    if not _can_access_reports(request.user):
+    if not _can_access_academy_rent(request.user):
         messages.error(request, 'ليس لديك صلاحية إدارة دفعات إيجارات الأكاديميات.')
         return redirect('dashboard')
     payment = get_object_or_404(
@@ -7110,7 +7184,7 @@ def academy_rent_payment_entries(request, payment_id):
 
 @login_required
 def academy_deposit_plan(request, academy_id):
-    if not _can_access_reports(request.user):
+    if not _can_access_academy_rent(request.user):
         messages.error(request, 'ليس لديك صلاحية إدارة تأمينات الأكاديميات.')
         return redirect('dashboard')
     academy = get_object_or_404(Academy.objects.select_related('branch'), pk=academy_id)

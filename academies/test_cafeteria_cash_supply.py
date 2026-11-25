@@ -101,6 +101,10 @@ class CafeteriaCashSupplyTests(TestCase):
     def test_sales_screen_can_create_supply_and_return_to_sales(self):
         response = self.client.get(reverse('cafe_sale_list'))
         self.assertContains(response, reverse('cafe_cash_supply_create') + '?next=sales')
+        self.assertContains(response, 'مخزون الكافيتريا')
+
+        purchase_screen = self.client.get(reverse('cafe_purchase_list'))
+        self.assertContains(purchase_screen, '<h3>مخزون الكافيتريا</h3>', html=True)
 
         response = self.client.post(reverse('cafe_cash_supply_create'), {
             'supply_date': date.today().isoformat(),
@@ -195,8 +199,29 @@ class CafeteriaCashSupplyTests(TestCase):
         })
         self.assertEqual(income_report.context['income_expenses_total'], 70)
         self.assertEqual(income_report.context['income_net_total'], 30)
+        self.assertEqual(income_report.context['income_cafeteria_stock_purchase_total'], 65)
         self.assertContains(income_report, purchase_category.name)
         self.assertContains(income_report, operation_category.name)
+
+        cafeteria_report = self.client.get(reverse('reports_home'), {
+            'report_type': 'cafeteria', 'month': month_value,
+        })
+        self.assertEqual(cafeteria_report.context['cafeteria_stock_purchase_total'], 65)
+        self.assertEqual(cafeteria_report.context['cafeteria_purchase_total'], 65)
+
+        today = date.today()
+        training_year_start = today.year if today.month >= 7 else today.year - 1
+        analysis = self.client.get(reverse('reports_home'), {
+            'report_type': 'statistical_analysis',
+            'analysis_metric': 'cafeteria',
+            'training_year': f'{training_year_start}-{training_year_start + 1}',
+        })
+        chart = next(
+            item for item in analysis.context['analysis_charts']
+            if item['key'] == 'cafeteria_expenses'
+        )
+        month_index = (today.month - 7) % 12
+        self.assertEqual(chart['values'][month_index], 65)
 
     def test_cafeteria_operating_expense_category_with_prefix_reduces_cash(self):
         category = ExpenseCategory.objects.create(name='مصروفات تشغيل للكافيتريا')
