@@ -531,12 +531,16 @@ SIDEBAR_PERMISSION_MODULES = [
         'field': 'can_accounts',
         'label': 'الحسابات',
         'buttons': [
+            'الخزينة',
             'أمر صرف مبلغ مالي',
             'أمر توريد مبلغ مالي',
             'سجل أوامر الصرف والتوريد',
             'المصروفات',
             'تصدير PDF',
-            'طباعة',
+            'المكافآت',
+            'الخصومات',
+            'السلف',
+            'تصدير PDF لمرتبات الموظفين',
         ],
     },
     {'key': 'cafeteria', 'field': 'can_cafeteria', 'label': 'الكافيتريا', 'buttons': ['إضافة صنف', 'فئات الأصناف', 'مخزون الكافيتريا', 'إضافة للأوردر', 'Checkout', 'تعديل حركة بيع', 'حذف حركة بيع']},
@@ -6052,6 +6056,10 @@ def accounts_home(request):
     profile = _ensure_user_profile(request.user)
     is_accounts_admin = bool(request.user.is_superuser or request.user.is_staff)
     saved_accounts_buttons = (profile.button_permissions or {}).get('accounts')
+    legacy_accounts_buttons = bool(saved_accounts_buttons and 'طباعة' in saved_accounts_buttons)
+    newly_managed_accounts_buttons = {
+        'الخزينة', 'المكافآت', 'الخصومات', 'السلف', 'تصدير PDF لمرتبات الموظفين',
+    }
 
     def accounts_button_allowed(button_name):
         if is_accounts_admin:
@@ -6066,6 +6074,10 @@ def accounts_home(request):
             if button_name == 'تصدير PDF':
                 return 'تصدير PDF' in saved_accounts_buttons
             return True
+        if legacy_accounts_buttons and button_name in newly_managed_accounts_buttons:
+            # Profiles saved before these controls became individually configurable
+            # used the old Print option. Keep their existing access until next save.
+            return True
         return button_name in saved_accounts_buttons
 
     can_view_financial_summary = bool(
@@ -6077,8 +6089,16 @@ def accounts_home(request):
         accounts_button_allowed('المصروفات') or
         accounts_button_allowed('المصروفات العامة')
     )
-    can_manage_vouchers = bool(
-        is_accounts_admin or profile.can_accounts
+    can_view_treasury = accounts_button_allowed('الخزينة')
+    can_view_rewards = accounts_button_allowed('المكافآت')
+    can_view_deductions = accounts_button_allowed('الخصومات')
+    can_view_advances = accounts_button_allowed('السلف')
+    can_export_payroll = (
+        can_view_financial_summary and
+        accounts_button_allowed('تصدير PDF لمرتبات الموظفين')
+    )
+    can_view_payroll_actions = bool(
+        can_view_rewards or can_view_deductions or can_view_advances or can_export_payroll
     )
     if not (can_view_financial_summary or can_view_expenses):
         messages.error(request, 'ليس لديك صلاحية الحسابات.')
@@ -6101,12 +6121,16 @@ def accounts_home(request):
         'summary': summary,
         'can_view_financial_summary': can_view_financial_summary,
         'can_view_expenses': can_view_expenses,
-        'can_manage_vouchers': can_manage_vouchers,
         'can_create_disbursement': accounts_button_allowed('أمر صرف مبلغ مالي'),
         'can_create_supply': accounts_button_allowed('أمر توريد مبلغ مالي'),
         'can_view_voucher_register': accounts_button_allowed('سجل أوامر الصرف والتوريد'),
         'can_export_accounts': can_view_financial_summary and accounts_button_allowed('تصدير PDF'),
-        'can_print_accounts': can_view_financial_summary and accounts_button_allowed('طباعة'),
+        'can_view_treasury': can_view_treasury,
+        'can_view_rewards': can_view_rewards,
+        'can_view_deductions': can_view_deductions,
+        'can_view_advances': can_view_advances,
+        'can_export_payroll': can_export_payroll,
+        'can_view_payroll_actions': can_view_payroll_actions,
         'signature_titles': signature_titles,
         'signature_title': signature_title,
         'signature_name': signature_names[0] if signature_names else '',

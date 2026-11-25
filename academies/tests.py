@@ -133,14 +133,17 @@ class ApplicationFlowsTests(TestCase):
         permission_page = self.client.get(reverse('user_update', args=[managed_user.pk]))
         self.assertEqual(permission_page.status_code, 200)
         for button_label in [
+            'الخزينة',
             'أمر صرف مبلغ مالي', 'أمر توريد مبلغ مالي',
             'سجل أوامر الصرف والتوريد', 'المصروفات',
-            'تصدير PDF', 'طباعة',
+            'تصدير PDF', 'المكافآت', 'الخصومات', 'السلف',
+            'تصدير PDF لمرتبات الموظفين',
         ]:
             self.assertContains(permission_page, f'value="{button_label}"')
+        self.assertNotContains(permission_page, 'value="طباعة"')
 
         managed_profile.button_permissions = {
-            'accounts': ['أمر توريد مبلغ مالي', 'سجل أوامر الصرف والتوريد', 'طباعة'],
+            'accounts': ['الخزينة', 'أمر توريد مبلغ مالي', 'سجل أوامر الصرف والتوريد', 'المكافآت'],
         }
         managed_profile.save(update_fields=['button_permissions'])
         self.client.force_login(managed_user)
@@ -148,7 +151,8 @@ class ApplicationFlowsTests(TestCase):
         self.assertEqual(accounts_page.status_code, 200)
         self.assertContains(accounts_page, 'أمر توريد مبلغ مالي')
         self.assertContains(accounts_page, 'سجل أوامر الصرف والتوريد')
-        self.assertContains(accounts_page, 'onclick="printAccounts(false)"')
+        self.assertContains(accounts_page, '>الخزينة</a>', html=False)
+        self.assertContains(accounts_page, '>المكافآت</a>', html=False)
         self.assertContains(accounts_page, 'class="accounts-actions-menu"')
         self.assertContains(accounts_page, 'class="accounts-actions-toggle"')
         self.assertContains(accounts_page, 'const minimumAccountsMenuVisibilityMs = 1000')
@@ -157,6 +161,10 @@ class ApplicationFlowsTests(TestCase):
         self.assertNotContains(accounts_page, 'أمر صرف مبلغ مالي')
         self.assertNotContains(accounts_page, '>المصروفات</a>', html=False)
         self.assertNotContains(accounts_page, 'onclick="printAccounts(true)"')
+        self.assertNotContains(accounts_page, 'onclick="printAccounts(false)"')
+        self.assertNotContains(accounts_page, '>الخصومات</a>', html=False)
+        self.assertNotContains(accounts_page, '>السلف</a>', html=False)
+        self.assertNotContains(accounts_page, 'onclick="printPayrollReport()"')
 
     def test_public_website_uses_published_management_data(self):
         branch = Branch.objects.create(
@@ -993,7 +1001,7 @@ class ApplicationFlowsTests(TestCase):
         self.assertContains(accounts_response, reverse('financial_voucher_list'))
         self.assertContains(accounts_response, 'accountsSignatureSelector')
         self.assertContains(accounts_response, 'accountsSignatureName')
-        self.assertContains(accounts_response, 'طباعة')
+        self.assertNotContains(accounts_response, 'onclick="printAccounts(false)"')
 
         disbursement_url = reverse('financial_voucher_create', args=['disbursement'])
         create_screen = self.client.get(disbursement_url)
