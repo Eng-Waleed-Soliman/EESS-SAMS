@@ -5113,6 +5113,51 @@ def financial_voucher_list(request):
         vouchers = vouchers.filter(branch=active_branch)
     if selected_type in dict(FinancialVoucher.TYPE_CHOICES):
         vouchers = vouchers.filter(voucher_type=selected_type)
+
+    period_mode = request.GET.get('period_mode', 'all').strip()
+    if period_mode not in {'all', 'month', 'range'}:
+        period_mode = 'all'
+    filter_month = request.GET.get('filter_month', '').strip()
+    date_from_value = request.GET.get('date_from', '').strip()
+    date_to_value = request.GET.get('date_to', '').strip()
+    period_label = 'كل الفترات'
+    if period_mode == 'month':
+        try:
+            filter_month_start = date.fromisoformat(f'{filter_month}-01')
+        except (TypeError, ValueError):
+            filter_month_start = date.today().replace(day=1)
+            filter_month = filter_month_start.strftime('%Y-%m')
+        filter_month_end = date(
+            filter_month_start.year,
+            filter_month_start.month,
+            monthrange(filter_month_start.year, filter_month_start.month)[1],
+        )
+        vouchers = vouchers.filter(voucher_date__range=(filter_month_start, filter_month_end))
+        period_label = f'عن شهر {filter_month}'
+    elif period_mode == 'range':
+        try:
+            date_from = date.fromisoformat(date_from_value) if date_from_value else None
+        except ValueError:
+            date_from = None
+            date_from_value = ''
+        try:
+            date_to = date.fromisoformat(date_to_value) if date_to_value else None
+        except ValueError:
+            date_to = None
+            date_to_value = ''
+        if date_from and date_to and date_from > date_to:
+            date_from, date_to = date_to, date_from
+            date_from_value, date_to_value = date_from.isoformat(), date_to.isoformat()
+        if date_from:
+            vouchers = vouchers.filter(voucher_date__gte=date_from)
+        if date_to:
+            vouchers = vouchers.filter(voucher_date__lte=date_to)
+        if date_from and date_to:
+            period_label = f'من {date_from:%d/%m/%Y} إلى {date_to:%d/%m/%Y}'
+        elif date_from:
+            period_label = f'من {date_from:%d/%m/%Y}'
+        elif date_to:
+            period_label = f'حتى {date_to:%d/%m/%Y}'
     voucher_total = vouchers.aggregate(total=Sum('amount'))['total'] or 0
     signature_titles = _voucher_signature_titles()
     requested_signature = request.GET.get('signature_title', '').strip()
@@ -5126,6 +5171,11 @@ def financial_voucher_list(request):
         'vouchers': vouchers,
         'voucher_total': voucher_total,
         'selected_type': selected_type,
+        'period_mode': period_mode,
+        'filter_month': filter_month,
+        'date_from': date_from_value,
+        'date_to': date_to_value,
+        'period_label': period_label,
         'signature_titles': signature_titles,
         'signature_title': signature_title,
         'signature_name': signature_names[0] if signature_names else '',

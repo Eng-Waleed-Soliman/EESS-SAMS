@@ -236,20 +236,56 @@ class ApplicationFlowsTests(TestCase):
             signature_title='مدير التشغيل',
             created_by=self.user,
         )
+        previous_month_date = date.today().replace(day=1) - timedelta(days=1)
+        FinancialVoucher.objects.create(
+            voucher_type=FinancialVoucher.TYPE_SUPPLY,
+            amount=100,
+            statement='توريد شهر سابق',
+            voucher_date=previous_month_date,
+            signature_title='مدير التشغيل',
+            created_by=self.user,
+        )
+        FinancialVoucher.objects.create(
+            voucher_type=FinancialVoucher.TYPE_DISBURSEMENT,
+            amount=60,
+            statement='صرف شهر سابق',
+            voucher_date=previous_month_date,
+            signature_title='مدير التشغيل',
+            created_by=self.user,
+        )
 
         supply_page = self.client.get(reverse('financial_voucher_list'), {'type': 'supply'})
         self.assertEqual(supply_page.status_code, 200)
-        self.assertEqual(supply_page.context['voucher_total'], 85800)
+        self.assertEqual(supply_page.context['voucher_total'], 85900)
         self.assertContains(supply_page, 'إجمالي المبالغ الموردة')
-        self.assertContains(supply_page, '85800')
+        self.assertContains(supply_page, '85900')
 
         disbursement_page = self.client.get(
             reverse('financial_voucher_list'), {'type': 'disbursement'},
         )
         self.assertEqual(disbursement_page.status_code, 200)
-        self.assertEqual(disbursement_page.context['voucher_total'], 1740)
+        self.assertEqual(disbursement_page.context['voucher_total'], 1800)
         self.assertContains(disbursement_page, 'إجمالي المبالغ المصروفة')
-        self.assertContains(disbursement_page, '1740')
+        self.assertContains(disbursement_page, '1800')
+
+        current_month = date.today().strftime('%Y-%m')
+        filtered_supply_page = self.client.get(reverse('financial_voucher_list'), {
+            'type': 'supply', 'period_mode': 'month', 'filter_month': current_month,
+        })
+        self.assertEqual(filtered_supply_page.status_code, 200)
+        self.assertEqual(filtered_supply_page.context['voucher_total'], 85800)
+        self.assertContains(filtered_supply_page, 'عن شهر')
+        self.assertNotContains(filtered_supply_page, 'توريد شهر سابق')
+
+        filtered_disbursement_page = self.client.get(reverse('financial_voucher_list'), {
+            'type': 'disbursement',
+            'period_mode': 'range',
+            'date_from': date.today().isoformat(),
+            'date_to': date.today().isoformat(),
+        })
+        self.assertEqual(filtered_disbursement_page.status_code, 200)
+        self.assertEqual(filtered_disbursement_page.context['voucher_total'], 1740)
+        self.assertNotContains(filtered_disbursement_page, 'صرف شهر سابق')
 
     def test_public_website_uses_published_management_data(self):
         branch = Branch.objects.create(

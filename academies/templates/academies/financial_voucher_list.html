@@ -10,14 +10,22 @@
     <a class="btn btn-secondary" href="{% url 'accounts_home' %}">رجوع للحسابات</a>
   </div>
 </div>
-<div class="card p-3 mb-4">
-  <div class="d-flex gap-2 flex-wrap align-items-end">
-    <a class="btn {% if not selected_type %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'financial_voucher_list' %}">الكل</a>
-    <a class="btn {% if selected_type == 'disbursement' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?type=disbursement">أوامر الصرف</a>
-    <a class="btn {% if selected_type == 'supply' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?type=supply">أوامر التوريد</a>
+<form id="voucherRegisterFilters" method="get" class="card p-3 mb-4 no-print">
+  <input id="voucherTypeInput" type="hidden" name="type" value="{{ selected_type }}">
+  <div class="d-flex gap-2 flex-wrap align-items-end mb-3">
+    <button type="button" class="btn {% if not selected_type %}btn-primary{% else %}btn-outline-primary{% endif %}" onclick="setVoucherType('')">الكل</button>
+    <button type="button" class="btn {% if selected_type == 'disbursement' %}btn-primary{% else %}btn-outline-primary{% endif %}" onclick="setVoucherType('disbursement')">أوامر الصرف</button>
+    <button type="button" class="btn {% if selected_type == 'supply' %}btn-primary{% else %}btn-outline-primary{% endif %}" onclick="setVoucherType('supply')">أوامر التوريد</button>
     <div class="ms-auto signature-selector-wrap"><label class="form-label fw-bold mb-1">مسمى التوقيع</label><select id="registerSignatureSelector" class="form-select" onchange="updateRegisterSignature()">{% for title in signature_titles %}<option value="{{ title }}" {% if signature_title == title %}selected{% endif %}>{{ title }}</option>{% empty %}<option value="التوقيع">التوقيع</option>{% endfor %}</select></div>
   </div>
-</div>
+  <div class="voucher-period-filters">
+    <div><label class="form-label fw-bold">الفترة</label><select id="periodMode" name="period_mode" class="form-select" onchange="toggleVoucherPeriodFields()"><option value="all" {% if period_mode == 'all' %}selected{% endif %}>الكل</option><option value="month" {% if period_mode == 'month' %}selected{% endif %}>شهر محدد</option><option value="range" {% if period_mode == 'range' %}selected{% endif %}>فترة من وإلى</option></select></div>
+    <div id="monthFilterField"><label class="form-label fw-bold">الشهر</label><input type="month" name="filter_month" value="{{ filter_month }}" class="form-control"></div>
+    <div id="rangeFromField"><label class="form-label fw-bold">من تاريخ</label><input type="date" name="date_from" value="{{ date_from }}" class="form-control"></div>
+    <div id="rangeToField"><label class="form-label fw-bold">إلى تاريخ</label><input type="date" name="date_to" value="{{ date_to }}" class="form-control"></div>
+    <button type="submit" class="btn btn-primary">تطبيق الفلتر</button>
+  </div>
+</form>
 
 {% if selected_type == 'supply' or selected_type == 'disbursement' %}
 <div class="voucher-total-card card mb-4" aria-live="polite">
@@ -25,6 +33,7 @@
     {% if selected_type == 'supply' %}إجمالي المبالغ الموردة{% else %}إجمالي المبالغ المصروفة{% endif %}
   </div>
   <div class="voucher-total-value">{{ voucher_total }}</div>
+  <div class="voucher-total-period">{{ period_label }}</div>
 </div>
 {% endif %}
 
@@ -51,7 +60,8 @@
 </section>
 <style>
 .voucher-register-toolbar{position:sticky;top:8px;z-index:30;background:#eef4fb;padding:10px 12px;border-radius:14px;box-shadow:0 8px 22px rgba(15,23,42,.12)}.signature-selector-wrap{min-width:240px}.voucher-register-sheet{background:#fff;color:#172033}
-.voucher-total-card{min-height:116px;padding:20px 26px;border:1px solid #bfdbfe;border-radius:18px;background:linear-gradient(135deg,#fff 0%,#eff8ff 100%);box-shadow:0 10px 24px rgba(15,23,42,.08);display:flex;justify-content:center;align-items:center;text-align:center}.voucher-total-label{font-size:18px;font-weight:800;color:#334155}.voucher-total-value{margin-top:7px;font-size:34px;line-height:1;font-weight:900;color:#0f4c81;font-variant-numeric:tabular-nums}
+.voucher-period-filters{display:grid;grid-template-columns:minmax(170px,1fr) minmax(180px,1fr) minmax(180px,1fr) minmax(180px,1fr) auto;gap:12px;align-items:end}.voucher-period-filters .btn{margin-bottom:0}.voucher-total-card{min-height:116px;padding:20px 26px;border:1px solid #bfdbfe;border-radius:18px;background:linear-gradient(135deg,#fff 0%,#eff8ff 100%);box-shadow:0 10px 24px rgba(15,23,42,.08);display:flex;justify-content:center;align-items:center;text-align:center}.voucher-total-label{font-size:18px;font-weight:800;color:#334155}.voucher-total-value{margin-top:7px;font-size:34px;line-height:1;font-weight:900;color:#0f4c81;font-variant-numeric:tabular-nums}.voucher-total-period{margin-top:8px;color:#64748b;font-weight:700}
+@media(max-width:992px){.voucher-period-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.voucher-period-filters .btn{width:100%!important}}
 .voucher-register-header{position:relative;min-height:120px;border-bottom:2px solid #2563eb;margin-bottom:20px;padding-bottom:12px}
 .voucher-register-brand{position:absolute;left:0;top:0;width:220px;text-align:center;direction:ltr;font-size:12px;line-height:1.45;font-weight:700}.voucher-register-brand img{display:block;max-width:75px;max-height:68px;object-fit:contain;margin:0 auto 5px}.voucher-register-brand .brand-ar{direction:rtl}
 .voucher-register-heading{text-align:center;padding:22px 235px 0;direction:rtl}.voucher-register-heading h2{font-size:29px;font-weight:900;margin-bottom:8px}
@@ -62,6 +72,9 @@
 <script>
 const registerEmployeeNames=JSON.parse(document.getElementById('registerEmployeeNames').textContent||'{}');
 function updateRegisterSignature(){const selector=document.getElementById('registerSignatureSelector');const title=selector.options[selector.selectedIndex].text;const names=registerEmployeeNames[selector.value]||[];document.getElementById('registerSignatureTitle').textContent=title;document.getElementById('registerSignatureName').textContent=names[0]||'-';}
+function setVoucherType(value){document.getElementById('voucherTypeInput').value=value;document.getElementById('voucherRegisterFilters').submit();}
+function toggleVoucherPeriodFields(){const mode=document.getElementById('periodMode').value;document.getElementById('monthFilterField').hidden=mode!=='month';document.getElementById('rangeFromField').hidden=mode!=='range';document.getElementById('rangeToField').hidden=mode!=='range';}
 function printVoucherRegister(asPdf){updateRegisterSignature();const oldTitle=document.title;if(asPdf){document.title='سجل أوامر الصرف والتوريد المالية';}window.print();window.setTimeout(function(){document.title=oldTitle;},500);}
+toggleVoucherPeriodFields();
 </script>
 {% endblock %}
