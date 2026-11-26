@@ -19,6 +19,15 @@
   </div>
 </div>
 
+{% if selected_type == 'supply' or selected_type == 'disbursement' %}
+<div class="voucher-total-card card mb-4" aria-live="polite">
+  <div class="voucher-total-label">
+    {% if selected_type == 'supply' %}إجمالي المبالغ الموردة{% else %}إجمالي المبالغ المصروفة{% endif %}
+  </div>
+  <div class="voucher-total-value">{{ voucher_total }}</div>
+</div>
+{% endif %}
+
 <section class="card p-3 voucher-register-sheet">
   <header class="voucher-register-header">
     <div class="voucher-register-brand">
@@ -42,6 +51,7 @@
 </section>
 <style>
 .voucher-register-toolbar{position:sticky;top:8px;z-index:30;background:#eef4fb;padding:10px 12px;border-radius:14px;box-shadow:0 8px 22px rgba(15,23,42,.12)}.signature-selector-wrap{min-width:240px}.voucher-register-sheet{background:#fff;color:#172033}
+.voucher-total-card{min-height:116px;padding:20px 26px;border:1px solid #bfdbfe;border-radius:18px;background:linear-gradient(135deg,#fff 0%,#eff8ff 100%);box-shadow:0 10px 24px rgba(15,23,42,.08);display:flex;justify-content:center;align-items:center;text-align:center}.voucher-total-label{font-size:18px;font-weight:800;color:#334155}.voucher-total-value{margin-top:7px;font-size:34px;line-height:1;font-weight:900;color:#0f4c81;font-variant-numeric:tabular-nums}
 .voucher-register-header{position:relative;min-height:120px;border-bottom:2px solid #2563eb;margin-bottom:20px;padding-bottom:12px}
 .voucher-register-brand{position:absolute;left:0;top:0;width:220px;text-align:center;direction:ltr;font-size:12px;line-height:1.45;font-weight:700}.voucher-register-brand img{display:block;max-width:75px;max-height:68px;object-fit:contain;margin:0 auto 5px}.voucher-register-brand .brand-ar{direction:rtl}
 .voucher-register-heading{text-align:center;padding:22px 235px 0;direction:rtl}.voucher-register-heading h2{font-size:29px;font-weight:900;margin-bottom:8px}

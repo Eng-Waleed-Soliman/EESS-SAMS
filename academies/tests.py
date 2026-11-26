@@ -183,6 +183,15 @@ class ApplicationFlowsTests(TestCase):
         scenarios = [
             ('Accounting', {'monthly_income': True}, {'can_accounts': True}),
             ('Sports_Activity_Manager', {'academies': True}, {'can_report_income': True}),
+            ('Sports_Activity_Manager_Legacy', ['academies'], {}),
+            (
+                'Financial_Manager',
+                {key: False for key in [
+                    'monthly_income', 'statistical_analysis', 'employees', 'academies',
+                    'expenses', 'cafeteria', 'security_log',
+                ]},
+                {'can_reports': True, 'can_accounts': True},
+            ),
         ]
         for username, report_permissions, profile_fields in scenarios:
             with self.subTest(username=username):
@@ -198,6 +207,49 @@ class ApplicationFlowsTests(TestCase):
                 self.assertTrue(response.context['allowed_report_options'])
                 profile.delete()
                 user.delete()
+
+    def test_financial_voucher_filtered_register_shows_matching_total_card(self):
+        profile, _ = UserPermission.objects.get_or_create(user=self.user)
+        profile.can_accounts = True
+        profile.save(update_fields=['can_accounts'])
+        FinancialVoucher.objects.create(
+            voucher_type=FinancialVoucher.TYPE_SUPPLY,
+            amount=42600,
+            statement='توريد أول',
+            voucher_date=date.today(),
+            signature_title='مدير التشغيل',
+            created_by=self.user,
+        )
+        FinancialVoucher.objects.create(
+            voucher_type=FinancialVoucher.TYPE_SUPPLY,
+            amount=43200,
+            statement='توريد ثان',
+            voucher_date=date.today(),
+            signature_title='مدير التشغيل',
+            created_by=self.user,
+        )
+        FinancialVoucher.objects.create(
+            voucher_type=FinancialVoucher.TYPE_DISBURSEMENT,
+            amount=1740,
+            statement='صرف',
+            voucher_date=date.today(),
+            signature_title='مدير التشغيل',
+            created_by=self.user,
+        )
+
+        supply_page = self.client.get(reverse('financial_voucher_list'), {'type': 'supply'})
+        self.assertEqual(supply_page.status_code, 200)
+        self.assertEqual(supply_page.context['voucher_total'], 85800)
+        self.assertContains(supply_page, 'إجمالي المبالغ الموردة')
+        self.assertContains(supply_page, '85800')
+
+        disbursement_page = self.client.get(
+            reverse('financial_voucher_list'), {'type': 'disbursement'},
+        )
+        self.assertEqual(disbursement_page.status_code, 200)
+        self.assertEqual(disbursement_page.context['voucher_total'], 1740)
+        self.assertContains(disbursement_page, 'إجمالي المبالغ المصروفة')
+        self.assertContains(disbursement_page, '1740')
 
     def test_public_website_uses_published_management_data(self):
         branch = Branch.objects.create(

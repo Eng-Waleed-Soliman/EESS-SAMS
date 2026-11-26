@@ -594,6 +594,19 @@ def _user_allowed_report_types(user):
     except Exception:
         return []
     report_permissions = getattr(profile, 'report_permissions', {}) or {}
+    # Some long-lived user profiles were saved by older screens as a list of
+    # selected keys (or as double-encoded JSON) instead of the current mapping.
+    # Normalise those values before using ``.get`` so opening reports can never
+    # fail merely because the user's permission record predates the new form.
+    if isinstance(report_permissions, str):
+        try:
+            report_permissions = json.loads(report_permissions)
+        except (TypeError, ValueError):
+            report_permissions = {}
+    if isinstance(report_permissions, (list, tuple, set)):
+        report_permissions = {str(key): True for key in report_permissions}
+    elif not isinstance(report_permissions, dict):
+        report_permissions = {}
     if report_permissions:
         legacy_permissions = {
             'employees': ('employees',),
@@ -603,13 +616,22 @@ def _user_allowed_report_types(user):
             'expenses': ('expenses', 'monthly_expenses', 'daily_expenses', 'operating_expenses'),
             'cafeteria': ('cafeteria', 'cafeteria_inventory', 'cafeteria_sales', 'cafeteria_purchases'),
         }
-        return [
+        selected_report_types = [
             key for key, field in REPORT_PERMISSION_FIELDS.items()
             if report_permissions.get(key)
             or any(report_permissions.get(old_key) for old_key in legacy_permissions.get(key, ()))
             or getattr(profile, field, False)
             or (key == 'academies' and getattr(profile, 'can_report_shareholders', False))
         ]
+        if selected_report_types:
+            return selected_report_types
+        # The permissions form stores every report key with a false value when
+        # no detailed report type was selected.  Older finance and sports
+        # manager profiles can therefore have a non-empty JSON object while the
+        # parent reports module itself is enabled.  Honour the parent module in
+        # that legacy state instead of treating the user as having no reports.
+        if getattr(profile, 'can_reports', False):
+            return all_report_types
     if getattr(profile, 'can_reports', False):
         return all_report_types
     return [
@@ -5091,6 +5113,7 @@ def financial_voucher_list(request):
         vouchers = vouchers.filter(branch=active_branch)
     if selected_type in dict(FinancialVoucher.TYPE_CHOICES):
         vouchers = vouchers.filter(voucher_type=selected_type)
+    voucher_total = vouchers.aggregate(total=Sum('amount'))['total'] or 0
     signature_titles = _voucher_signature_titles()
     requested_signature = request.GET.get('signature_title', '').strip()
     signature_title = requested_signature if requested_signature in signature_titles else (
@@ -5101,6 +5124,7 @@ def financial_voucher_list(request):
     signature_names = employee_names_by_title.get(signature_title, [])
     return render(request, 'academies/financial_voucher_list.html', {
         'vouchers': vouchers,
+        'voucher_total': voucher_total,
         'selected_type': selected_type,
         'signature_titles': signature_titles,
         'signature_title': signature_title,
